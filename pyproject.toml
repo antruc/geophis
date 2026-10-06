@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geophis"
+# una sola fuente: src/geophis/__init__.py
+dynamic = ["version"]
+description = "Wrapper simple en español sobre geopandas/shapely/rasterio para tareas de SIG."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Antruc" }]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["gis", "sig", "geopandas", "shapely", "rasterio", "forestal"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Natural Language :: Spanish",
+]
+
+dependencies = [
+    # pisos por `simplificar`: `GeoSeries.simplify_coverage` es de geopandas 1.1
+    # y `shapely.coverage_is_valid` de shapely 2.1. `gpd.list_layers` (lectura
+    # de capas) pide geopandas 1.0, que ya cubre este piso.
+    "geopandas>=1.1",
+    "shapely>=2.1",
+    "pandas>=1.5",
+    "numpy>=1.24",
+    "rasterio>=1.3",
+    "scipy>=1.10",
+    # BLAS a un hilo dentro del spline local: ver `_interp_spline`
+    "threadpoolctl>=3.0",
+    # curvas_de_nivel: marching squares sin dibujar nada (matplotlib no es dependencia)
+    "contourpy>=1.0",
+    "pysheds>=0.3",
+    # ruta_costo_minimo: MCP de skimage, ~7x menos memoria que el grafo de scipy
+    # que necesita ruta_a_pie (costo por direccion, que MCP no admite)
+    "scikit-image>=0.19",
+    "openpyxl>=3.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/antruc/geophis"
+Documentation = "https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md"
+Repository = "https://github.com/antruc/geophis"
+Issues = "https://github.com/antruc/geophis/issues"
+
+[project.scripts]
+geophis = "geophis.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.1"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["geophis"]
+
+[tool.setuptools.dynamic]
+version = { attr = "geophis.__version__" }
+
+[tool.setuptools.package-data]
+geophis = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Reglas que el repo cumple hoy, fijadas para que se note el dia que deje de
+# cumplirlas.
+[tool.ruff]
+line-length = 90
+target-version = "py311"
+extend-exclude = [
+    # ruff formatea los bloques ```python de los .md, y en la documentacion
+    # esos bloques llevan comentarios ALINEADOS a proposito: la
+    # medicion que justifica cada linea se lee en columna. Reformatearlos los
+    # pega al codigo y se pierde justo lo que el bloque venia a enseñar. Los .md
+    # de este repo son prosa con codigo dentro, no codigo con prosa alrededor.
+    "*.md",
+]
+
+[tool.ruff.lint]
+# E501 fuera: los comentarios de esta libreria llevan la medicion que justifica
+# cada decision, y partirlos por columna los vuelve ilegibles. El resto del
+# pycodestyle si aplica.
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+# Fuera a proposito, no por descuido. Con `I` (orden de imports), `B` y `UP` el
+# repo saca 17 avisos sobre `src` y `tests`: 11 de I001, 3 de B905 (`zip` sin
+# `strict`) y 3 de B028 (`warnings.warn` sin `stacklevel`). Ninguno es un
+# defecto:
+#   - I001 es reordenar imports en 11 archivos, churn puro sin ganancia.
+#   - B905: los tres `zip` de la libreria son de longitud DISTINTA a proposito
+#     (`zip(cotas, cotas[1:])` recorre pares contiguos); `strict=True` ahi
+#     reventaria.
+#   - B028: el `warnings.warn` de la libreria es el reemitido de
+#     `_traducir_avisos`, que reenvia un aviso ya capturado y no tiene pila
+#     propia que señalar; los otros dos los emiten los tests a proposito.
+# Se activan cuando alguien decida pagar esos 17, no antes. Lo que esta
+# seleccionado es lo que el repo cumple HOY y en verde, que es el punto de
+# fijarlo: que se note el dia que deje de cumplirse. La cifra se vuelve a medir
+# con `ruff check --select I,B,UP --ignore E501 src tests`.
