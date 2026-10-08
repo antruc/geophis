@@ -1,6 +1,6 @@
 # geophis: índice de la API pública
 
-**Versión:** 1.0.0 | todas las funciones de `__all__`
+**Versión:** 1.1.0 | todas las funciones de `__all__`
 
 Índice para buscar por nombre. Cada fila es una línea y el enlace lleva a la entrada completa en `GEOPHIS.md`, donde están la firma, lo que devuelve y la trampa que la rodea. **Este archivo no documenta: apunta.** Si algo de aquí contradice a `GEOPHIS.md`, manda `GEOPHIS.md`.
 
