@@ -424,11 +424,13 @@ def imagen_sentinel2(
     orden = sorted(
         range(len(revisadas)), key=lambda i: (i >= n_propias, dias[i], -revisadas[i][1])
     )
+    vistas = set()
     for i in orden:
         if len(usadas) >= max_fechas or 100 * (1 - libre.sum() / total) >= limpio_min:
             break
         if i in usadas or (max_dias is not None and dias[i] > max_dias):
             continue
+        vistas.add(i)
         (al,) = alinear_rasters(
             (lim_p, tf_p, crs_sal),
             (revisadas[i][2], revisadas[i][3], crs_sal),
@@ -496,6 +498,20 @@ def imagen_sentinel2(
             f"tras {len(usadas)} fecha(s). Amplia `fechas`, sube `max_fechas` o "
             "`max_dias`, o baja `margen_nube`."
         )
+        # que tope dejo fuera a las de `escenas_relleno`: se pasaron a proposito
+        relleno = range(n_propias, len(revisadas))
+        lejos = [i for i in relleno if max_dias is not None and dias[i] > max_dias]
+        sin_turno = [i for i in relleno if i not in vistas and i not in lejos]
+        if lejos:
+            print(
+                f"  {len(lejos)} de `escenas_relleno` fuera por `max_dias={max_dias}` "
+                f"(a {', '.join(str(dias[i]) for i in lejos)} dias de la principal)."
+            )
+        if sin_turno:
+            print(
+                f"  {len(sin_turno)} de `escenas_relleno` sin turno por "
+                f"`max_fechas={max_fechas}`: las propias van antes que el relleno."
+            )
     if _mostrar():
         print(
             f"imagen_sentinel2: fechas {', '.join(aporta)} | "

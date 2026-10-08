@@ -284,6 +284,31 @@ def test_imagen_escenas_relleno_rellenan_pero_no_son_principal(tmp_path):
         geo.imagen_sentinel2(PREDIO, escenas=[ago], escenas_relleno=[ago])
 
 
+def test_imagen_avisa_que_tope_deja_fuera_el_relleno(tmp_path, capsys):
+    hueco = np.full((10, 10), 4)
+    hueco[2:5, 2:5] = 9  # 91 % limpio
+    propia = np.full((10, 10), 4)
+    propia[2:4, 2:4] = 9  # tapa parte del hueco, no todo
+    propia[6:9, 1:9] = 9
+    sep = _escena(tmp_path, "2026-09-10", hueco, 2000)
+    sep2 = _escena(tmp_path, "2026-09-25", propia, 2500)  # a 15 dias
+    ago = _escena(tmp_path, "2026-08-31", np.full((10, 10), 4), 3000)  # a 10
+    # las dos propias agotan max_fechas=2: el relleno no llega
+    geo.imagen_sentinel2(
+        PREDIO, escenas=[sep, sep2], escenas_relleno=[ago], margen_nube=0, max_fechas=2
+    )
+    out = capsys.readouterr().out
+    assert "1 de `escenas_relleno` sin turno por `max_fechas=2`" in out
+    assert "fuera por" not in out
+    # max_dias=5 deja fuera el relleno (a 10 dias)
+    geo.imagen_sentinel2(
+        PREDIO, escenas=[sep, sep2], escenas_relleno=[ago], margen_nube=0, max_dias=5
+    )
+    out = capsys.readouterr().out
+    assert "1 de `escenas_relleno` fuera por `max_dias=5` (a 10 dias" in out
+    assert "sin turno" not in out
+
+
 def test_la_receta_del_predio_a_la_imagen_corre_entera(tmp_path, monkeypatch):
     """`docs/GEOPHIS.md` §"Del predio a la imagen", linea por linea, sin red.
 
