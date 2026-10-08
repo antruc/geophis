@@ -39,6 +39,9 @@ CAPAS = {
     "satelite": 2,
     # raster continuo -> poligonos por rangos. Necesita raster y geometria a la vez.
     "zonas": 3,
+    # la lamina PNG de revision: raster (remuestrear, rasterizar) y vector (el
+    # contorno) a la vez. Empatada con zonas y sin importarla.
+    "lamina": 3,
     "barridos": 4,  # lo que MIDE. Corre la cadena de `zonas` a varios `h`.
     "parametros": 5,  # procedencia. Encadena todo lo anterior.
     "cli": 6,  # la interfaz. Encima de todo.
