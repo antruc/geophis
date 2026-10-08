@@ -4,7 +4,7 @@ Librería SIG Wrapper en español sobre geopandas y shapely (vector), rasterio (
 
 ![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.png)
 
-**Versión:** 1.2.0 | **Python:** >= 3.11 (probado en 3.14) | **Licencia:** GPL-3.0-or-later
+**Versión:** 1.2.1 | **Python:** >= 3.11 (probado en 3.14) | **Licencia:** GPL-3.0-or-later
 
 ## Para qué sirve
 

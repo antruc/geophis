@@ -334,4 +334,4 @@ __all__ = [
 # los avisos de defecto salen igual.
 MOSTRAR = True
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
