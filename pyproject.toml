@@ -35,6 +35,8 @@ dependencies = [
     "pandas>=1.5",
     "numpy>=1.24",
     "rasterio>=1.3",
+    # `transform @ (x, y)`: el operador `@` es de affine 3.0 (`*` queda obsoleto)
+    "affine>=3.0",
     "scipy>=1.10",
     # BLAS a un hilo dentro del spline local: ver `_interp_spline`
     "threadpoolctl>=3.0",
