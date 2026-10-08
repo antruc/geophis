@@ -70,13 +70,14 @@ dev = ["pytest>=7", "ruff>=0.1"]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["geophis"]
+packages = ["geophis", "geophis.fuentes"]
 
 [tool.setuptools.dynamic]
 version = { attr = "geophis.__version__" }
 
 [tool.setuptools.package-data]
-geophis = ["py.typed", "fuentes/*"]
+geophis = ["py.typed"]
+"geophis.fuentes" = ["*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
