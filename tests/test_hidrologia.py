@@ -397,7 +397,7 @@ def test_delimitar_cuenca_acepta_una_ZONA_y_mide_su_desague(valle, capsys):
     f, c = np.unravel_index(
         int(np.where(dentro, np.asarray(acc), -1.0).argmax()), acc.shape
     )
-    punto = gpd.GeoDataFrame(geometry=[Point(tf * (c + 0.5, f + 0.5))], crs=UTM)
+    punto = gpd.GeoDataFrame(geometry=[Point(tf @ (c + 0.5, f + 0.5))], crs=UTM)
     por_punto = geo.delimitar_cuenca(flujo, punto, umbral=20)
 
     assert por_zona.area.sum() == pytest.approx(por_punto.area.sum())
@@ -537,7 +537,7 @@ def test_microcuencas_marca_el_desague_que_es_sumidero(lomo):
     )
     mc = geo.microcuencas(flujo_roto, zona)
     tf = fdir.viewfinder.affine
-    x, y = tf * (10 + 0.5, 10 + 0.5)
+    x, y = tf @ (10 + 0.5, 10 + 0.5)
     fila = mc[(mc["DESAGUE_X"] == x) & (mc["DESAGUE_Y"] == y)]
     assert len(fila) == 1, mc[["DESAGUE_X", "DESAGUE_Y", "ES_SUMIDER"]]
     assert bool(fila["ES_SUMIDER"].iloc[0]) is True

@@ -257,6 +257,33 @@ def test_imagen_rellena_con_la_fecha_cercana_no_con_la_limpia(tmp_path):
     assert informe["usada"].tolist() == [True, False, False]
 
 
+def test_imagen_escenas_relleno_rellenan_pero_no_son_principal(tmp_path):
+    hueco = np.full((10, 10), 4)
+    hueco[2:5, 2:5] = 9  # 91 % limpio
+    propia = np.full((10, 10), 4)
+    propia[2:4, 2:4] = 9  # tapa parte del hueco, no todo
+    propia[6:9, 1:9] = 9  # 72 % limpio: no le gana la principal
+    sep = _escena(tmp_path, "2026-09-10", hueco, 2000)
+    sep2 = _escena(tmp_path, "2026-09-25", propia, 2500)  # a 15 dias
+    ago = _escena(tmp_path, "2026-08-31", np.full((10, 10), 4), 3000)  # a 10, limpia
+    bandas, *_, informe, origen = geo.imagen_sentinel2(
+        PREDIO, escenas=[sep, sep2], escenas_relleno=[ago], margen_nube=0
+    )
+    # ago no es la principal aunque este limpia, y rellena DESPUES de sep2
+    # aunque este mas cerca
+    assert informe["fecha"].tolist() == ["2026-09-10", "2026-09-25", "2026-08-31"]
+    assert informe["usada"].all() and not np.isnan(bandas["rojo"]).any()
+    assert origen[10, 10] == 0 and origen[6, 6] == 1 and origen[4, 4] == 2
+    assert bandas["rojo"][6, 6] == pytest.approx(0.15)
+    assert bandas["rojo"][4, 4] == pytest.approx(0.2)
+    # principal limpia: la scl del relleno ni se lee
+    limpia = _escena(tmp_path, "2026-09-20", np.full((10, 10), 4), 2000)
+    *_, informe, _ = geo.imagen_sentinel2(PREDIO, escenas=[limpia], escenas_relleno=[ago])
+    assert informe["fecha"].tolist() == ["2026-09-20"]
+    with pytest.raises(ValueError, match="2026-08-31"):
+        geo.imagen_sentinel2(PREDIO, escenas=[ago], escenas_relleno=[ago])
+
+
 def test_la_receta_del_predio_a_la_imagen_corre_entera(tmp_path, monkeypatch):
     """`docs/GEOPHIS.md` §"Del predio a la imagen", linea por linea, sin red.
 

@@ -455,7 +455,7 @@ def quemar_cauces(
     alto = (ras == 1) & (encima > 0)
     if alto.any():
         f, c = np.unravel_index(np.where(alto, encima, -np.inf).argmax(), mde.shape)
-        x, y = transform * (c + 0.5, f + 0.5)
+        x, y = transform @ (c + 0.5, f + 0.5)
         print(
             f"Aviso: {int(alto.sum())} celda(s) de cauce quedan por ENCIMA del "
             f"terreno sin quemar (hasta\n   {encima[f, c]:.2f} m, en x {x:,.0f} "
@@ -740,7 +740,7 @@ def delimitar_cuenca(
         # El agua sale por donde mas se ha acumulado. Es una MEDICION, no una
         # coordenada tecleada, y por eso se reporta cual salio.
         f, c = np.unravel_index(int(np.where(dentro, acu, -1.0).argmax()), acu.shape)
-        gx, gy = tf_zona * (c + 0.5, f + 0.5)
+        gx, gy = tf_zona @ (c + 0.5, f + 0.5)
         de_zona = (float(acu[f, c]), int(dentro.sum()))
     else:
         gx, gy = g0.x, g0.y
@@ -928,7 +928,7 @@ def microcuencas(
         lambda g: g.iloc[0] if len(g) == 1 else unary_union(g.values)
     )
     df_, dc_ = np.divmod(desagues, ancho)
-    x, y = tf * (dc_ + 0.5, df_ + 0.5)
+    x, y = tf @ (dc_ + 0.5, df_ + 0.5)
     # Sumidero es que el flujo MUERA, y eso no es lo mismo que no tener celda de
     # aguas abajo: en el BORDE del raster el agua se va del raster, que es una
     # salida legitima. Sin esta distincion, una zona que llega al borde marcaria

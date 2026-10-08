@@ -1673,7 +1673,7 @@ def _celdas(
     """(filas, cols, dentro) de cada `(x, y)`; `dentro` marca los que caen en la malla."""
     # posicion fraccionaria con el Affine completo (lo mismo que hace `rowcol`),
     # para distinguir "justo en el borde" de "dentro de la celda de mas alla"
-    cols_f, filas_f = ~transform * (xy[:, 0], xy[:, 1])
+    cols_f, filas_f = ~transform @ (xy[:, 0], xy[:, 1])
     filas_f, cols_f = np.asarray(filas_f, dtype=float), np.asarray(cols_f, dtype=float)
     filas, cols = np.floor(filas_f).astype(int), np.floor(cols_f).astype(int)
     alto, ancho = forma
@@ -2090,7 +2090,7 @@ def _capa_ruta(
     valor: float,
 ) -> gpd.GeoDataFrame:
     """Línea por los centros de píxel, que empieza y termina en los puntos exactos."""
-    centros = [transform * (c + 0.5, f + 0.5) for f, c in celdas]
+    centros = [transform @ (c + 0.5, f + 0.5) for f, c in celdas]
     linea = LineString([tuple(xy[0]), *centros[1:-1], tuple(xy[1])])
     return gpd.GeoDataFrame({campo: [valor]}, geometry=[linea], crs=crs)
 
@@ -2536,7 +2536,7 @@ def curvas_de_nivel(
 
     1. **Las coordenadas.** `contourpy` interpola entre los puntos que le
        pases. El valor de una celda es el de su CENTRO
-       (`transform * (col + 0.5, fila + 0.5)`); con las esquinas todo sale
+       (`transform @ (col + 0.5, fila + 0.5)`); con las esquinas todo sale
        corrido medio píxel, en dirección de la pendiente, y a 20 m de píxel son
        10 m que ningún error señala.
     2. **Los NaN cortan la curva.** Así debe ser: donde no hay MDE no hay
