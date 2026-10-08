@@ -826,10 +826,14 @@ geo.lamina([p_rgb, p_ndvi], r"C:\SIG\proyecto\salidas\LAMINA.png", titulo="Predi
 ```python
 antes = geo.buscar_sentinel2(predio, ("2026-09-01", "2026-09-25"))
 fuera = geo.buscar_sentinel2(predio, ("2026-08-15", "2026-08-31"))
-bandas, tf, crs, res, informe, origen = geo.imagen_sentinel2(predio, escenas=antes, escenas_relleno=fuera)
+bandas, tf, crs, res, informe, origen = geo.imagen_sentinel2(
+    predio, escenas=antes, escenas_relleno=fuera,
+    max_fechas=len(antes) + len(fuera),  # el relleno entra DESPUES de todas las propias: con el 3 por defecto, las de septiembre lo agotan
+    max_dias=41,  # 2026-09-25 menos 2026-08-15: la principal puede caer al final de `antes`; con el 30 por defecto, la primera quincena de agosto queda fuera
+)
 ```
 
-El relleno de otra temporada se declara igual que cualquier otra mezcla de fechas.
+Los dos topes salen de las fechas, no se tantean. Si el relleno de fuera no aparece en el `informe` como `usada`, es uno de los dos. El relleno de otra temporada se declara igual que cualquier otra mezcla de fechas.
 
 **La lámina del antes y el después.** Dos imágenes, una alineada a la otra, el cambio de NDVI y una lámina de tres paneles. La alineación no es opcional: `lamina` falla si los paneles no comparten malla, y restar dos índices en mallas distintas resta píxeles que no son el mismo sitio.
 
@@ -856,7 +860,7 @@ info = geo.lamina([p_antes, p_desp, p_cambio], r"C:\SIG\proyecto\salidas\LAMINA.
 
 `cita_sentinel2` recibe los dos informes, así la cita lleva los años de las dos imágenes. Los dos paneles RGB salen con el mismo estirado sin pedirlo, y el rango de cada panel se imprime: va en la salida de consola que se pide al usuario.
 
-Medido en secas 2026 (feb a may): un predio real, una fecha, `2026-04-16`, 4 teselas, 100 % limpio; otro, una fecha, `2026-04-26`, 100 % limpio. De 43 fechas en secas, 30 salieron 100 % limpias. Lo normal en secas es una sola fila `usada`.
+Medido en secas 2026 (feb a may): un predio real, una fecha, `2026-04-16`, 4 teselas, 100 % limpio según `scl`; otro, una fecha, `2026-04-26`, 100 % limpio según `scl`. "Limpio según `scl`" no es limpio a ojo: un "antes" al 100 % traía una nube y su sombra visibles (ver `scl` en §"Lo que NO es"). De 43 fechas en secas, 30 salieron 100 % limpias. Lo normal en secas es una sola fila `usada`.
 
 **La cita es obligatoria.** Todo entregable que use la imagen, o algo derivado de ella (índices, clases, polígonos), lleva `Contains modified Copernicus Sentinel data AAAA` con el año de la imagen. `imagen_sentinel2` la imprime, pero el script la guarda para ponerla en el entregable.
 
@@ -879,6 +883,7 @@ Cada fila es un fallo que ya pasó. La columna del medio es lo que de verdad lo 
 | Síntoma | Causa | Arreglo |
 |---|---|---|
 | `lamina` falla con "no comparte malla" | dos `imagen_sentinel2` (antes y después) salen en mallas distintas | segunda llamada con `crs=` de la primera y `alinear_rasters` de sus bandas, §"La lámina del antes y el después" |
+| el relleno de `escenas_relleno` no aparece como `usada` en el `informe` | `max_fechas` (3) se agota con escenas propias, que van antes que el relleno aunque aporten poco; o `max_dias` (30, contado desde la principal) deja fuera las fechas de relleno | sube `max_fechas` a `len(escenas) + len(escenas_relleno)` y `max_dias` a la distancia entre el final de `escenas` y el inicio del relleno, §"Antes y después de un evento" |
 | `quemar_cauces` devuelve `n_pixeles = 0` | los cauces están en otro CRS (`recortar` mueve el SEGUNDO argumento, no el primero) o en otro predio | `reproyectar(cauces, crs_del_raster)` antes; mira los dos extents que imprime |
 | `interpolar_mde: sin dato: N ha` | el extent de salida se sale de la envolvente de las curvas | sube `margen_borde_celdas` y recorta del shapefile COMPLETO, o encoge `cuadro_salida` |
 | `Aviso: N celda(s) INTERIOR(es) sin salida de flujo` | sumideros del priority-flood; lo que drena ahí desaparece de la red | mira la fracción y `ES_SUMIDER` de `microcuencas`; si son de una celda y milímetros, `rellenar_sumideros` y su `informe` con la cifra |
