@@ -151,6 +151,7 @@ from .hidrologia import (
 )
 from .satelite import buscar_sentinel2, imagen_sentinel2
 from .zonas import zonificar
+from .lamina import panel_rgb, panel_continuo, panel_clases, lamina, rotulo_escenas, cita_sentinel2
 from .metrologia import (
     resolucion_regla,
     min_pixeles_umm,
@@ -302,6 +303,13 @@ __all__ = [
     "alinear_rasters",
     "curvas_de_nivel",
     "vista_previa",
+    # lamina
+    "panel_rgb",
+    "panel_continuo",
+    "panel_clases",
+    "lamina",
+    "rotulo_escenas",
+    "cita_sentinel2",
     "resolucion_regla",
     "zonificar",
     "barrer_resolucion",
@@ -326,4 +334,4 @@ __all__ = [
 # los avisos de defecto salen igual.
 MOSTRAR = True
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"

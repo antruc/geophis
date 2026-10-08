@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "geophis"
 # una sola fuente: src/geophis/__init__.py
 dynamic = ["version"]
-description = "Wrapper simple en español sobre geopandas/shapely/rasterio para tareas de SIG."
+description = "Wrapper simple en español sobre geopandas/shapely/rasterio/pyproj para tareas de SIG."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Antruc" }]
@@ -32,6 +32,10 @@ dependencies = [
     # de capas) pide geopandas 1.0, que ya cubre este piso.
     "geopandas>=1.1",
     "shapely>=2.1",
+    # proyeccion, geometria, zonas y lamina la importan directo. Ya llegaba por
+    # geopandas, pero no se depende de lo que arrastre otra libreria. Piso de
+    # geopandas 1.1
+    "pyproj>=3.5",
     "pandas>=1.5",
     "numpy>=1.24",
     "rasterio>=1.3",
@@ -47,6 +51,9 @@ dependencies = [
     # que necesita ruta_a_pie (costo por direccion, que MCP no admite)
     "scikit-image>=0.19",
     "openpyxl>=3.1",
+    # lamina: el PNG con texto y color. Ya llegaba por scikit-image, pero lamina
+    # la importa directo y no depende de lo que arrastre otra libreria
+    "pillow>=10.1",
 ]
 
 [project.urls]
@@ -69,7 +76,7 @@ packages = ["geophis"]
 version = { attr = "geophis.__version__" }
 
 [tool.setuptools.package-data]
-geophis = ["py.typed"]
+geophis = ["py.typed", "fuentes/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
