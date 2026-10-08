@@ -1,6 +1,6 @@
 # geophis: índice de la API pública
 
-**Versión:** 1.1.0 | todas las funciones de `__all__`
+**Versión:** 1.2.0 | todas las funciones de `__all__`
 
 Índice para buscar por nombre. Cada fila es una línea y el enlace lleva a la entrada completa en `GEOPHIS.md`, donde están la firma, lo que devuelve y la trampa que la rodea. **Este archivo no documenta: apunta.** Si algo de aquí contradice a `GEOPHIS.md`, manda `GEOPHIS.md`.
 
@@ -180,6 +180,17 @@ import geophis as geo
 | Función | Qué hace |
 |---|---|
 | [`zonificar`](GEOPHIS.md#zonaspy-raster-continuo---poligonos-por-rangos-capa-de-arriba-usa-vector-y-raster-a-la-vez) | Ráster continuo -> polígonos por rangos con `gridcode`, clase y `SUP`; sieve y recorte incluidos |
+
+## [lamina.py (PNG de revisión con color, leyenda, escala y cita. Capa de arriba: usa vector y ráster a la vez)](GEOPHIS.md#laminapy-png-de-revision-con-color-leyenda-escala-y-cita-capa-de-arriba-usa-vector-y-raster-a-la-vez)
+
+| Función | Qué hace |
+|---|---|
+| [`panel_rgb`](GEOPHIS.md#laminapy-png-de-revision-con-color-leyenda-escala-y-cita-capa-de-arriba-usa-vector-y-raster-a-la-vez) | Panel en color natural con `rojo`, `verde` y `azul` de `imagen_sentinel2`; estirado sobre las tres bandas juntas |
+| [`panel_continuo`](GEOPHIS.md#laminapy-png-de-revision-con-color-leyenda-escala-y-cita-capa-de-arriba-usa-vector-y-raster-a-la-vez) | Panel de un continuo (NDVI, pendiente, dNDVI) con barra de color; paleta `gris`, `divergente` (0 al centro) o `vegetacion` |
+| [`panel_clases`](GEOPHIS.md#laminapy-png-de-revision-con-color-leyenda-escala-y-cita-capa-de-arriba-usa-vector-y-raster-a-la-vez) | Panel de los códigos de `reclasificar_rangos` con leyenda por clase |
+| [`lamina`](GEOPHIS.md#laminapy-png-de-revision-con-color-leyenda-escala-y-cita-capa-de-arriba-usa-vector-y-raster-a-la-vez) | Junta paneles de la misma malla en un PNG de revisión con título, leyenda, escala, norte y cita (obligatoria, `None` sin Sentinel-2) |
+| [`rotulo_escenas`](GEOPHIS.md#laminapy-png-de-revision-con-color-leyenda-escala-y-cita-capa-de-arriba-usa-vector-y-raster-a-la-vez) | `"03-oct-2026 (64.9 %) y 05-oct-2026 (2.4 %)"` desde el `informe` de `imagen_sentinel2` |
+| [`cita_sentinel2`](GEOPHIS.md#laminapy-png-de-revision-con-color-leyenda-escala-y-cita-capa-de-arriba-usa-vector-y-raster-a-la-vez) | La cita de Copernicus con los años de las fechas usadas |
 
 ## [barridos.py (lo que MIDE sobre el MDE y la cartografía; capa de arriba, usa vector y ráster a la vez. Ninguna decide: reportan)](GEOPHIS.md#barridospy-lo-que-mide-sobre-el-mde-y-la-cartografia-capa-de-arriba-usa-vector-y-raster-a-la-vez-ninguna-decide-reportan)
 

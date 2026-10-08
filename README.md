@@ -1,10 +1,10 @@
 # geophis
 
-Librería SIG Wrapper en español sobre geopandas y shapely (vector), rasterio, pysheds, scipy y scikit-image (raster). Una función clara por operación SIG, en lugar de repetir la sintaxis de cada librería en cada script
+Librería SIG Wrapper en español sobre geopandas y shapely (vector), rasterio (raster) y pyproj (proyecciones), con scipy para el análisis espacial. Una función clara por operación SIG, en lugar de repetir la sintaxis de cada librería en cada script
 
-![Logo de geophis](logo.png)
+![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.png)
 
-**Versión:** 1.1.0 | **Python:** >= 3.11 (probado en 3.14) | **Licencia:** GPL-3.0-or-later
+**Versión:** 1.2.0 | **Python:** >= 3.11 (probado en 3.14) | **Licencia:** GPL-3.0-or-later
 
 ## Para qué sirve
 
@@ -43,7 +43,7 @@ cd geophis
 pip install -e ".[dev]"   # -e: los cambios en src/ se ven sin reinstalar; [dev] suma pytest y ruff
 ```
 
-Depende de geopandas >= 1.1, shapely >= 2.1, pandas, numpy, rasterio, scipy, threadpoolctl, contourpy, pysheds, scikit-image y openpyxl; `pip` las instala solas
+Depende de geopandas >= 1.1, shapely >= 2.1, pyproj >= 3.5, pandas, numpy, rasterio, affine >= 3.0, scipy, threadpoolctl, contourpy, pysheds, scikit-image, openpyxl y Pillow; `pip` las instala solas
 
 ## Ejemplo básico
 
@@ -75,10 +75,11 @@ Cubre el pipeline de entregables, no el lienzo de un SIG de escritorio:
 - **Ráster:** recorte, remuestreo, reproyección, MDE desde curvas de nivel, pendiente y aspecto, reclasificación por rangos, sieve, poligonización, índices de vegetación, mosaico de teselas, ruta a pie más rápida sobre el MDE y ruta de costo mínimo
 - **Imagen:** Sentinel-2 L2A del predio por Earth Search, sin cuenta ni token: la mejor fecha limpia, varias teselas en un mosaico y la cita obligatoria
 - **Tabla de atributos:** seleccionar por atributo o por ubicación, resumir, unir una planilla, crear, calcular, renombrar, borrar y cambiar el tipo de campos, crear una capa desde cero, ver el ancho de campo de un .shp, nombres y valores en mayúsculas o minúsculas
+- **Lámina de revisión:** PNG de varios paneles sobre la misma malla (antes, después, cambio, clases) con color, leyenda, escala, norte y la cita de Copernicus; no es el mapa final
 - **Hidrología:** dirección y acumulación de flujo, red de drenaje, orden de cauces, cuencas y microcuencas
 - **Parámetros con procedencia:** cada número de una memoria técnica se mide o se declara con su razón, y la librería puede decir de dónde salió
 
-No hace teledetección clasificada, ni geocodificación, ni se conecta con SIG de escritorio, ni dibuja mapas. No se conecta a servicios externos, salvo Earth Search para bajar Sentinel-2
+No hace teledetección clasificada, ni geocodificación, ni se conecta con SIG de escritorio, ni dibuja mapas finales: arma láminas de revisión, y la cartografía final se arma en el SIG. No se conecta a servicios externos, salvo Earth Search para bajar Sentinel-2
 
 ## Comando de consola
 
@@ -106,7 +107,7 @@ docs/            documentación
 ejemplos/        scripts de referencia
 ```
 
-Los módulos están en capas y las dependencias solo bajan: `proyeccion` y `metrologia`, luego `archivo` y `raster`, luego `geometria`, `hidrologia`, `tabla` y `satelite`, luego `zonas`, luego `barridos`, luego `parametros`, y arriba `cli`. `tests/test_capas.py` lo vigila. Los scripts de trabajo de cada predio no son parte de la librería: traen rutas absolutas y cifras de un predio
+Los módulos están en capas y las dependencias solo bajan: `proyeccion` y `metrologia`, luego `archivo` y `raster`, luego `geometria`, `hidrologia`, `tabla` y `satelite`, luego `zonas` y `lamina`, luego `barridos`, luego `parametros`, y arriba `cli`. `tests/test_capas.py` lo vigila. Los scripts de trabajo de cada predio no son parte de la librería: traen rutas absolutas y cifras de un predio
 
 ## Tests
 

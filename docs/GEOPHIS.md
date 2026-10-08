@@ -1,8 +1,8 @@
 # geophis: documentación de referencia
 
-**Versión:** 1.1.0 | **Paquete:** `geophis` (Python >= 3.11)
+**Versión:** 1.2.0 | **Paquete:** `geophis` (Python >= 3.11)
 
-Wrapper en español sobre geopandas/shapely (vector) y rasterio/pysheds/scipy (raster). Una función clara por operación SIG. Distancias en unidades del CRS (metros si es UTM). EPSG de trabajo típico: **32613** (UTM 13N).
+Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj (proyecciones), con scipy para el análisis espacial. Una función clara por operación SIG. Distancias en unidades del CRS (metros si es UTM). EPSG de trabajo típico: **32613** (UTM 13N).
 
 ```python
 import geophis as geo
@@ -16,7 +16,7 @@ Si lo que buscas es sólo el nombre de una función, el índice compacto está e
 
 Aplican a TODA respuesta de la conversación, no sólo a la primera.
 
-1. **La salida va en `.shp` salvo que se pida otra cosa.** Todo entregable vectorial se guarda como shapefile, que es lo que consume el flujo de trabajo. Los rásters van en `.tif`. Si el usuario nombra otro formato (`.gpkg`, `.geojson`, `.kml`, `.gpx`), manda lo que pidió y no lo discutas.
+1. **La salida va en `.shp` salvo que se pida otra cosa.** Todo entregable vectorial se guarda como shapefile, que es lo que consume el flujo de trabajo. Los rásters van en `.tif`. Si el usuario nombra otro formato (`.gpkg`, `.geojson`, `.kml`, `.gpx`), manda lo que pidió y no lo discutas. Una figura, imagen o lámina para revisar o para el informe es un PNG de `lamina`, y va ADEMÁS del `.tif` o el `.shp`, nunca en su lugar.
 
    Antes de una corrida larga, `comprobar_nombres_shp(gdf)`. El `.shp` corta los nombres de columna a 10 caracteres, y el aviso de `guardar` llega con el archivo ya escrito: detrás de una corrida de minutos, eso es volver a empezar.
 
@@ -209,7 +209,7 @@ cauces = geo.recortar(cauces, geo.reproyectar(cuadro, cauces.crs.to_epsg()))  # 
 - `estadisticas_zonales(arr, transform, zonas, campo, estadisticas=("media", "min", "max", "n"))` → DataFrame, una fila por entidad de `zonas` (su orden y su índice): `campo`, cada estadística, `n_celdas` y `n_nan`. `estadisticas` de `media`, `min`, `max`, `n` (celdas con dato), `suma`, `desv`. Una celda es de la zona si su CENTRO cae dentro. `zonas` va en el CRS del ráster. **TRAMPAS:** (1) una zona más chica que el píxel no cubre ningún centro: sale con `n_celdas`=0 y NaN, y un aviso que las cuenta (si NINGUNA cubre una celda, `ValueError`: es otro CRS); (2) zonas solapadas: `rasterize` deja ganar a la última y la de abajo pierde celdas, así que levanta `ValueError` y pide `resolver_por_prioridad`; (3) el NaN del ráster se excluye del agregado y se cuenta en `n_nan`.
 - `alinear_rasters(referencia, *otros, metodo=bilinear)` → lista de arrays, uno por cada ráster de `otros`, en la malla de `referencia` (mismo CRS, transform y forma; fuera del origen, NaN). Cada ráster entra como `(arr, transform, crs)`. **TRAMPA:** dos arrays de la misma FORMA con distinto transform se suman sin error y dan basura (medio píxel de desfase entre dos MDE es una diferencia sistemática que parece hallazgo). Alineados, `a - b` o `(a > 5) & (b < 3)` ya son el álgebra de mapas; no hay `algebra(expr)`. `metodo=Resampling.nearest` para categóricos: una clase interpolada no es una clase.
 - `curvas_de_nivel(mde, transform, crs, equidistancia, base=0.0, campo="cota")` → GeoDataFrame de LineString con `campo`. Con `contourpy`; el camino de vuelta de `interpolar_mde` y el mejor QA del MDE (compara contra las curvas de partida con `concordancia_lineas`, una cota a la vez). **TRAMPAS:** (1) interpola entre CENTROS de celda; con las esquinas todo sale corrido medio píxel, sin error; (2) los NaN cortan la curva y no se rellenan; (3) los niveles son `base + k*equidistancia` con `k` entero, no un `np.arange` en float que deja la 2400 en 2399.9999999 y no casa al unir por cota.
-- `vista_previa(capa_o_array, ruta, transform=None, ancho_px=1200)` → la imagen uint8 que escribe en `ruta` (PNG en grises, sin georreferencia). Para MIRAR un resultado, no un mapa: sin leyenda, colores ni escala, y sin matplotlib. Array: estirado de p2 a p98 a grises 1-255, NaN en negro. GeoDataFrame: contorno blanco sobre negro en su extent (los polígonos por su borde). Tupla `(array, capa)`: la capa encima, y ahí `transform` es obligatorio. **TRAMPAS:** (1) un ráster de 21 M celdas no se escribe entero: se remuestrea a `ancho_px` con `remuestrear` antes de estirar, y nunca se agranda; (2) el dato mínimo va al gris 1, no al 0, o un hueco de NaN no se distinguiría del valle más bajo.
+- `vista_previa(capa_o_array, ruta, transform=None, ancho_px=1200)` → la imagen uint8 que escribe en `ruta` (PNG en grises, sin georreferencia). Para MIRAR un resultado, no un mapa: sin leyenda, colores ni escala (para eso, `lamina`), y sin matplotlib. Array: estirado de p2 a p98 a grises 1-255, NaN en negro. GeoDataFrame: contorno blanco sobre negro en su extent (los polígonos por su borde). Tupla `(array, capa)`: la capa encima, y ahí `transform` es obligatorio. **TRAMPAS:** (1) un ráster de 21 M celdas no se escribe entero: se remuestrea a `ancho_px` con `remuestrear` antes de estirar, y nunca se agranda; (2) el dato mínimo va al gris 1, no al 0, o un hueco de NaN no se distinguiría del valle más bajo.
 - `calcular_orientacion(mde, resolucion, unidad="clase", z_factor=1.0, invalidar=None)`: *Orientación* (aspect). Horn 3x3 igual que `calcular_pendiente`, misma regla de NoData 7 de 8 (centro sin dato o <7 vecinos válidos → sin orientación). No lleva suavizado: la ventana de Horn ya promedia los 8 vecinos. `unidad="clase"` (default) → uint8 con 0=sin orientación, 1=N, 2=E, 3=S, 4=O, en cuadrantes centrados sobre el azimut de bajada: N `[315, 45)`, E `[45, 135)`, S `[135, 225)`, O `[225, 315)`. **El 0 junta dos cosas distintas**: NoData (centro sin dato, <7 vecinos válidos, `invalidar`) y **plano**, que aquí es gradiente `< 1e-9`, o sea EXACTAMENTE horizontal. Ese `1e-9` es un cero numérico que evita el azimut arbitrario de `atan2(0, 0)`, no un umbral de ingeniería: no hay "casi plano" escondido. Para separarlos, la `pendiente` de `calcular_pendiente` sobre el mismo MDE es NaN donde no hay dato y tiene valor donde es plano. **En un TIN el plano es artefacto, no clase del terreno**: son los triángulos horizontales con los tres vértices en la misma curva (medido en un predio real a 5 m: 535.02 ha, 11.4 % del predio). `poligonizar` ignora el 0, así que la capa de exposición no parte el predio: para entregarlo como clase, recodifica antes (`orientacion + 1`) y nómbralo "SIN ORIENTACION", no "PLANO". Un "PLANO" con umbral es otra cosa y sale de la pendiente, con el umbral declarado. `unidad="grados"` → float32 con el azimut continuo 0-360 (0=N, 90=E, 180=S, 270=O), para comparar contra la orientación de otro SIG; ojo, aquí plano y NoData salen NaN, otros SIG usan -1 o -9999.
 - `calcular_pendiente(mde, resolucion, unidad="porcentaje", z_factor=1.0, invalidar=None)`: pendiente por píxel, algoritmo planar de Horn, ventana 3x3. `res` = el `transform` (Affine) de `interpolar_mde`/`cargar_raster`, recomendado, y saca los dos ejes solo; también número o `(res_x, res_y)`. `unidad` = `"porcentaje"`/`"grados"` (muchos SIG traen grados; aquí no, los rangos de la librería están en %). `z_factor` = factor Z, unidades horizontales por unidad vertical: 1.0 (default) = mismas unidades, 0.3048 con z en pies y xy en metros. Regla NoData 7 de 8 (centro NoData, o <7 vecinos válidos → NaN). Array float32. Recibe el NaN intacto: el relleno vive dentro de `acondicionar_mde` y no llega hasta aqui.
 - `ruta_a_pie(mde, transform, crs, puntos, caminos=None)` → capa con una línea y el campo `HORAS` (tiempo de marcha). **Costo anisótropo**: se cobra cada PASO entre vecinos (8), con la pendiente del paso con signo en la dirección de la marcha (desnivel entre centros / distancia), no la pendiente máxima del píxel. Cruzar la ladera por la curva de nivel cuesta como llano y subir cuesta distinto que bajar; con una pendiente por píxel (la máxima, de Horn) el recorrido a media ladera se cobra como si se fuera de frente ladera arriba y abajo (con Tobler, unas 4 veces de más en una ladera de 45 %). Velocidad de Tobler (1993) `6·exp(-3.5·|s+0.05|)` km/h, máxima en bajada suave de 5 %; fuera de camino, 3/5 (su factor de campo traviesa). Un paso es de camino si uno de sus dos píxeles lo es, y paga la pendiente del paso: sobre el camino el paso a lo largo mide la pendiente del camino, no la de la ladera. `puntos` = dos, origen y destino **en ese orden**: la ruta es de un sentido y la vuelta es otra ruta con otro tiempo. `caminos` = máscara booleana, p. ej. `rasterizar(caminos, mde.shape, transform, todo_tocado=True) == 1`. NaN en el MDE = intransitable. Falla claro si un punto cae fuera del ráster o sin dato, si no hay paso, si `caminos` no tiene la forma del MDE, con `crs` geográfico o con transform rotado. Medido en La Estancia (5.4 Mpx a 5 m): contra la ruta isótropa, 9 a 22 % menos tiempo (medido con el propio modelo anisótropo) y hasta 1.3 km de separación. Memoria ~550 bytes/px (2.9 GB), unas 7 veces la de `ruta_costo_minimo`, porque arma un grafo dirigido de scipy: con un MDE que no quepa, recórtalo a la caja de los puntos con margen.
@@ -246,6 +246,25 @@ Solo Sentinel-2 L2A (`sentinel-2-c1-l2a`) por Earth Search. **Ni mapas base come
 ### zonas.py (ráster continuo -> polígonos por rangos. Capa de arriba: usa vector y ráster a la vez)
 
 - `zonificar(arr, transform, crs, rangos, min_pixeles, recorte=None, invalidar=None, exentos=None, campo="CLASE", por_clase=False)` → GeoDataFrame con `gridcode`, `campo` y `SUP` (ha). La cadena de escritorio Reclasificar → Sieve → Raster a polígono → Recortar → Superficie, para **cualquier** continuo (pendiente, HAND, NDVI...). Estaba copiada a mano en cada flujo y en `barrer_resolucion`, y cada copia tenía que acertar las mismas trampas: máscara `todo_tocado=True` (con el centro de celda la capa cierra con menos superficie que el predio), sieve solo dentro de la máscara, recorte vectorial después y `SUP` detrás del último paso que mueve la geometría. `rangos` con la convención `(mín, máx]` de `reclasificar_rangos`; `min_pixeles` de `min_pixeles_umm` o `p["min_pixeles"]`. `recorte` limita el sieve a sus celdas y recorta la capa (se reproyecta al `crs`). `invalidar`: celdas que no entran en ninguna clase (otra condición, p. ej. `invalidar=~(pendiente <= 10)` para el HAND, NaN incluido); quedan fuera del sieve, no absorben ni son absorbidas. `exentos`: ETIQUETAS que el sieve no toca (la clase alta que es una cinta, ver "Cuando la CLASE MÁS ALTA"). `por_clase=False` da una fila por pieza; `True`, una multiparte por clase (la tabla). **No tira las piezas menores a la UMM que deja el recorte** junto al borde o a lo invalidado: en una partición abrirían huecos. Para quitarlas, `eliminar_menores` (absorbe) o filtrar por `SUP`.
+
+### lamina.py (PNG de revisión con color, leyenda, escala y cita. Capa de arriba: usa vector y ráster a la vez)
+
+Para REVISAR, no para entregar: la cartografía final se arma en el SIG. El PNG sale sin georreferencia (para eso está `guardar_raster`) y sin mapa base (las licencias prohíben guardarlo). Solo Pillow; la fuente (DejaVu Sans) va empaquetada porque la de Pillow (`load_default`) dibuja la Ñ y la é como caja vacía. `vista_previa` sigue para mirar un resultado suelto en grises.
+
+**Cuándo y cómo.**
+
+- **Cuándo:** el usuario pide una figura, una imagen o una lámina (antes y después, NDVI del predio, clases de pendiente). Para mirar un array mientras se trabaja basta `vista_previa`.
+- **Qué paleta:** NDVI, NDMI o NBR → `"vegetacion"`. Una diferencia (`dNDVI = ndvi_despues - ndvi_antes`, dNBR) → `"divergente"`, y con ese orden la pérdida sale en café. Pendiente, HAND o MDE → `"gris"`. Clases → `panel_clases`, con colores en orden de la variable (verde a rojo si sube el riesgo o la pendiente). Ningún panel va encima de otro: clases y foto van en paneles lado a lado.
+- **Los paneles son dicts opacos:** se arman solo con los `panel_*` y se pasan en lista a `lamina`, en el orden de lectura (fila por fila).
+- **`estirado=` es un número tecleado:** cae bajo la REGLA DE LOS NÚMEROS. El default ya comparte el rango medido entre paneles comparables. Se pasa solo si el usuario pide una escala fija (p. ej. NDVI de -1 a 1 para comparar con otra lámina), y con la razón al lado.
+- **Antes y después no salen en la misma malla:** dos llamadas a `imagen_sentinel2` NO garantizan el mismo `transform`, porque la malla sale del mosaico de la fecha principal. Pide la segunda con `crs=` de la primera y alinea sus bandas con `alinear_rasters` antes de restar índices o armar paneles. Receta completa en §"Del predio a la imagen" ("La lámina del antes y el después").
+
+- `panel_rgb(bandas, transform, crs, titulo, contorno=None, estirado=None)` → panel (dict) en color natural con `rojo`, `verde` y `azul` del dict de `imagen_sentinel2`. El estirado se toma sobre las tres bandas juntas: estirar cada una por su lado cambia el tono entre fechas.
+- `panel_continuo(arr, transform, crs, titulo, paleta, unidad, contorno=None, estirado=None)` → panel con barra de color. `paleta`: `"gris"`, `"divergente"` (café pérdida, verde ganancia; rango simétrico `±max(|p2|, |p98|)`, así el 0 cae siempre en el color central) o `"vegetacion"`. `estirado=(vmin, vmax)` fija el rango a mano y saca al panel del grupo compartido.
+- `panel_clases(arr, transform, crs, titulo, etiquetas, colores, contorno=None)` → panel con leyenda por clase. `etiquetas` es el dict `{codigo: etiqueta}` que devuelve `reclasificar_rangos`; `colores` es `{codigo: "#rrggbb" o (r, g, b)}` con las mismas claves. Un código fuera de `etiquetas` (el -1 de NoData) cuenta como sin dato.
+- `lamina(paneles, ruta, cita, columnas=None, titulo=None, pie=None, ancho_px=2000)` → dict `ruta`, `ancho`, `alto`, `escala_m`, `escala_px` y `paneles` (una fila por panel: `titulo`, `estirado`, `sin_dato_pct`); imprime los rangos usados. `cita` es **keyword y sin default**: con Sentinel-2 va `cita_sentinel2(informe)` (la licencia la exige); con datos propios, `cita=None` y la lámina sale sin línea de cita. Olvidarla levanta `TypeError`. `columnas` None = hasta 3. El `contorno` de cada panel (cualquier CRS, se reproyecta) se dibuja en magenta; si es polígono, el % sin dato se mide dentro de él, y si no, sobre la malla. **TRAMPAS:** (1) **estirado compartido**: los paneles con la misma `(paleta, unidad)` usan un solo rango p2-p98 conjunto, y los RGB uno entre todos; sin eso "antes" y "después" no se comparan; (2) **sin dato en lavanda**, distinto de toda paleta (también de la gris), con su % en la leyenda; (3) falla con `ValueError` si dos paneles no comparten forma, `transform` y `crs`: con igual forma y otro transform se dibujarían desalineados sin error, así que alinea antes con `alinear_rasters`; (4) falla con CRS en grados o `transform` rotado: la barra de escala (1, 2 o 5 × 10^n m, hasta el 30 % del ancho del panel) se mide en metros y la flecha de norte supone norte arriba; (5) un ráster más ancho que su celda se reduce (promedio en continuos y RGB, vecino más cercano en clases) y uno más angosto se agranda solo por un múltiplo entero y por vecino más cercano: las clases nunca se interpolan.
+- `rotulo_escenas(informe)` → `"03-oct-2026 (64.9 %) y 05-oct-2026 (2.4 %)"`: las fechas `usada` del `informe` de `imagen_sentinel2`, en orden de fecha y con su `aporta_pct`. Para el título del panel sin teclear fechas.
+- `cita_sentinel2(*informes)` → `"Contains modified Copernicus Sentinel data 2026"`, con los años de las fechas usadas. Acepta varios `informe` (antes y después) y junta sus años: `cita_sentinel2(inf_a, inf_d)`.
 
 ### barridos.py (lo que MIDE sobre el MDE y la cartografía; capa de arriba, usa vector y ráster a la vez. Ninguna decide: reportan)
 
@@ -782,14 +801,18 @@ print(f"predio sin dato limpio: {100 - informe['aporta_pct'].sum():.2f} %")
 # ── 3. GUARDAR, CON NOMBRES Y CON LA CITA ──────────────────────────
 geo.guardar_raster([bandas[n] for n in NOMBRES], r"C:\SIG\proyecto\salidas\S2_BANDAS.tif", tf, crs, nombres=NOMBRES)
 geo.guardar_raster(origen, r"C:\SIG\proyecto\salidas\S2_ORIGEN.tif", tf, crs)  # fila del informe por pixel
-anios = sorted({f[:4] for f in informe.loc[informe["usada"], "fecha"]})
-CITA = f"Contains modified Copernicus Sentinel data {', '.join(anios)}"  # la licencia la exige
+CITA = geo.cita_sentinel2(informe)  # la licencia la exige
 
 # ── 4. MIRAR ANTES DE CREER ────────────────────────────────────────
 ndvi = geo.indice_vegetacion("ndvi", **bandas)
 geo.guardar_raster(ndvi, r"C:\SIG\proyecto\salidas\NDVI.tif", tf, crs)
 print(geo.resumen_raster(ndvi, tf))  # vegetacion densa por encima de ~0.6
 geo.vista_previa((ndvi, geo.reproyectar(predio, crs)), "NDVI.png", transform=tf)
+
+# ── 5. LA LAMINA DE REVISION (no es el mapa final) ─────────────────
+p_rgb = geo.panel_rgb(bandas, tf, crs, "Color natural · " + geo.rotulo_escenas(informe), contorno=predio)
+p_ndvi = geo.panel_continuo(ndvi, tf, crs, "NDVI", paleta="vegetacion", unidad="NDVI", contorno=predio)
+geo.lamina([p_rgb, p_ndvi], r"C:\SIG\proyecto\salidas\LAMINA.png", titulo="Predio · NDVI", cita=CITA)
 ```
 
 **Cómo se lee el `informe`.** Hay una fila por fecha REVISADA, no por cada fecha que devolvió la búsqueda: la función va de menos a más nubes y para en la primera que basta.
@@ -807,6 +830,31 @@ bandas, tf, crs, res, informe, origen = geo.imagen_sentinel2(predio, escenas=ant
 ```
 
 El relleno de otra temporada se declara igual que cualquier otra mezcla de fechas.
+
+**La lámina del antes y el después.** Dos imágenes, una alineada a la otra, el cambio de NDVI y una lámina de tres paneles. La alineación no es opcional: `lamina` falla si los paneles no comparten malla, y restar dos índices en mallas distintas resta píxeles que no son el mismo sitio.
+
+```python
+# ── 1. LAS DOS IMAGENES, EN EL MISMO CRS ───────────────────────────
+b_a, tf, crs, res, inf_a, origen_a = geo.imagen_sentinel2(predio, fechas=("2026-09-01", "2026-09-25"))
+b_d, tf_d, _, _, inf_d, origen_d = geo.imagen_sentinel2(predio, fechas=("2026-09-27", "2026-10-10"), crs=crs)
+
+# ── 2. EL DESPUES, EN LA MALLA DEL ANTES ───────────────────────────
+b_d = dict(zip(b_d, geo.alinear_rasters((b_a["rojo"], tf, crs), *[(v, tf_d, crs) for v in b_d.values()])))
+
+# ── 3. EL CAMBIO: DESPUES MENOS ANTES (perdida en negativo) ────────
+dndvi = geo.indice_vegetacion("ndvi", **b_d) - geo.indice_vegetacion("ndvi", **b_a)
+geo.guardar_raster(dndvi, r"C:\SIG\proyecto\salidas\DNDVI.tif", tf, crs)  # el dato va en .tif; la lamina solo lo muestra
+
+# ── 4. LA LAMINA ───────────────────────────────────────────────────
+contorno = geo.reproyectar(predio, crs)
+p_antes = geo.panel_rgb(b_a, tf, crs, "ANTES · " + geo.rotulo_escenas(inf_a), contorno=contorno)
+p_desp = geo.panel_rgb(b_d, tf, crs, "DESPUÉS · " + geo.rotulo_escenas(inf_d), contorno=contorno)
+p_cambio = geo.panel_continuo(dndvi, tf, crs, "Cambio de NDVI", paleta="divergente", unidad="dNDVI", contorno=contorno)
+info = geo.lamina([p_antes, p_desp, p_cambio], r"C:\SIG\proyecto\salidas\LAMINA.png",
+                  titulo="Predio · antes y después del evento", cita=geo.cita_sentinel2(inf_a, inf_d))
+```
+
+`cita_sentinel2` recibe los dos informes, así la cita lleva los años de las dos imágenes. Los dos paneles RGB salen con el mismo estirado sin pedirlo, y el rango de cada panel se imprime: va en la salida de consola que se pide al usuario.
 
 Medido en secas 2026 (feb a may): un predio real, una fecha, `2026-04-16`, 4 teselas, 100 % limpio; otro, una fecha, `2026-04-26`, 100 % limpio. De 43 fechas en secas, 30 salieron 100 % limpias. Lo normal en secas es una sola fila `usada`.
 
@@ -830,6 +878,7 @@ Cada fila es un fallo que ya pasó. La columna del medio es lo que de verdad lo 
 
 | Síntoma | Causa | Arreglo |
 |---|---|---|
+| `lamina` falla con "no comparte malla" | dos `imagen_sentinel2` (antes y después) salen en mallas distintas | segunda llamada con `crs=` de la primera y `alinear_rasters` de sus bandas, §"La lámina del antes y el después" |
 | `quemar_cauces` devuelve `n_pixeles = 0` | los cauces están en otro CRS (`recortar` mueve el SEGUNDO argumento, no el primero) o en otro predio | `reproyectar(cauces, crs_del_raster)` antes; mira los dos extents que imprime |
 | `interpolar_mde: sin dato: N ha` | el extent de salida se sale de la envolvente de las curvas | sube `margen_borde_celdas` y recorta del shapefile COMPLETO, o encoge `cuadro_salida` |
 | `Aviso: N celda(s) INTERIOR(es) sin salida de flujo` | sumideros del priority-flood; lo que drena ahí desaparece de la red | mira la fracción y `ES_SUMIDER` de `microcuencas`; si son de una celda y milímetros, `rellenar_sumideros` y su `informe` con la cifra |
@@ -845,4 +894,4 @@ Cada fila es un fallo que ya pasó. La columna del medio es lo que de verdad lo 
 
 ## Lo que la librería no hace
 
-No hace teledetección clasificada, ni geocodificación, ni se conecta con SIG de escritorio. No se conecta a servicios externos, con una excepción: `satelite.py` baja Sentinel-2 de Earth Search. Tampoco baja OpenStreetMap: el .osm o .pbf se baja a mano y se lee con `cargar(ruta, capa="lines")`. No dibuja mapas ni aplica simbología (`vista_previa` es un PNG en grises para mirar, no un mapa). Produce capas, rásters y números con procedencia; la cartografía final se arma en el SIG.
+No hace teledetección clasificada, ni geocodificación, ni se conecta con SIG de escritorio. No se conecta a servicios externos, con una excepción: `satelite.py` baja Sentinel-2 de Earth Search. Tampoco baja OpenStreetMap: el .osm o .pbf se baja a mano y se lee con `cargar(ruta, capa="lines")`. No aplica simbología por entidad ni dibuja mapas finales: arma láminas PNG de revisión (`lamina`, con color, leyenda, escala y cita, sin georreferencia ni mapa base) y `vista_previa` es un PNG en grises para mirar. Produce capas, rásters y números con procedencia; la cartografía final se arma en el SIG.
