@@ -99,6 +99,7 @@ def _pedir(url: str, cuerpo: dict[str, Any] | None, metodo: str) -> dict[str, An
                     raise RuntimeError(f"Earth Search respondio HTTP {r.status} en {url}")
                 return json.load(r)
         except urllib.error.HTTPError as e:
+            e.close()  # suelta la conexion antes de reintentar
             if (e.code != 429 and e.code < 500) or intento == _REINTENTOS:
                 raise RuntimeError(
                     f"Earth Search respondio HTTP {e.code} en {url}"
@@ -276,6 +277,7 @@ def imagen_sentinel2(
     crs: Any = None,
     margen_nube: int = 2,
     max_dias: int | None = 30,
+    escenas_relleno: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, FloatArray], Affine, CRS, float, pd.DataFrame, FloatArray]:
     """Bandas Sentinel-2 del predio en reflectancia, de la fecha más limpia.
 
@@ -305,7 +307,17 @@ def imagen_sentinel2(
     hasta llegar a `limpio_min`. Cercana antes que limpia: rellenar abril con
     febrero mezcla fenologías en el mismo predio. `max_dias=None` quita el
     tope. Una fecha a la que le falta una tesela no puede ser la principal,
-    pero sí sirve para rellenar.
+    pero sí sirve para rellenar. Con `escenas` a mano, el orden manda: la
+    principal es la primera que llega a `limpio_min`, no la más limpia.
+
+    `escenas_relleno`: escenas (de `buscar_sentinel2`) que NUNCA son la
+    principal y solo rellenan lo que las de `fechas`/`escenas` dejaron sin
+    dato, después de ellas y con los mismos topes (`max_dias`, `max_fechas`,
+    `limpio_min`). Sirve cuando la ventana que importa es una (antes de un
+    evento) y la fecha limpia más cercana cae fuera de ella: estirar `fechas`
+    haría principal a la de fuera. Su `scl` solo se lee si la principal no
+    llega a `limpio_min`. Salen en el `informe` (y en `origen`) después de las
+    revisadas. Una fecha no puede ir en las dos listas.
 
     `margen_nube`: la nube de `scl` se ensancha estos píxeles de 20 m (2 = 40
     m) antes de medir nada, porque a `scl` se le escapan los bordes de nube y
@@ -348,6 +360,12 @@ def imagen_sentinel2(
         raise ValueError(f"max_revisar {max_revisar} debe ser >= 1")
     if margen_nube < 0:
         raise ValueError(f"margen_nube {margen_nube} debe ser >= 0")
+    escenas_relleno = escenas_relleno or []
+    repetidas = {e["fecha"] for e in escenas} & {e["fecha"] for e in escenas_relleno}
+    if repetidas:
+        raise ValueError(
+            f"fechas en `escenas` y en `escenas_relleno` a la vez: {sorted(repetidas)}"
+        )
     crs_sal = (
         CRS.from_user_input(crs)
         if crs is not None
@@ -368,15 +386,18 @@ def imagen_sentinel2(
             raise ValueError("el predio no llega a cubrir el centro de un pixel")
         return d
 
+    def _revisar(e: dict[str, Any]) -> tuple[dict[str, Any], float, FloatArray, Affine]:
+        scl, tf, _, _ = _callado(mosaico)(e["urls"]["scl"], holgura, crs_sal)
+        limpia = _limpio(scl, margen_nube)
+        limpio = float(100 * limpia[_dentro(scl.shape, tf)].mean())
+        return e, limpio, limpia.astype(float), tf
+
     # 1. % limpio de cada escena, hasta la primera que baste. Se guarda la
     # mascara limpia (1/0) y no la scl: el margen se aplica UNA vez, a 20 m
     revisadas = []  # (escena, limpio_pct, limpia, tf)
     for e in escenas[:max_revisar]:
-        scl, tf, _, _ = _callado(mosaico)(e["urls"]["scl"], holgura, crs_sal)
-        limpia = _limpio(scl, margen_nube)
-        limpio = float(100 * limpia[_dentro(scl.shape, tf)].mean())
-        revisadas.append((e, limpio, limpia.astype(float), tf))
-        if limpio >= limpio_min and e.get("cubre", 100.0) >= 100:
+        revisadas.append(_revisar(e))
+        if revisadas[-1][1] >= limpio_min and e.get("cubre", 100.0) >= 100:
             break
     else:
         if len(escenas) > max_revisar:
@@ -389,6 +410,9 @@ def imagen_sentinel2(
     # 2. principal y relleno, medidos sobre la malla de la scl principal
     candidatas = [r for r in revisadas if r[0].get("cubre", 100.0) >= 100] or revisadas
     principal = max(candidatas, key=lambda r: r[1])
+    n_propias = len(revisadas)
+    if principal[1] < limpio_min:
+        revisadas += [_revisar(e) for e in escenas_relleno]
     dia_p = date.fromisoformat(principal[0]["fecha"])
     dias = [abs((date.fromisoformat(r[0]["fecha"]) - dia_p).days) for r in revisadas]
     usadas = [revisadas.index(principal)]
@@ -396,7 +420,11 @@ def imagen_sentinel2(
     dentro_p = _dentro(lim_p.shape, tf_p)
     libre = dentro_p & (lim_p != 1)
     total = dentro_p.sum()
-    for i in sorted(range(len(revisadas)), key=lambda i: (dias[i], -revisadas[i][1])):
+    # las de `escenas_relleno` despues de todas las propias, aunque esten mas cerca
+    orden = sorted(
+        range(len(revisadas)), key=lambda i: (i >= n_propias, dias[i], -revisadas[i][1])
+    )
+    for i in orden:
         if len(usadas) >= max_fechas or 100 * (1 - libre.sum() / total) >= limpio_min:
             break
         if i in usadas or (max_dias is not None and dias[i] > max_dias):
@@ -425,7 +453,7 @@ def imagen_sentinel2(
             d = _dentro(fina[0].shape, fina[1])
             f, c = np.flatnonzero(d.any(axis=1)), np.flatnonzero(d.any(axis=0))
             ventana = (slice(f[0], f[-1] + 1), slice(c[0], c[-1] + 1))
-            ref = (fina[0][ventana], fina[1] * Affine.translation(c[0], f[0]), crs_sal)
+            ref = (fina[0][ventana], fina[1] @ Affine.translation(c[0], f[0]), crs_sal)
             dentro = d[ventana]
             libre = dentro.copy()
             salida = {n: np.full(dentro.shape, np.nan) for n in bandas.values()}
