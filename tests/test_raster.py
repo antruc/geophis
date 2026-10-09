@@ -795,6 +795,36 @@ def test_muestrear_curvas_paso_fijo():
     assert origen.tolist() == [0, 0, 0, 1, 1, 1, 1]
 
 
+def test_muestrear_curvas_igual_que_shapely():
+    # el muestreo es numpy puro (búsqueda sobre el largo acumulado); tiene que
+    # dar el mismo punto que GEOS en tramos de muchos vértices, con vértices
+    # repetidos y con la curva cerrada, cuyo inicio y fin salen IDÉNTICOS
+    import shapely
+    from shapely.geometry import MultiLineString
+
+    from geophis.raster import _muestrear_curvas
+
+    cerrada = LineString([(0, 0), (7, 0), (7, 7), (0, 0)])
+    lineas = [
+        LineString([(0, 0), (0, 0), (3, 4), (3, 4), (10, 4), (12, 9)]),
+        cerrada,
+        MultiLineString([[(50, 50), (53, 54)], [(60, 60), (60, 61.5)]]),
+    ]
+    curvas = gpd.GeoDataFrame({"cota": [1.0, 2.0, 3.0]}, geometry=lineas, crs=UTM)
+    for paso in (0.7, 3.0, 50.0):
+        xs, ys, _, _ = _muestrear_curvas(curvas, "cota", paso)
+        partes = shapely.get_parts(np.array(lineas, dtype=object))
+        largos = shapely.length(partes)
+        n = np.maximum((largos // paso).astype(int), 1) + 1
+        idx = np.repeat(np.arange(len(partes)), n)
+        dist = np.minimum((np.arange(idx.size) - np.repeat(np.cumsum(n) - n, n)) * paso, largos[idx])
+        esperado = shapely.get_coordinates(shapely.line_interpolate_point(partes[idx], dist))
+        np.testing.assert_allclose(np.column_stack([xs, ys]), esperado, atol=1e-9)
+    # paso mayor que la cerrada: sus dos puntos son su inicio y su fin, iguales al bit
+    xs, ys, zs, _ = _muestrear_curvas(curvas.iloc[[1]], "cota", 50.0)
+    assert (xs[0], ys[0]) == (xs[-1], ys[-1]) == (0.0, 0.0)
+
+
 def test_muestrear_curvas_descarta_cota_nan():
     import geopandas as gpd
     from shapely.geometry import LineString

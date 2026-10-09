@@ -660,9 +660,12 @@ def _muestrear_curvas(
     sesgo de densidad: los tramos sinuosos tienen muchos vértices y los rectos
     pocos.
 
-    El muestreo va vectorizado (`shapely.line_interpolate_point` sobre todos
-    los puntos de golpe): un `interpolate()` por punto son cientos de miles de
-    llamadas a GEOS de una en una, el paso más lento de la etapa de MDE.
+    El muestreo va en numpy, sin GEOS: `shapely.line_interpolate_point`,
+    aun vectorizado, recorre la línea desde su primer vértice por CADA punto, y
+    con curvas de miles de vértices el costo es puntos x vértices (medido en un
+    predio real, 984 tramos de hasta 3110 vértices: 131 s a paso 2.5 m, 16.5 s
+    a 20 m). Aquí es una búsqueda binaria sobre el largo acumulado de los
+    vértices y una interpolación lineal en el segmento: mismo punto, lineal.
 
     Devuelve (x, y, z, origen); `origen` es el `curvas.index` de la curva de la
     que salió cada punto, para poder rastrear un residual hasta su curva.
@@ -686,7 +689,31 @@ def _muestrear_curvas(
     # posición del punto dentro de su propio tramo: 0, 1, 2... reiniciando
     orden = np.arange(idx.size) - np.repeat(np.cumsum(n) - n, n)
     dist = np.minimum(orden * paso, largos[idx])
-    pts = shapely.get_coordinates(shapely.line_interpolate_point(lineas[idx], dist))
+
+    # largo acumulado de cada vértice sobre TODOS los tramos puestos en fila:
+    # el tramo i arranca en `inicio[i]`, y la distancia global de un punto es
+    # inicio + dist. Así una sola `searchsorted` sirve para todos los tramos.
+    xy, de = shapely.get_coordinates(lineas, return_index=True)
+    seg = np.hypot(np.diff(xy[:, 0]), np.diff(xy[:, 1]))
+    seg[de[1:] != de[:-1]] = 0.0  # el salto entre dos tramos no es largo
+    s = np.concatenate([[0.0], np.cumsum(seg)])
+    primero = np.searchsorted(de, np.arange(len(lineas)))
+    ultimo = np.append(primero[1:], len(de)) - 1
+    g = s[primero[idx]] + dist
+    # segmento j..j+1 que contiene el punto, sin salirse de su propio tramo
+    j = np.searchsorted(s, g, side="right") - 1
+    j = np.clip(j, primero[idx], np.maximum(ultimo[idx] - 1, primero[idx]))
+    k = np.minimum(j + 1, ultimo[idx])
+    largo_seg = s[k] - s[j]
+    t = np.divide(g - s[j], largo_seg, out=np.zeros_like(g), where=largo_seg > 0)
+    t = np.clip(t, 0.0, 1.0)
+    pts = xy[j] + t[:, None] * (xy[k] - xy[j])
+    # los extremos, al vértice EXACTO: el largo acumulado arrastra ~1e-8 m, y
+    # el inicio y el fin de una curva cerrada tienen que salir idénticos para
+    # que `_interpolar_malla` los deduplique (si no, RBF singular)
+    pts[dist == 0] = xy[primero[idx][dist == 0]]
+    fin = dist == largos[idx]
+    pts[fin] = xy[ultimo[idx][fin]]
     return pts[:, 0], pts[:, 1], cotas[idx], origen[idx]
 
 
@@ -1019,7 +1046,11 @@ def _interpolar_malla(
     envolvente = shapely.multipoints(pts).convex_hull
     if envolvente.geom_type == "Polygon":
         # ponytail: envolvente degenerada (puntos colineales) no enmascara nada
-        z[~shapely.covers(envolvente, shapely.points(malla))] = np.nan
+        # intersects_xy sobre la geometria preparada: mismo resultado que
+        # `covers(envolvente, points(malla))` (el borde cuenta), sin crear un
+        # Point por celda. Medido a 5.4 M de celdas: 20.3 s -> 2.4 s
+        shapely.prepare(envolvente)
+        z[~shapely.intersects_xy(envolvente, malla[:, 0], malla[:, 1])] = np.nan
     return z.reshape(alto, ancho).astype(float), tf
 
 
