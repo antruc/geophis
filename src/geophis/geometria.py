@@ -98,16 +98,22 @@ def disolver(
 
     Devuelve
     --------
-    GeoDataFrame con una única entidad. De una capa VACÍA sale igual una fila,
-    con la geometría vacía, y avisa por pantalla: parece válida y no revienta
-    hasta el resumen final, o nunca.
+    GeoDataFrame con una única entidad.
+
+    Errores
+    -------
+    ValueError si la unión sale vacía (capa sin filas o solo geometrías
+    vacías/nulas). Una fila con geometría vacía parece válida y no revienta
+    hasta el resumen final, o nunca: mejor parar aquí.
     """
-    # ponytail: aviso, no excepción ni 0 filas. Devolver 0 filas haría que los
-    # `if len(...) == 0` de aguas abajo funcionaran solos, pero rompe a quien
-    # espere una fila siempre.
-    if len(gdf) == 0:
-        print("Aviso: disolver() de una capa vacía; sale una fila con geometría vacía")
-    datos: dict[str, list[Any]] = {"geometry": [unary_union(gdf.geometry)]}
+    union = unary_union(gdf.geometry)
+    if union is None or union.is_empty:
+        etiqueta = f" ({campo}={valor!r})" if campo is not None else ""
+        raise ValueError(
+            f"disolver(){etiqueta}: la capa no tiene geometría ({len(gdf)} filas, "
+            "todas vacías o nulas). Revisa el filtro o recorte anterior."
+        )
+    datos: dict[str, list[Any]] = {"geometry": [union]}
     if campo is not None:
         datos[campo] = [valor]
     return gpd.GeoDataFrame(datos, crs=gdf.crs)

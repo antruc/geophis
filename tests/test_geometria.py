@@ -28,11 +28,12 @@ def test_disolver_une_en_una_con_etiqueta(gdf, cuadrado):
     assert r["cond"].iloc[0] == "X"
 
 
-def test_disolver_vacio_avisa(gdf, cuadrado, capsys):
-    # la fila con geometría vacía parece válida y viaja aguas abajo sin reventar
-    r = geo.disolver(gdf(cuadrado()).iloc[:0])
-    assert len(r) == 1 and r.geometry.iloc[0].is_empty
-    assert "vacía" in capsys.readouterr().out
+def test_disolver_vacio_falla(gdf, cuadrado):
+    # una fila con geometría vacía parece válida y viaja aguas abajo sin reventar
+    with pytest.raises(ValueError, match="no tiene geometría"):
+        geo.disolver(gdf(cuadrado()).iloc[:0], campo="c", valor="X")
+    with pytest.raises(ValueError, match="no tiene geometría"):
+        geo.disolver(gdf(Polygon()))
 
 
 def test_disolver_por_grupo_uno_por_valor(gdf, cuadrado):
