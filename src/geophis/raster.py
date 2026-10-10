@@ -64,7 +64,7 @@ from .metrologia import (
     _pendiente_espuria,
     _redondear_limpio,
 )
-from .proyeccion import _a_crs, _exigir_crs
+from .proyeccion import _a_crs, _exigir_crs, _exigir_proyectado
 from ._salida import _mostrar
 
 FloatArray = npt.NDArray[np.floating[Any]]
@@ -1296,7 +1296,10 @@ def _preparar_mde(
         raise ValueError(f"'{campo}' no está en curvas")
     if len(curvas) == 0:
         raise ValueError("curvas está vacío")
-    _exigir_crs(curvas, "curvas")
+    # aqui y no solo en la medicion de lambda: con `resolucion`, `lambda_m` e
+    # `intervalo_muestreo` dados a mano nada mide, y en grados salia una
+    # pendiente de millones de % sin reventar
+    _exigir_proyectado(curvas, "curvas")
     if quiebres is not None and metodo != "tin":
         raise ValueError(
             f"quiebres solo con metodo='tin', no '{metodo}': el spline sobre una "

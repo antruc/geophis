@@ -1655,3 +1655,19 @@ def test_ruta_a_pie_anisotropa():
     z[:, 10] = np.nan
     with pytest.raises(ValueError, match="no hay paso"):
         geo.ruta_a_pie(z, TF, UTM, pts)
+
+
+def test_interpolar_mde_en_grados_falla_aunque_nada_mida():
+    """Con `resolucion`, `lambda_m` e `intervalo_muestreo` dados a mano no se
+    mide lambda, que era lo unico que exigia metros: en grados salia una
+    pendiente de 1e7 % sin reventar."""
+    curvas = gpd.GeoDataFrame(
+        {"cota": [0.0, 20.0, 40.0]},
+        geometry=[LineString([(-103.5, 20.5 + i * 1e-4), (-103.4997, 20.5 + i * 1e-4)]) for i in range(3)],
+        crs=4326,
+    )
+    kw = dict(resolucion=5e-5, intervalo_muestreo=5e-5, lambda_m=1e-4, metodo="tin")
+    with pytest.raises(ValueError, match="geogr"):
+        geo.interpolar_mde(curvas, "cota", **kw)
+    with pytest.raises(ValueError, match="geogr"):
+        geo.validar_mde(curvas, "cota", **kw)

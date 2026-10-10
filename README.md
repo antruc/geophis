@@ -60,7 +60,7 @@ geo.guardar(predio, "predio_utm.shp")
 Un paso más, del predio y sus curvas de nivel a un ráster de pendiente:
 
 ```python
-curvas = geo.cargar("curvas.shp")
+curvas = geo.reproyectar(geo.cargar("curvas.shp"), 32613)  # el MDE sale en el CRS de las curvas
 mde, tf = geo.interpolar_mde(geo.recortar(curvas, predio), "COTA", resolucion=5)
 pendiente = geo.calcular_pendiente(mde, tf)
 ```
