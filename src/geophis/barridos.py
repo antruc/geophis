@@ -11,6 +11,7 @@ incertidumbre y no el veredicto.
 import contextlib
 import functools
 import math
+import os
 import sys
 import time
 from collections.abc import Callable, Iterable, Iterator
@@ -72,6 +73,27 @@ def _sin_script_principal() -> Iterator[None]:
         principal.__dict__.update(guardado)
 
 
+def _prioridad_baja() -> None:
+    """Baja la prioridad del proceso del barrido, para que el equipo siga
+    respondiendo: el sistema atiende primero lo que el usuario tiene abierto y
+    el barrido usa lo que sobra. Sin permiso o sin API, sigue a la normal."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            from ctypes import wintypes
+
+            k = ctypes.windll.kernel32
+            # tipos declarados: sin ellos, en 64 bits el handle se trunca y la
+            # llamada falla sin decir nada
+            k.GetCurrentProcess.restype = wintypes.HANDLE
+            k.SetPriorityClass.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+            k.SetPriorityClass(k.GetCurrentProcess(), 0x4000)  # BELOW_NORMAL
+        else:
+            os.nice(10)
+    except Exception:  # noqa: BLE001 - la prioridad es cortesia, no requisito
+        pass
+
+
 def _mapear(fn: Callable[[Any], Any], tareas: Iterable[Any], nucleos: int | None) -> Iterator[Any]:
     """`map(fn, tareas)` en orden; con `nucleos > 1`, cada tarea en su proceso.
     `nucleos` None = `geo.NUCLEOS`.
@@ -86,7 +108,7 @@ def _mapear(fn: Callable[[Any], Any], tareas: Iterable[Any], nucleos: int | None
     hechas = 0
     if nucleos > 1 and len(tareas) > 1:
         try:
-            pool = ProcessPoolExecutor(min(nucleos, len(tareas)))
+            pool = ProcessPoolExecutor(min(nucleos, len(tareas)), initializer=_prioridad_baja)
             try:
                 with _sin_script_principal():
                     resultados = pool.map(fn, tareas)  # aqui arrancan los procesos
@@ -370,7 +392,7 @@ def barrer_resolucion(
         toma de ahí (`umm_m2`, `lambda_m`, `equidistancia`, `intervalo_muestreo`,
         `vecinos` y `metodo`); lo que se pase a mano manda sobre el dict.
     nucleos : cuántos `h` se corren a la vez, cada uno en su proceso. None
-        (default) = `geo.NUCLEOS`, que vale los núcleos de la máquina; 1 = en
+        (default) = `geo.NUCLEOS`, los núcleos de la máquina menos uno; 1 = en
         serie. Las filas salen iguales; solo cambia el tiempo. El script no
         necesita `if __name__ == "__main__":`. Cada proceso carga su propia
         malla: la memoria sube por ese factor, y sin memoria sigue en serie.

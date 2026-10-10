@@ -337,7 +337,10 @@ __all__ = [
 MOSTRAR = True
 
 # Cuantos procesos usan los barridos (`barrer_resolucion`, `barrer_vecinos`)
-# cuando no se les pasa `nucleos`. `geo.NUCLEOS = 1` los deja en serie.
-NUCLEOS = os.cpu_count() or 1
+# cuando no se les pasa `nucleos`: todos los nucleos menos uno, para que la
+# maquina siga respondiendo durante un barrido de minutos u horas.
+# `geo.NUCLEOS = 1` los deja en serie. `process_cpu_count` (3.13) respeta la
+# afinidad del proceso; antes, `cpu_count`.
+NUCLEOS = max(1, (getattr(os, "process_cpu_count", os.cpu_count)() or 1) - 1)
 
 __version__ = "1.2.1"

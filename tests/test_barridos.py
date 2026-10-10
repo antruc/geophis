@@ -8,6 +8,8 @@ Los montajes compartidos con `test_raster.py` (`_gdf_box`, `_curvas_rampa`)
 viven en `conftest.py`, que es lo unico que los dos archivos comparten.
 """
 
+import sys
+
 import geopandas as gpd
 import numpy as np
 import pytest
@@ -630,3 +632,22 @@ def test_barridos_en_procesos_dan_las_mismas_filas(gdf, cuadrado):
     filas_1 = geo.barrer_resolucion(_curvas_rampa(), "cota", predio, **kw)
     filas_2 = geo.barrer_resolucion(_curvas_rampa(), "cota", predio, nucleos=2, **kw)
     assert repr(_sin_tiempo(filas_2)) == repr(_sin_tiempo(filas_1))
+
+
+def _clase_de_prioridad(_):
+    import ctypes
+    from ctypes import wintypes
+
+    k = ctypes.windll.kernel32
+    k.GetCurrentProcess.restype = wintypes.HANDLE
+    k.GetPriorityClass.argtypes = (wintypes.HANDLE,)
+    return k.GetPriorityClass(k.GetCurrentProcess())
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="clase de prioridad de Windows")
+def test_los_procesos_del_barrido_van_a_prioridad_baja():
+    """Para que el equipo siga respondiendo durante un barrido. Sin los tipos
+    de `ctypes` declarados la llamada fallaba en silencio en 64 bits."""
+    from geophis.barridos import _mapear
+
+    assert set(_mapear(_clase_de_prioridad, range(2), 2)) == {0x4000}  # BELOW_NORMAL
