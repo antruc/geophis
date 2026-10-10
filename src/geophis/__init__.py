@@ -343,4 +343,4 @@ MOSTRAR = True
 # afinidad del proceso; antes, `cpu_count`.
 NUCLEOS = max(1, (getattr(os, "process_cpu_count", os.cpu_count)() or 1) - 1)
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
