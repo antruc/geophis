@@ -19,6 +19,8 @@ Uso rápido:
     geo.guardar(hidro, "salida.shp")
 """
 
+import os
+
 from .archivo import (
     cargar,
     cargar_puntos,
@@ -333,5 +335,9 @@ __all__ = [
 # Los reportes de consola de todas las funciones. `geo.MOSTRAR = False` los calla;
 # los avisos de defecto salen igual.
 MOSTRAR = True
+
+# Cuantos procesos usan los barridos (`barrer_resolucion`, `barrer_vecinos`)
+# cuando no se les pasa `nucleos`. `geo.NUCLEOS = 1` los deja en serie.
+NUCLEOS = os.cpu_count() or 1
 
 __version__ = "1.2.1"

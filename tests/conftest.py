@@ -11,6 +11,12 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, box
 
+import geophis
+
+# arrancar procesos cuesta segundos y las mallas de los tests son de milisegundos;
+# el test de `nucleos` pide los suyos explicitamente
+geophis.NUCLEOS = 1
+
 UTM = 32613  # UTM 13N, metros
 
 

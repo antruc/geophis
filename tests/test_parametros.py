@@ -6,6 +6,8 @@ cadena. Si alguna se mueve, o la aritmética cambió o alguien reordenó los
 argumentos de una regla, que es exactamente el defecto que costó 14.86 -> 4.35 ha.
 """
 
+import pickle
+
 import geopandas as gpd
 import numpy as np
 import pytest
@@ -591,3 +593,13 @@ def test_s_vacio_que_mide_cero_falla_claro():
             curvas, "COTA", zona, [("0-100", 0, 100)], 25_000,
             resolucion=50.0, medir_ancho=False, vecinos=48,
         )
+
+
+def test_valor_sobrevive_a_pickle():
+    """`barrer_resolucion(nucleos=)` manda `parametros` a otro proceso por
+    `pickle`. Sin `__reduce__`, `Valor` revienta al llegar y el barrido cae a
+    serie."""
+    for v in (Valor(20.0, "derivado", "lambda/2"), ValorEntero(48, "default", "nadie eligio")):
+        w = pickle.loads(pickle.dumps(v))
+        assert type(w) is type(v) and w == v
+        assert (w.fuente, w.origen) == (v.fuente, v.origen)

@@ -602,3 +602,31 @@ def test_juzgar_clasificaciones_veredicto_por_metodo_y_recomienda_por_largo_vist
         geo.juzgar_clasificaciones(
             {"X": (clases(380), "idw", 3.0)}, curvas, "COTA", zona, rangos, 20.0, 1.0
         )
+
+
+# ---- nucleos: mismo resultado en procesos -----------------------------------
+
+
+def _sin_tiempo(filas):
+    return [{k: v for k, v in f.items() if k != "segundos"} for f in filas]
+
+
+def test_barridos_en_procesos_dan_las_mismas_filas(gdf, cuadrado):
+    """`nucleos` solo cambia el tiempo. En `barrer_vecinos` ademas el barrido
+    tiene que parar donde paraba: los `n` adelantados no entran en las filas."""
+    kw = dict(resolucion=5, intervalo_terreno=5, s_vacio=20, zigzag=1.0, p_max=0.5)
+    args = (_curvas_rampa(), "cota", _zona_rampa())
+    filas_1, n_1 = geo.barrer_vecinos(*args, enes=(8, 16, 32, 64), **kw)
+    filas_2, n_2 = geo.barrer_vecinos(*args, enes=(8, 16, 32, 64), nucleos=2, **kw)
+    # NaN != NaN: se comparan como texto
+    assert repr(_sin_tiempo(filas_2)) == repr(_sin_tiempo(filas_1)) and n_2 == n_1
+
+    kw = dict(
+        rangos=[("0-100", 0, 100), (">100", 100, float("inf"))],
+        umm_m2=100,
+        resoluciones=[5, 10],
+    )
+    predio = gdf(cuadrado(0, 0, 30))
+    filas_1 = geo.barrer_resolucion(_curvas_rampa(), "cota", predio, **kw)
+    filas_2 = geo.barrer_resolucion(_curvas_rampa(), "cota", predio, nucleos=2, **kw)
+    assert repr(_sin_tiempo(filas_2)) == repr(_sin_tiempo(filas_1))

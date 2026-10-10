@@ -98,6 +98,11 @@ class Valor(float):
         obj.origen = origen
         return obj
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        # sin esto `pickle` llama `__new__` sin `fuente` ni `origen`, y un
+        # barrido con `nucleos` no puede mandar `parametros` a otro proceso
+        return (type(self), (float(self), self.fuente, self.origen))
+
     def __repr__(self) -> str:
         return f"{float(self):g} [{self.fuente}: {self.origen}]"
 
@@ -119,6 +124,11 @@ class ValorEntero(int):
         obj.fuente = fuente
         obj.origen = origen
         return obj
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # sin esto `pickle` llama `__new__` sin `fuente` ni `origen`, y un
+        # barrido con `nucleos` no puede mandar `parametros` a otro proceso
+        return (type(self), (int(self), self.fuente, self.origen))
 
     def __repr__(self) -> str:
         return f"{int(self)} [{self.fuente}: {self.origen}]"

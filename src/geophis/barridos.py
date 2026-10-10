@@ -8,9 +8,14 @@ Ninguna de estas funciones decide: reportan. `barrer_resolucion` da la banda de
 incertidumbre y no el veredicto.
 """
 
+import contextlib
+import functools
 import math
+import sys
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from typing import Any
 
 import numpy as np
@@ -46,6 +51,59 @@ from .raster import (
     rasterizar,
 )
 from ._salida import _callado, _mostrar
+
+
+@contextlib.contextmanager
+def _sin_script_principal() -> Iterator[None]:
+    """Esconde el script a los procesos que arrancan dentro del bloque.
+
+    Al arrancar, cada proceso hijo vuelve a importar el script principal si
+    este tiene `__file__` o `__spec__`, y un script sin
+    `if __name__ == "__main__":` se volveria a correr entero. Las tareas viven
+    en este modulo, asi que el hijo no lo necesita: es lo mismo que pasa en una
+    consola interactiva, que no tiene `__file__`.
+    """
+    principal = sys.modules["__main__"]
+    guardado = {a: principal.__dict__.pop(a) for a in ("__file__", "__spec__") if a in principal.__dict__}
+    principal.__spec__ = None  # `multiprocessing` lo lee sin `getattr` con default
+    try:
+        yield
+    finally:
+        principal.__dict__.update(guardado)
+
+
+def _mapear(fn: Callable[[Any], Any], tareas: Iterable[Any], nucleos: int | None) -> Iterator[Any]:
+    """`map(fn, tareas)` en orden; con `nucleos > 1`, cada tarea en su proceso.
+    `nucleos` None = `geo.NUCLEOS`.
+
+    Cortar la iteracion (un `break` del barrido) cancela las tareas que no
+    arrancaron. Si el pool se rompe o se queda sin memoria, avisa y sigue en
+    serie desde donde iba.
+    """
+    if nucleos is None:
+        nucleos = getattr(sys.modules.get("geophis"), "NUCLEOS", 1)
+    tareas = list(tareas)
+    hechas = 0
+    if nucleos > 1 and len(tareas) > 1:
+        try:
+            pool = ProcessPoolExecutor(min(nucleos, len(tareas)))
+            try:
+                with _sin_script_principal():
+                    resultados = pool.map(fn, tareas)  # aqui arrancan los procesos
+                for r in resultados:
+                    hechas += 1
+                    yield r
+                return
+            finally:
+                pool.shutdown(cancel_futures=True)
+        except (BrokenProcessPool, MemoryError) as e:
+            # una malla por proceso: si no caben todas, en serie cabe una
+            print(
+                f"   OJO: {type(e).__name__} con {nucleos} procesos, sigo en serie. "
+                f"`geo.NUCLEOS = 1` lo evita desde el principio."
+            )
+    for t in tareas[hechas:]:
+        yield fn(t)
 
 
 def _exigir_mismo_crs(curvas: gpd.GeoDataFrame, otra: gpd.GeoDataFrame, nombre: str) -> None:
@@ -225,6 +283,7 @@ def barrer_resolucion(
     paso_quiebre: float | None = None,
     exentos: Iterable[Any] = (),
     parametros: dict[str, Any] | None = None,
+    nucleos: int | None = None,
 ) -> list[dict[str, Any]]:
     """Corre la cadena de pendientes a varios `h` y tabula cómo se mueve la clase alta.
 
@@ -310,6 +369,11 @@ def barrer_resolucion(
     parametros : el dict de `derivar_parametros`. Lo que se deje en None se
         toma de ahí (`umm_m2`, `lambda_m`, `equidistancia`, `intervalo_muestreo`,
         `vecinos` y `metodo`); lo que se pase a mano manda sobre el dict.
+    nucleos : cuántos `h` se corren a la vez, cada uno en su proceso. None
+        (default) = `geo.NUCLEOS`, que vale los núcleos de la máquina; 1 = en
+        serie. Las filas salen iguales; solo cambia el tiempo. El script no
+        necesita `if __name__ == "__main__":`. Cada proceso carga su propia
+        malla: la memoria sube por ese factor, y sin memoria sigue en serie.
 
     Devuelve una lista de dicts (uno por `h`, de fino a grueso) con `h`,
     `lambda_m`, `n_celdas`, `min_pixeles`, `area_alta_ha`, `pct_predio`,
@@ -390,69 +454,21 @@ def barrer_resolucion(
         )
 
     filas: list[dict[str, Any]] = []
-    for h in resoluciones:
-        t0 = time.perf_counter()
-        mde, tf = _callado(interpolar_mde)(
-            curvas,
-            campo,
-            resolucion=h,
-            equidistancia=equidistancia,
-            intervalo_muestreo=intervalo_muestreo,
-            cuadro=cuadro,
-            metodo=metodo,
-            suavizado=suavizado,
-            vecinos=vecinos,
-            # ya medida arriba sobre ESTE mismo extent (`cuadro` no se mueve
-            # entre corridas, que es la premisa del barrido). Sin esto,
-            # `interpolar_mde` la remide en cada `h`: el mismo numero, N veces,
-            # a un buffer + disolver + intersecar sobre todas las curvas.
-            lambda_m=lambda_m,
-            quiebres=quiebres,
-            paso_quiebre=paso_quiebre,
-        )
-        # misma cadena que producción, la de `zonificar` y no una copia: NaN
-        # intacto (regla 7 de 8 en la pendiente), sieve por UMM, recorte
-        # vectorial al final. La regla de la UMM vive en `min_pixeles_umm`.
-        min_px = min_pixeles_umm(umm_m2, h) if min_pixeles is None else min_pixeles
-        gdf = zonificar(
-            calcular_pendiente(mde, tf), tf, predio.crs, rangos, min_px,
-            recorte=predio, exentos=exentos, campo="_clase",
-        )
-
-        alta = gdf[gdf["_clase"] == etiqueta_alta]
-        area = superficie_total_ha(alta)
-        s_c, p_c = (
-            pendiente_sostenida(curvas, alta, equidistancia)
-            if len(alta)
-            else (float("nan"), float("nan"))
-        )
-        previo = filas[-1]["area_alta_ha"] if filas else None
-        fila = {
-            "h": h,
-            # la del EXTENT, la que gobierna el piso. Va en cada fila para que
-            # quien lea la tabla no tenga que volver a medirla (ni medirla
-            # sobre otro dominio, que es de donde salen los pisos que no cuadran)
-            "lambda_m": lambda_m,
-            "n_celdas": int(mde.size),
-            "min_pixeles": min_px,
-            "area_alta_ha": area,
-            "pct_predio": area / sup_predio * 100 if sup_predio else float("nan"),
-            # contra el h anterior de la tabla, que es el inmediatamente MÁS
-            # FINO. La meseta es donde esta columna se aplana.
-            "delta_pct": float("nan") if previo is None else _delta_pct(previo, area),
-            "n_piezas": len(alta),
-            "s_sostenida": s_c,
-            # El rizo del spline ondula con la separación LOCAL entre curvas, y
-            # Horn deriva sobre 2h: hay alias cuando 2h < s_local, o sea
-            # h < s_local/2. Misma derivación que el piso global, con la λ de
-            # ESTA clase en vez de la del extent. Importa cuando el predio tiene
-            # dos regímenes: el global es el piso del LLANO y sobre-restringe la
-            # banda empinada.
-            "piso_local": s_c / 2,
-            "p_sostenida": p_c,
-            "sin_clase_ha": sup_predio - superficie_total_ha(gdf),
-            "segundos": time.perf_counter() - t0,
-        }
+    una_fila = functools.partial(
+        _fila_resolucion,
+        curvas=curvas, campo=campo, predio=predio, rangos=rangos, umm_m2=umm_m2,
+        lambda_m=lambda_m, equidistancia=equidistancia,
+        intervalo_muestreo=intervalo_muestreo, cuadro=cuadro, metodo=metodo,
+        suavizado=suavizado, vecinos=vecinos, etiqueta_alta=etiqueta_alta,
+        min_pixeles=min_pixeles, quiebres=quiebres, paso_quiebre=paso_quiebre,
+        exentos=exentos, sup_predio=sup_predio,
+    )
+    for fila in _mapear(una_fila, resoluciones, nucleos):
+        h, min_px, area = fila["h"], fila["min_pixeles"], fila["area_alta_ha"]
+        s_c, p_c = fila["s_sostenida"], fila["p_sostenida"]
+        # contra el h anterior de la tabla, que es el inmediatamente MÁS
+        # FINO. La meseta es donde esta columna se aplana.
+        fila["delta_pct"] = _delta_pct(filas[-1]["area_alta_ha"], area) if filas else float("nan")
         filas.append(fila)
         if _mostrar():
             print(
@@ -483,6 +499,92 @@ def barrer_resolucion(
             "`p_sost` NaN = ninguna curva dentro de esa clase: rizo puro."
         )
     return filas
+
+
+def _fila_resolucion(
+    h: float,
+    *,
+    curvas: gpd.GeoDataFrame,
+    campo: str,
+    predio: gpd.GeoDataFrame,
+    rangos: list[tuple[Any, float, float]],
+    umm_m2: float,
+    lambda_m: float,
+    equidistancia: float,
+    intervalo_muestreo: float | None,
+    cuadro: Any,
+    metodo: str,
+    suavizado: float,
+    vecinos: int | None,
+    etiqueta_alta: Any,
+    min_pixeles: int | None,
+    quiebres: gpd.GeoDataFrame | None,
+    paso_quiebre: float | None,
+    exentos: set[Any],
+    sup_predio: float,
+) -> dict[str, Any]:
+    """Una fila de `barrer_resolucion` sin `delta_pct`, que depende de la
+    anterior. Vive a nivel de modulo para que `nucleos > 1` la pueda mandar a
+    otro proceso."""
+    t0 = time.perf_counter()
+    mde, tf = _callado(interpolar_mde)(
+        curvas,
+        campo,
+        resolucion=h,
+        equidistancia=equidistancia,
+        intervalo_muestreo=intervalo_muestreo,
+        cuadro=cuadro,
+        metodo=metodo,
+        suavizado=suavizado,
+        vecinos=vecinos,
+        # ya medida sobre ESTE mismo extent (`cuadro` no se mueve entre
+        # corridas, que es la premisa del barrido). Sin esto, `interpolar_mde`
+        # la remide en cada `h`: el mismo numero, N veces, a un buffer +
+        # disolver + intersecar sobre todas las curvas.
+        lambda_m=lambda_m,
+        quiebres=quiebres,
+        paso_quiebre=paso_quiebre,
+    )
+    # misma cadena que producción, la de `zonificar` y no una copia: NaN
+    # intacto (regla 7 de 8 en la pendiente), sieve por UMM, recorte
+    # vectorial al final. La regla de la UMM vive en `min_pixeles_umm`.
+    min_px = min_pixeles_umm(umm_m2, h) if min_pixeles is None else min_pixeles
+    gdf = zonificar(
+        calcular_pendiente(mde, tf), tf, predio.crs, rangos, min_px,
+        recorte=predio, exentos=exentos, campo="_clase",
+    )
+
+    alta = gdf[gdf["_clase"] == etiqueta_alta]
+    area = superficie_total_ha(alta)
+    s_c, p_c = (
+        pendiente_sostenida(curvas, alta, equidistancia)
+        if len(alta)
+        else (float("nan"), float("nan"))
+    )
+    return {
+        "h": h,
+        # la del EXTENT, la que gobierna el piso. Va en cada fila para que
+        # quien lea la tabla no tenga que volver a medirla (ni medirla
+        # sobre otro dominio, que es de donde salen los pisos que no cuadran)
+        "lambda_m": lambda_m,
+        "n_celdas": int(mde.size),
+        "min_pixeles": min_px,
+        "area_alta_ha": area,
+        "pct_predio": area / sup_predio * 100 if sup_predio else float("nan"),
+        "delta_pct": float("nan"),
+        "n_piezas": len(alta),
+        "s_sostenida": s_c,
+        # El rizo del spline ondula con la separación LOCAL entre curvas, y
+        # Horn deriva sobre 2h: hay alias cuando 2h < s_local, o sea
+        # h < s_local/2. Misma derivación que el piso global, con la λ de
+        # ESTA clase en vez de la del extent. Importa cuando el predio tiene
+        # dos regímenes: el global es el piso del LLANO y sobre-restringe la
+        # banda empinada.
+        "piso_local": s_c / 2,
+        "p_sostenida": p_c,
+        "sin_clase_ha": sup_predio - superficie_total_ha(gdf),
+        "segundos": time.perf_counter() - t0,
+    }
 
 
 def _delta_pct(previo: float, actual: float) -> float:
@@ -555,6 +657,7 @@ def barrer_vecinos(
     equidistancia: float | None = None,
     tolerancia: float = 0.01,
     p_max: float = 1.0,
+    nucleos: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """La RODILLA de `vecinos`: el `n` más chico a partir del cual la cifra
     que se entrega ya no se mueve.
@@ -603,6 +706,10 @@ def barrer_vecinos(
         cuenta como "no se mueve" (default 0.01).
     p_max : límite de la clase alta, en FRACCIÓN (1.0 = 100 %), el de `_p_max`.
     equidistancia : None = se detecta.
+    nucleos : cuántos `n` se corren a la vez, como en `barrer_resolucion`
+        (None = `geo.NUCLEOS`). Se adelantan los `n` siguientes y al converger
+        se tiran los que ya corrían: la rodilla y las filas salen iguales, el
+        costo extra es de hasta `nucleos - 1` corridas.
 
     Devuelve `(filas, n_rodilla)`. Cada fila trae `vecinos`,
     `margen_borde_celdas`, `n_celdas`, `alta_ha`, `delta_pct` (de `alta_ha`
@@ -635,8 +742,6 @@ def barrer_vecinos(
     # chico y se reusa, para que ni un redondeo lo mueva entre corridas.
     _, cuadro_salida = cuadros_mde(zona, resolucion=resolucion, margen_borde_celdas=0)
     lambda_m = _separacion_horizontal(curvas, _bounds_cuadro(curvas, cuadro_salida))
-    ha_celda = resolucion**2 / 10_000
-
     if _mostrar():
         print(
             f"barrido de hasta {len(enes)} vecindarios sobre {area_zona:.1f} ha a "
@@ -649,36 +754,20 @@ def barrer_vecinos(
         )
 
     filas: list[dict[str, Any]] = []
-    for n in enes:
-        t0 = time.perf_counter()
-        margen = margen_borde_celdas(n, intervalo_terreno, s_vacio, resolucion)
-        cuadro_recorte, _ = cuadros_mde(zona, resolucion=resolucion, margen_borde_celdas=margen)
-        mde, tf = _callado(interpolar_mde)(
-            recortar(curvas, cuadro_recorte),
-            campo,
-            resolucion=resolucion,
-            equidistancia=equidistancia,
-            intervalo_muestreo=intervalo_trazo,
-            cuadro=cuadro_salida,
-            metodo="spline",
-            vecinos=n,
-            lambda_m=lambda_m,
+    una_fila = functools.partial(
+        _fila_vecinos,
+        curvas=curvas, campo=campo, zona=zona, resolucion=resolucion,
+        intervalo_terreno=intervalo_terreno, s_vacio=s_vacio,
+        equidistancia=equidistancia, intervalo_trazo=intervalo_trazo,
+        cuadro_salida=cuadro_salida, lambda_m=lambda_m, p_max=p_max,
+    )
+    # con `nucleos > 1` se adelantan los `n` siguientes; los que no arrancaron
+    # se cancelan al converger, los que ya corrian se tiran.
+    for fila in _mapear(una_fila, enes, nucleos):
+        n, margen, alta, meseta = (
+            fila["vecinos"], fila["margen_borde_celdas"], fila["alta_ha"], fila["meseta_ha"]
         )
-        pendiente = calcular_pendiente(mde, tf)
-        en_zona = rasterizar(zona, pendiente.shape, tf, todo_tocado=True) == 1
-        # conteo de pixeles, igual que el arnes de produccion. NaN > x es False,
-        # asi que las celdas sin dato quedan fuera sin tratamiento aparte.
-        alta = float((en_zona & (pendiente > p_max * 100)).sum()) * ha_celda
-        meseta = float((en_zona & (pendiente < 1.0)).sum()) * ha_celda
-        fila = {
-            "vecinos": n,
-            "margen_borde_celdas": margen,
-            "n_celdas": int(mde.size),
-            "alta_ha": alta,
-            "delta_pct": _delta_pct(filas[-1]["alta_ha"], alta) if filas else float("nan"),
-            "meseta_ha": meseta,
-            "segundos": time.perf_counter() - t0,
-        }
+        fila["delta_pct"] = _delta_pct(filas[-1]["alta_ha"], alta) if filas else float("nan")
         filas.append(fila)
         if _mostrar():
             print(
@@ -707,6 +796,53 @@ def barrer_vecinos(
     for aviso in avisos:
         print(f"   OJO: {aviso}")
     return filas, Rodilla(n_rodilla, avisos)
+
+
+def _fila_vecinos(
+    n: int,
+    *,
+    curvas: gpd.GeoDataFrame,
+    campo: str,
+    zona: gpd.GeoDataFrame,
+    resolucion: float,
+    intervalo_terreno: float,
+    s_vacio: float,
+    equidistancia: float | None,
+    intervalo_trazo: float,
+    cuadro_salida: Any,
+    lambda_m: float | None,
+    p_max: float,
+) -> dict[str, Any]:
+    """Una fila de `barrer_vecinos` sin `delta_pct`. A nivel de modulo por
+    `nucleos`, como `_fila_resolucion`."""
+    t0 = time.perf_counter()
+    margen = margen_borde_celdas(n, intervalo_terreno, s_vacio, resolucion)
+    cuadro_recorte, _ = cuadros_mde(zona, resolucion=resolucion, margen_borde_celdas=margen)
+    mde, tf = _callado(interpolar_mde)(
+        recortar(curvas, cuadro_recorte),
+        campo,
+        resolucion=resolucion,
+        equidistancia=equidistancia,
+        intervalo_muestreo=intervalo_trazo,
+        cuadro=cuadro_salida,
+        metodo="spline",
+        vecinos=n,
+        lambda_m=lambda_m,
+    )
+    pendiente = calcular_pendiente(mde, tf)
+    en_zona = rasterizar(zona, pendiente.shape, tf, todo_tocado=True) == 1
+    ha_celda = resolucion**2 / 10_000
+    # conteo de pixeles, igual que el arnes de produccion. NaN > x es False,
+    # asi que las celdas sin dato quedan fuera sin tratamiento aparte.
+    return {
+        "vecinos": n,
+        "margen_borde_celdas": margen,
+        "n_celdas": int(mde.size),
+        "alta_ha": float((en_zona & (pendiente > p_max * 100)).sum()) * ha_celda,
+        "delta_pct": float("nan"),
+        "meseta_ha": float((en_zona & (pendiente < 1.0)).sum()) * ha_celda,
+        "segundos": time.perf_counter() - t0,
+    }
 
 
 def histograma_fase(

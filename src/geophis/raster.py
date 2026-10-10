@@ -728,6 +728,10 @@ def _interp_idw(
 
     Respaldo cuando el TIN falla por geometría degenerada. Extrapola: la
     envolvente la recorta `_interpolar_malla`.
+
+    Solo `vecinos`, no todos los puntos: con todos, la memoria es puntos x
+    celdas, inviable en un predio. Con curvas es el peor método igual: sus
+    máximos y mínimos caen solo en los datos, así que aplana cimas y fondos.
     """
     arbol = cKDTree(pts)
     k = min(vecinos, len(pts))
