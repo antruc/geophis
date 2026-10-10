@@ -552,6 +552,7 @@ def _fila_resolucion(
     gdf = zonificar(
         calcular_pendiente(mde, tf), tf, predio.crs, rangos, min_px,
         recorte=predio, exentos=exentos, campo="_clase",
+        sin_dato=None,  # el hueco lo mide `sin_clase_ha`, una vez por fila
     )
 
     alta = gdf[gdf["_clase"] == etiqueta_alta]

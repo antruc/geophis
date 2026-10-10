@@ -33,6 +33,7 @@ def zonificar(
     exentos: Iterable[Any] | None = None,
     campo: str = "CLASE",
     por_clase: bool = False,
+    sin_dato: str | None = "SIN DATO",
 ) -> gpd.GeoDataFrame:
     """Raster continuo -> poligonos por rangos, con `gridcode`, `campo` y `SUP` (ha).
 
@@ -56,6 +57,11 @@ def zonificar(
       UMM por superficie; ver docs/GEOPHIS.md, "Cuando la CLASE MAS ALTA...".
     - `por_clase`: False da una fila por pieza (para medir, filtrar o
       `eliminar_menores`); True, una multiparte por clase (la tabla).
+    - `sin_dato`: etiqueta de las celdas NaN de `arr` dentro de la zona (no
+      las de `invalidar`, que se excluyen a proposito). Salen como una clase
+      mas, fuera del sieve, y avisa con las ha. Sin ella eran un hueco mudo y
+      `comprobar_particion` tronaba: un predio en la costa, con 188 ha por
+      debajo de la curva mas baja. `None` = como antes, el hueco se queda.
 
     El sieve no absorbe lo que solo toca celdas fuera de la mascara, asi que
     tras recortar pueden quedar piezas menores a la UMM junto al borde o a lo
@@ -63,14 +69,18 @@ def zonificar(
     huecos. Para quitarlas, `eliminar_menores` (absorbe) o filtrar por `SUP`.
     """
     codigos, etiquetas = reclasificar_rangos(arr, rangos)
+    vacia = np.isnan(np.asarray(arr, dtype=float))
     if invalidar is not None:
         if invalidar.shape != codigos.shape:
             raise ValueError(f"invalidar {invalidar.shape} y arr {codigos.shape} no son la misma malla")
         codigos[invalidar] = -1
+        vacia &= ~invalidar
     mascara = codigos > 0
     if recorte is not None:
         recorte = _a_crs(recorte, crs, "recorte")
-        mascara &= rasterizar(recorte, codigos.shape, transform, todo_tocado=True) == 1
+        en_zona = rasterizar(recorte, codigos.shape, transform, todo_tocado=True) == 1
+        mascara &= en_zona
+        vacia &= en_zona
 
     por_etiqueta = {et: c for c, et in etiquetas.items()}
     desconocidas = [e for e in exentos or () if e not in por_etiqueta]
@@ -79,6 +89,17 @@ def zonificar(
     cod_exentos = [por_etiqueta[e] for e in exentos or ()]
 
     codigos = limpiar_moteado(codigos, min_pixeles, mascara=mascara, exentos=cod_exentos)
+    if sin_dato is not None and vacia.any():
+        # despues del sieve: el sin dato ni absorbe ni es absorbido
+        cod_vacia = max(etiquetas) + 1
+        codigos[vacia] = cod_vacia
+        etiquetas = {**etiquetas, cod_vacia: sin_dato}
+        mascara |= vacia
+        print(
+            f"Aviso: {float(vacia.sum()) * abs(transform.a * transform.e) / 10_000:.2f} ha "
+            f"sin dato dentro de la zona (celdas NaN): van como clase '{sin_dato}'. "
+            f"Es superficie sin dato de origen, no se reparte entre las clases."
+        )
     gdf = poligonizar(codigos, transform, crs, mascara=mascara, campo="gridcode")
     if recorte is not None:
         gdf = recortar(gdf, recorte)

@@ -446,6 +446,54 @@ def test_detectar_cota_no_deja_ganar_a_una_columna_de_codigos(capsys):
     assert "2122" in capsys.readouterr().out
 
 
+def test_detectar_cota_no_elige_una_columna_a_medias(capsys):
+    """El defecto: en una costa real `ALTURA` (texto, vacia en el 56 % de las
+    curvas: solo una de las dos cartas la llena) ganaba a `ELEVACION`.
+
+    Dos causas juntas. `ELEVACION` trae UNA curva auxiliar de 10 m y su paso
+    salia 10 (el que explica todos los saltos), asi que `ALTURA`, de paso 20,
+    ganaba por paso grueso. Y nada miraba cuantas curvas traen cota:
+    `interpolar_mde` habria descartado mas de la mitad.
+    """
+    elevacion = [10] + list(range(20, 1020, 20))
+    n = len(elevacion)
+    altura = [str(z) if k % 2 else None for k, z in enumerate(elevacion)]  # ~50 % vacia
+    capa = gpd.GeoDataFrame(
+        {
+            "geometry": [LineString([(0, y), (10, y)]) for y in range(n)],
+            "ELEVACION": elevacion,
+            "ALTURA": altura,
+        },
+        crs=UTM,
+    )
+    assert geo.detectar_cota(capa) == ("ELEVACION", 20)
+    # la curva auxiliar no se esconde: sale como cota fuera de escalera
+    assert "10 (la mas baja, 1 entidad(es))  fuera de escalera" in capsys.readouterr().out
+
+
+def test_paso_escalera_un_salto_menor_que_el_paso_no_es_multiplo():
+    """Con el paso mas grueso que pasa la puerta, el salto mayor de una columna
+    de IDs (28.5 millones en una carta real) salia con regularidad 0.98: cada
+    salto chico redondeaba a 0 veces el paso y contaba como multiplo. Gano a
+    `ELEVACION` en un predio real."""
+    from geophis.metrologia import _paso_escalera
+
+    ids = [135_829_510 + k * 37 for k in range(40)] + [164_345_908]
+    paso, reg = _paso_escalera(ids)
+    assert paso == 37 and reg < 1
+
+
+def test_detectar_cota_avisa_de_curvas_sin_cota(capsys):
+    """Una columna buena con unas pocas curvas vacias pasa, pero lo dice."""
+    cotas = [float(z) for z in range(0, 400, 20)] + [None]
+    capa = gpd.GeoDataFrame(
+        {"geometry": [LineString([(0, y), (10, y)]) for y in range(len(cotas))], "COTA": cotas},
+        crs=UTM,
+    )
+    assert geo.detectar_cota(capa) == ("COTA", 20)
+    assert "1 de 21 curvas sin cota en 'COTA'" in capsys.readouterr().out
+
+
 def test_detectar_cota_sigue_exigiendo_el_umbral():
     """La puerta sigue siendo puerta: sin ninguna escalera, falla con puntajes."""
     capa = gpd.GeoDataFrame(

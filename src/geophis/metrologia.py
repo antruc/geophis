@@ -59,29 +59,41 @@ def _redondear_limpio(x: float, hacia: str = "cerca") -> float:
     return min(candidatos, key=lambda c: abs(c - x))
 
 
-def _paso_escalera(cotas: npt.ArrayLike) -> tuple[float, float]:
+def _paso_escalera(cotas: npt.ArrayLike, regularidad_min: float = 0.9) -> tuple[float, float]:
     """(paso, regularidad) de la escalera que forman las cotas únicas.
 
     Cada salto observado entre cotas únicas consecutivas se prueba como paso
-    candidato; gana el que explica más saltos como MÚLTIPLOS suyos (empate al
-    más chico). Un nivel faltante deja un salto de `2·paso` y sigue contando.
+    candidato, y su regularidad es la fracción de saltos que son MÚLTIPLOS
+    suyos. Un nivel faltante deja un salto de `2·paso` y sigue contando.
+
+    Gana el paso MÁS GRUESO cuya regularidad pasa `regularidad_min`, no el que
+    explica todos los saltos: una sola curva auxiliar (una de 10 m en la costa
+    de una carta de 20) explica el 100 % con paso 10 y bajaba la equidistancia
+    de la carta entera. Con auxiliares en más del `1 - regularidad_min` de los
+    saltos, el paso grueso no pasa y sale el fino, como antes. Si ninguno
+    pasa, el de más regularidad (empate al más chico).
     Devuelve `(nan, 0.0)` si no hay ningún salto >= 1 m.
     """
     u = np.unique(np.asarray(cotas, dtype=float))
     u = u[~np.isnan(u)]
     d = np.round(np.diff(u), 3)
     d = d[d > 0]
-    mejor_paso, mejor_reg = float("nan"), -1.0
-    for p in np.unique(d):
-        # ponytail: pasos < 1 m descartados; una capa con equidistancia
-        # 0.5 m (escala muy grande) no se detecta. Techo conocido: bajar
-        # la guarda a 0.5 si algun dia llega una capa asi.
-        if p < 1:
-            continue
-        reg = float((np.abs(d / p - np.round(d / p)) < 1e-3).mean())
-        if reg > mejor_reg + 1e-9 or (abs(reg - mejor_reg) < 1e-9 and p < mejor_paso):
-            mejor_paso, mejor_reg = float(p), reg
-    return mejor_paso, max(mejor_reg, 0.0)
+    # ponytail: pasos < 1 m descartados; una capa con equidistancia 0.5 m
+    # (escala muy grande) no se detecta. Techo conocido: bajar la guarda a 0.5
+    # si algun dia llega una capa asi.
+    def regularidad(p: float) -> float:
+        # multiplo de verdad: 1 o mas veces el paso. Un salto mucho menor que
+        # `p` redondea a 0 veces y contaba como multiplo, asi que el salto
+        # mayor de una columna de IDs (2.8e7) pasaba la puerta con 0.98
+        k = np.round(d / p)
+        return float(((k >= 1) & (np.abs(d / p - k) < 1e-3)).mean())
+
+    regs = {float(p): regularidad(p) for p in np.unique(d) if p >= 1}
+    if not regs:
+        return float("nan"), 0.0
+    pasan = [p for p, r in regs.items() if r >= regularidad_min]
+    paso = max(pasan) if pasan else min(regs, key=lambda p: (-regs[p], p))
+    return paso, regs[paso]
 
 
 def _detectar_equidistancia(cotas: npt.ArrayLike) -> float | None:

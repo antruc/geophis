@@ -887,9 +887,16 @@ def detectar_cota(
     Múltiplo, no igual. Un nivel que falta en un tramo llano deja un hueco de
     `2·paso` y sigue siendo escalera, así que probar `hueco == paso` falla en
     cualquier capa real. El paso tampoco se asume: cada salto observado se
-    prueba como candidato y gana el que explica más saltos (empate al más
-    chico). Así una escalera mixta (maestras cada 100, ordinarias cada 20,
-    auxiliares cada 10) sale en 10 y no como ruido.
+    prueba como candidato y gana el MÁS GRUESO que pasa `regularidad_min`
+    (`_paso_escalera`). Una curva auxiliar suelta (una de 10 m en una carta de
+    20) no baja la equidistancia de la carta entera; sale como cota fuera de
+    escalera. Una escalera mixta de verdad (auxiliares en más del 10 % de los
+    saltos) sigue saliendo en el paso fino.
+
+    **Cobertura, misma puerta:** la columna tiene que traer cota en al menos
+    `regularidad_min` de las curvas. Una que solo llena una de las cartas
+    ganaba a la completa y `interpolar_mde` descartaba el resto. Si la elegida
+    tiene curvas sin cota, avisa siempre con cuántas.
 
     **`regularidad_min` es la PUERTA, y entre las que la pasan manda el paso
     MÁS GRUESO**, no la regularidad. Cualquier columna de enteros es una
@@ -907,9 +914,9 @@ def detectar_cota(
     puntajes solo traslada la adivinanza a quien lea el traceback.
 
     Devuelve (campo, equidistancia). `geo.MOSTRAR` además imprime el reparto
-    de saltos entre cotas: una capa con curvas auxiliares mezcladas da 10
-    donde se esperaba 20, y ahí se mueven todas las cifras firmes sin que
-    nada se vea roto.
+    de saltos entre cotas: una capa con muchas curvas auxiliares da 10 donde
+    se esperaba 20, y ahí se mueven todas las cifras firmes sin que nada se
+    vea roto.
     """
     filas = []
     for col in curvas.columns:
@@ -931,7 +938,18 @@ def detectar_cota(
                 )
             )
             continue
-        mejor_paso, mejor_reg = _paso_escalera(v)
+        mejor_paso, mejor_reg = _paso_escalera(v, regularidad_min)
+        # la cota tiene que estar en casi todas las curvas: `interpolar_mde`
+        # descarta las que no la traen. Una columna que solo una de las cartas
+        # llena (56 % vacia en una costa real) ganaba a la completa y dejaba el
+        # MDE sin la mitad de las curvas. Misma puerta que la regularidad.
+        cobertura = float(pd.to_numeric(curvas[col], errors="coerce").notna().mean())
+        if cobertura < regularidad_min:
+            filas.append(
+                (col, min(mejor_reg, cobertura), mejor_paso,
+                 f"cota solo en el {cobertura:.0%} de las curvas")
+            )
+            continue
         filas.append(
             (
                 col,
@@ -976,7 +994,14 @@ def detectar_cota(
                 f"   OJO: '{filas[1][0]}' tambien pasa (regularidad {filas[1][1]:.2f}, "
                 f"paso {filas[1][2]:g} m). Dos escaleras en la misma capa"
             )
-    _avisar_fuera_de_escalera(pd.to_numeric(curvas[col], errors="coerce"), col, paso)
+    cotas = pd.to_numeric(curvas[col], errors="coerce")
+    if cotas.isna().any():
+        # sale siempre: son curvas que el MDE no va a ver
+        print(
+            f"Aviso: {int(cotas.isna().sum())} de {len(cotas)} curvas sin cota en "
+            f"'{col}': `interpolar_mde` las descarta"
+        )
+    _avisar_fuera_de_escalera(cotas, col, paso)
     return col, paso
 
 

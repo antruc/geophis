@@ -49,3 +49,22 @@ def test_zonificar_invalidar_deja_fuera_y_no_absorbe():
     assert z["SUP"].sum() == pytest.approx(0.50)
     with pytest.raises(ValueError, match="no estan en rangos"):
         geo.zonificar(_raster(), TF, UTM, RANGOS, 11, exentos=["media"])
+
+
+def test_zonificar_sin_dato_es_una_clase_y_la_particion_cierra(capsys):
+    """Un predio con parte fuera de las curvas: esas celdas son NaN. Antes eran
+    un hueco mudo y `comprobar_particion` tronaba (188 ha en una costa real)."""
+    a = _raster()
+    a[:, 8:] = np.nan  # 0.20 ha sin curvas
+    predio = gpd.GeoDataFrame(geometry=[box(0, 0, 100, 100)], crs=UTM)
+    z = geo.zonificar(a, TF, UTM, RANGOS, 11, recorte=predio)
+    assert z.loc[z["CLASE"] == "SIN DATO", "SUP"].sum() == pytest.approx(0.20)
+    # el sin dato no entra al sieve: la alta conserva sus 3 columnas
+    assert z.loc[z["CLASE"] == "alta", "SUP"].sum() == pytest.approx(0.30)
+    assert "0.20 ha sin dato" in capsys.readouterr().out
+    geo.comprobar_particion([z], predio, tolerancia_ha=0.001)
+    # None: como antes, el hueco se queda y la particion lo denuncia
+    z = geo.zonificar(a, TF, UTM, RANGOS, 11, recorte=predio, sin_dato=None)
+    assert "SIN DATO" not in set(z["CLASE"])
+    with pytest.raises(ValueError, match="hueco"):
+        geo.comprobar_particion([z], predio, tolerancia_ha=0.001)
