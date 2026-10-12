@@ -1,0 +1,3 @@
+# Fin de linea de Linux (LF) en el repo y en la copia de trabajo, en cualquier sistema.
+# Los binarios (png, ttf) los detecta solo `text=auto`.
+* text=auto eol=lf
