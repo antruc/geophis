@@ -14,6 +14,7 @@ import math
 import os
 import sys
 import time
+from collections import deque
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
@@ -101,6 +102,14 @@ def _prioridad_baja() -> None:
 # ponytail: constantes de una medicion, re-medir si cambia el interpolador.
 _BYTES_CELDA = {"spline": 2048, "tin": 256, "malla": 1024}
 _BYTES_PROCESO = 300 * 2**20
+# Debajo de esto, con `nucleos` por defecto, el barrido va en serie: arrancar
+# los procesos cuesta ~10 s. Medido en un predio real: filas de 14 100 celdas
+# (2.5 s) tardan 5.6 s en serie y 15.3 s con 3 procesos; a 104 000 celdas la
+# fila tarda 22 s y el paralelo gana 1.8 a 2.1x.
+# El corte va sobre la memoria estimada de la tarea, que sigue al costo (el TIN
+# pesa y tarda ~10 veces menos por celda que el spline).
+# ponytail: proxy del costo, no tiempo medido; afinar si un predio cae en medio.
+_CELDAS_SERIE = 50_000
 
 
 def _memoria_libre() -> float:
@@ -140,12 +149,16 @@ def _mapear(
     `nucleos` None = `geo.NUCLEOS`. Con `bytes_por_tarea`, no lanza mas
     procesos de los que caben en el 80 % de la RAM libre (avisa si recorta).
 
-    Cortar la iteracion (un `break` del barrido) cancela las tareas que no
-    arrancaron. Si el pool se rompe o se queda sin memoria, avisa y sigue en
-    serie desde donde iba.
+    Solo hay `nucleos` tareas en vuelo: la siguiente se manda cuando sale una.
+    Cortar la iteracion (un `break` del barrido) espera a esas y nada mas. Con
+    `pool.map` se mandaban todas de golpe y el corte esperaba a las `n` grandes
+    que ya corrian: medido, 44 s tirados en un barrido de filas de 3 s. Si el
+    pool se rompe o se queda sin memoria, avisa y sigue en serie desde donde iba.
     """
     if nucleos is None:
         nucleos = getattr(sys.modules.get("geophis"), "NUCLEOS", 1)
+        if 0 < bytes_por_tarea < _bytes_tarea(_CELDAS_SERIE, None):
+            nucleos = 1  # malla chica: arrancar procesos cuesta mas que las filas
     tareas = list(tareas)
     hechas = 0
     if nucleos > 1 and len(tareas) > 1 and bytes_por_tarea > 0:
@@ -159,13 +172,21 @@ def _mapear(
             nucleos = caben
     if nucleos > 1 and len(tareas) > 1:
         try:
-            pool = ProcessPoolExecutor(min(nucleos, len(tareas)), initializer=_prioridad_baja)
+            nucleos = min(nucleos, len(tareas))
+            pool = ProcessPoolExecutor(nucleos, initializer=_prioridad_baja)
             try:
                 with _sin_script_principal():
-                    resultados = pool.map(fn, tareas)  # aqui arrancan los procesos
-                for r in resultados:
+                    # aqui arrancan los procesos: uno por tarea mientras no haya ociosos
+                    en_vuelo = deque(pool.submit(fn, t) for t in tareas[:nucleos])
+                siguiente = nucleos
+                while en_vuelo:
+                    r = en_vuelo.popleft().result()
                     hechas += 1
                     yield r
+                    # despues del yield: si el barrido corta aqui, no se manda
+                    if siguiente < len(tareas):
+                        en_vuelo.append(pool.submit(fn, tareas[siguiente]))
+                        siguiente += 1
                 return
             finally:
                 pool.shutdown(cancel_futures=True)
@@ -737,6 +758,7 @@ def barrer_vecinos(
     tolerancia: float = 0.01,
     p_max: float = 1.0,
     nucleos: int | None = None,
+    lambda_m: float | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """La RODILLA de `vecinos`: el `n` más chico a partir del cual la cifra
     que se entrega ya no se mueve.
@@ -790,6 +812,9 @@ def barrer_vecinos(
         se tiran los que ya corrían: la rodilla y las filas salen iguales, el
         costo extra es de hasta `nucleos - 1` corridas. Se recorta a los
         procesos que caben en la RAM libre, como en `barrer_resolucion`.
+    lambda_m : separacion entre curvas YA medida sobre este extent (la de
+        `derivar_parametros`, que la pasa sola). None = se mide aqui, unos
+        20 s en un predio real. Solo alimenta el aviso del piso antialias.
 
     Devuelve `(filas, n_rodilla)`. Cada fila trae `vecinos`,
     `margen_borde_celdas`, `n_celdas`, `alta_ha`, `delta_pct` (de `alta_ha`
@@ -821,7 +846,10 @@ def barrer_vecinos(
     # el extent de SALIDA no depende de `n`: se arma una vez con el margen mas
     # chico y se reusa, para que ni un redondeo lo mueva entre corridas.
     _, cuadro_salida = cuadros_mde(zona, resolucion=resolucion, margen_borde_celdas=0)
-    lambda_m = _separacion_horizontal(curvas, _bounds_cuadro(curvas, cuadro_salida))
+    if lambda_m is None:
+        # aqui solo alimenta el aviso del piso antialias: `resolucion` y el
+        # muestreo ya vienen dados. Medirla cuesta 20 s en un predio real
+        lambda_m = _separacion_horizontal(curvas, _bounds_cuadro(curvas, cuadro_salida))
     if _mostrar():
         print(
             f"barrido de hasta {len(enes)} vecindarios sobre {area_zona:.1f} ha a "

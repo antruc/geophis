@@ -638,6 +638,7 @@ def derivar_parametros(
             zigzag=zz,
             equidistancia=e,
             p_max=p_max,
+            lambda_m=lam,  # ya medida: el barrido solo la usa para avisar
             **({} if enes is None else {"enes": enes}),
         )
         # Una rodilla solo es rodilla si la cifra convergio. Si el barrido avisa,

@@ -664,8 +664,11 @@ def test_mapear_no_lanza_mas_procesos_de_los_que_caben(monkeypatch, capsys):
         def __init__(self, n, initializer=None):
             lanzados.append(n)
 
-        def map(self, fn, tareas):
-            return map(fn, tareas)
+        def submit(self, fn, tarea):
+            class _Hecha:
+                def result(self):
+                    return fn(tarea)
+            return _Hecha()
 
         def shutdown(self, cancel_futures=False):
             pass
@@ -690,3 +693,41 @@ def test_memoria_libre_es_un_numero_positivo():
     from geophis import barridos
 
     assert barridos._memoria_libre() > 0
+
+
+def test_mapear_solo_manda_nucleos_tareas_en_vuelo(monkeypatch):
+    """Con `pool.map` se mandaban todas de golpe y el `break` del barrido
+    esperaba a las `n` grandes ya en marcha. Ahora hay `nucleos` en vuelo: al
+    cortar tras dos resultados se mandaron esas 2 mas `nucleos - 1`, no las 8."""
+    from geophis import barridos
+
+    mandadas = []
+
+    class _Pool:
+        def __init__(self, n, initializer=None):
+            pass
+
+        def submit(self, fn, tarea):
+            mandadas.append(tarea)
+
+            class _Hecha:
+                def result(self):
+                    return fn(tarea)
+
+            return _Hecha()
+
+        def shutdown(self, cancel_futures=False):
+            pass
+
+    monkeypatch.setattr(barridos, "ProcessPoolExecutor", _Pool)
+    g = barridos._mapear(abs, [-1, -2, -3, -4, -5, -6, -7, -8], 3)
+    assert [next(g), next(g)] == [1, 2]
+    g.close()
+    assert mandadas == [-1, -2, -3, -4]
+
+    # con `nucleos` por defecto y malla chica, en serie: ni un proceso
+    monkeypatch.setattr(geo, "NUCLEOS", 3)
+    mandadas.clear()
+    chica = barridos._bytes_tarea(14_100, "spline")
+    assert list(barridos._mapear(abs, [-1, -2, -3], None, bytes_por_tarea=chica)) == [1, 2, 3]
+    assert mandadas == []
