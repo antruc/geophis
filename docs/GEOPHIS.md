@@ -22,7 +22,7 @@ Las reglas se citan como **R1** a **R9** y las recetas de pendiente como **P1** 
 
 ## Las reglas que no se negocian
 
-**R1. No se inventa ningún número.** Un número medible no se teclea nunca, ni "para tantear": se mide (`derivar_parametros`) o se recibe medido. Si hay que teclearlo, al lado va de dónde sale, qué procedimiento lo produce y qué pasa si está mal. Cada corrida cierra con:
+**R1. No se inventa ningún número.** Un número medible no se teclea nunca, ni "para tantear": se mide (`derivar_parametros`) o se recibe medido. Si hay que teclearlo, al lado va de dónde sale, qué procedimiento lo produce y qué pasa si está mal. Inmediatamente después de cada `derivar_parametros` van estas dos líneas, una vez por diccionario, y no se repiten al final del script:
 
 ```python
 geo.tabla_procedencia(p)

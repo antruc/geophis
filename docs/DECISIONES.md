@@ -1,957 +1,324 @@
 # geophis: decisiones y evidencia
 
-**Para personas, no para el Proyecto de Claude.** Es el texto completo de `GEOPHIS.md` hasta el 2026-10-12, con las mediciones que justifican cada regla, las alternativas descartadas y la historia de cada trampa. `GEOPHIS.md` se quedó con el contrato (firma, qué devuelve, trampa, aviso, fallo) y una cifra de consecuencia por trampa; el porqué completo está aquí.
+Este documento explica **por qué** geophis hace las cosas como las hace. Cada regla de la librería salió de un error real o de una medición, y aquí está contado ese origen: qué pasaba antes, qué se midió, qué se decidió y qué alternativas se probaron y se descartaron.
 
-Cuándo leerlo: antes de cambiar una regla o de "arreglar" un comportamiento que parece raro. Las firmas de aquí pueden estar desfasadas: las vigentes están en `GEOPHIS.md`, que es lo que comprueban las pruebas.
+## Para quién es
 
-No lo subas al Proyecto: duplica el peso y puede pasar el conocimiento a modo de búsqueda por fragmentos.
+- **Para quien mantiene la librería.** Antes de cambiar una regla que parece rara o excesiva, busca aquí por qué existe. Casi todas protegen contra un defecto que ya pasó y que no avisaba.
+- **Para quien tiene que defender una cifra.** Si en una memoria técnica te preguntan por qué la clase de pendiente más alta no pasa por el filtro de manchas, o por qué se usó un TIN y no un spline, la medición que lo respalda está aquí.
+- **Para no repetir pruebas.** La última sección resume lo que ya se probó y no sirvió.
 
----
+La versión anterior de este documento, con el detalle función por función, está en el historial de git (`git show f21d5c3:docs/DECISIONES.md`).
 
+No es una guía de uso. Para escribir un script, la referencia es `GEOPHIS.md`, que tiene las firmas de las funciones, las recetas y las reglas en forma corta. Este documento no se carga en el Proyecto de Claude: duplicaría el peso sin ayudar a escribir scripts.
 
-## Cómo responder y qué entregar
+**Sobre las cifras.** "Un predio real" es un predio de trabajo de la región, medido con la cartografía estatal de curvas de nivel (equidistancia de 20 m) y la red hidrográfica estatal. Los predios van de 1 665 a 9 094 ha. Las cifras se dan para que se entienda el tamaño del efecto, no como constantes.
 
-Aplican a TODA respuesta de la conversación, no sólo a la primera.
+## Glosario mínimo
 
-1. **La salida va en `.shp` salvo que se pida otra cosa.** Todo entregable vectorial se guarda como shapefile, que es lo que consume el flujo de trabajo. Los rásters van en `.tif`. Si el usuario nombra otro formato (`.gpkg`, `.geojson`, `.kml`, `.gpx`), manda lo que pidió y no lo discutas. Una figura, imagen o lámina para revisar o para el informe es un PNG de `lamina`, y va ADEMÁS del `.tif` o el `.shp`, nunca en su lugar.
+- **Equidistancia (e):** el salto de cota entre dos curvas de nivel, 20 m en la cartografía de trabajo.
+- **Separación (λ):** la distancia horizontal media entre curvas vecinas. Manda sobre casi todo: el tamaño de píxel útil, cuánto ondula un spline, cuánto muestrear.
+- **UMM:** unidad mínima de mapeo, la mancha más chica que se entrega. Sale de la escala: 2 mm en el papel, o sea 2 500 m² a 1:25 000.
+- **h:** el tamaño de píxel del modelo digital de elevación (MDE).
+- **Techo y piso de h:** un techo es un valor que `h` no debe superar (si no, la clase no se ve); un piso, uno que no debe bajar (si no, aparecen pendientes falsas).
+- **w:** el ancho real de la franja de pendiente más alta (la "cinta" del escarpe), medido sobre la carta.
+- **Sieve:** el filtro que absorbe las manchas menores a la UMM en su vecina más grande.
+- **La carta:** las curvas de nivel originales. Es el juez externo: lo que dicen las curvas no depende de cómo se interpoló el MDE.
+- **TIN, spline, malla:** los tres interpoladores. El TIN une puntos de las curvas con triángulos planos; el spline ajusta una superficie suave alrededor de cada celda; la malla ajusta una sola superficie suave para todo el predio.
 
-   Antes de una corrida larga, `comprobar_nombres_shp(gdf)`. El `.shp` corta los nombres de columna a 10 caracteres, y el aviso de `guardar` llega con el archivo ya escrito: detrás de una corrida de minutos, eso es volver a empezar.
+## 1. Ningún número sin procedencia
 
-2. **El script sigue la estructura del ejemplo, no una propia.** Docstring corto, bloque `CONFIG` en mayúsculas arriba, pasos numerados `# -- N. VERBO EN MAYUSCULAS --`, lineal y sin funciones propias, reasignando la misma variable, `print()` como reporte. Cada valor declarado se escribe con su razón al lado. La plantilla está en §"Estilo de script"; los scripts completos, en `ejemplos/`.
+### Qué se decidió
 
-3. **La respuesta es el código. El resto sobra.** Sin preámbulo, sin anunciar lo que vas a hacer, sin resumen al final. Después del script, tres líneas como máximo: qué se decidió, qué queda sin medir, qué comando correr. Si la explicación es más larga que el código, bórrala.
+Un script no escribe a mano ninguna cantidad que se pueda medir. Las mide `derivar_parametros`, que devuelve cada valor con su **fuente** (declarado, medido, derivado, convención o default) y su **origen**, y esa tabla de procedencia va al entregable.
 
-4. **La brevedad no se relaja en las respuestas siguientes.** Cuando el usuario reporta un error o pide un cambio, la respuesta es el fragmento corregido y una línea de qué cambió. Nada de repetir el script entero si sólo se movieron tres líneas, ni de reexplicar lo que ya estaba explicado, ni de disculparse. Un error se responde diciendo dónde está, qué lo causa y cuál es el arreglo, en ese orden y sin rodeos.
+### Por qué
 
-5. **Pide la salida de la corrida para diagnosticar el resultado.** Al entregar un script, recomienda al usuario que te pegue la salida de consola entera (avisos, tabla de procedencia, cierres de `comprobar_particion`, veredicto del juez). Los defectos de esta librería avisan por consola y no se ven en el mapa: las 535 ha de mesetas falsas del TIN en un predio real solo salieron así. Va dentro de las tres líneas del final (con el comando a correr), no como párrafo aparte.
+Al pasar un cálculo de un script a otro se perdieron cuatro decisiones que nadie había escrito, y la misma clase de pendiente pasó de **14.86 ha a 4.35 ha** sin que nada avisara. Con `h` puesto a ojo bajó a 1.68 ha. Las cuatro decisiones eran:
 
-   La excepción, en cualquiera de estas reglas, es que el usuario pida explícitamente una explicación, un recorrido o una auditoría: eso se entrega completo. La regla es contra la prosa que nadie pidió.
+1. La UMM derivada de la escala, y no puesta a ojo.
+2. El tamaño de píxel calculado con el ancho **medido** de la cinta (`w` = 15.5 m) y no con el geométrico (20 m): `h` pasaba de 5.17 a 6.67 m.
+3. El número de vecinos del spline medido, y no el 48 por defecto.
+4. La clase más alta exenta del filtro de manchas.
 
-## Las reglas que no se negocian
+Un `48` escrito a mano y un `48` medido se ven igual en el código, en la consola y en el mapa. La única forma de distinguirlos es que el número lleve su procedencia.
 
-1. **REGLA DE LOS NÚMEROS: no se inventa ninguno.** Un número medible no se teclea nunca, ni "para tantear". Se mide (`derivar_parametros`) o se recibe medido. Si hay que teclearlo, al lado va de dónde sale, qué procedimiento lo produce y qué pasa si está mal. Cierre mecánico en cada corrida:
+### Detalles que costaron
 
-   ```python
-   geo.tabla_procedencia(p)
-   assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
-   ```
+- **El default de vecinos (48) se llevó el 12 % de la clase alta.** No estaba escrito en ninguna parte del script que lo usó. Con la rodilla medida (90), ese 12 % desapareció: era terraceo, no terreno.
+- **Convertir un valor a `int` o `float` borra su procedencia.** Una segunda llamada recibía el `48` ya convertido y lo marcaba como medido: la tabla del entregable decía "48 medido" sin que nadie hubiera medido nada. Por eso un valor que ya trae procedencia se respeta tal cual.
+- **Convención y default se separan.** Las convenciones de oficio (2 mm de lado mínimo, 4 píxeles por UMM, 3 celdas para trazar, cuantil 90) son iguales en todos los predios y no hay medición que las sustituya. Si salieran en la lista de "sin medir", esa lista tendría cinco nombres en cada corrida y se dejaría de mirar.
+- **Lo medido depende de sobre QUÉ capa se midió.** La misma carta recortada al predio da un blanco de 10.28 ha, y recortada al cuadro de trabajo da 16.14. Por eso la tabla guarda la huella de las capas (entidades, CRS, extensión).
+- **Medir cuesta, y se repetía.** Cada llamada a `derivar_parametros` volvía a medir la separación, el zigzag y el ancho de la cinta: entre 145 y 192 s. Con dos métodos y la segunda pasada eran cuatro llamadas. Ahora una llamada puede reusar lo medido por otra (`medidos=`): 0.7 s, y falla si las capas no son las mismas.
 
-   El detalle y la tabla de las cinco fuentes están en §"REGLA DE LOS NÚMEROS".
-2. **El área y la longitud van detrás del ÚLTIMO paso que mueva la geometría**, no sólo detrás de recortar y reproyectar. `borrar`, `resolver_por_prioridad`, `simplificar`, `cerrar_microhuecos`, `subdividir_por_area`, `eliminar_menores`, `identidad`, `union` y `partir_por_linea` también la mueven. `guardar` avisa si quedó obsoleta.
-3. **`recortar`, `intersecar`, `borrar` y `union_espacial` alinean el CRS solos**, y siempre reproyectan el SEGUNDO argumento. No pongas `reproyectar` antes: la línea sobra. `fusionar` NO alinea, a propósito. Nunca pases `capa.crs.to_epsg()` como destino (da `None` cuando el CRS no tiene código EPSG); pasa `capa.crs` directo.
-4. **`bbox=` de `cargar` es seguro para lo que trabaja geometría por geometría, no para lo que infiere una propiedad de la CAPA.** `detectar_cota` y `detectar_campo` leen la columna entera: detéctalos UNA vez sobre un dominio declarado y estable, y no los repitas sobre capas recortadas.
-5. **Contar o medir PIEZAS después de un disolver: `separar_multipartes` primero.**
-6. **El MDE de pendiente y el de hidrología son distintos.** `quemar_cauces` y `acondicionar_mde` son correctos para flujo y veneno para pendiente. Guarda el MDE base ANTES de quemar.
-7. **Un script no importa `math` ni `numpy`.** Si lo necesita, falta una función en la librería (`min_pixeles_umm`, `margen_borde_celdas`, `umbral_celdas`, `calcular_pendiente(invalidar=)`).
+### Cifras firmes de un predio
 
-## API pública
+Una vez que la primera corrida de un predio se revisa a mano, sus cifras se fijan en el script y cualquier cambio posterior que las mueva levanta un error. Con eso, la caída de 14.86 a 4.35 ha habría salido como error y no como una tabla nueva igual de creíble. Pero una cifra firme también puede ser un defecto que nadie miró: un faltante de **0.22 ha** se citó durante ocho versiones como "redondeo" y era el hueco del filtro de manchas (sección 3).
 
-### archivo.py: E/S de capas
+## 2. Superficies que cuadran
 
-- `cargar(ruta, capa=None, bbox=None, crs=None)`: lee capa vectorial (.shp/.gpkg/.geojson/.gpx/.dxf) → GeoDataFrame. `capa` elige en multicapa. **`crs` ASIGNA el CRS (`set_crs`, no reproyecta) cuando el archivo no lo trae; si no lo trae y no se pasa, falla**, y si lo trae distinto, también. DXF nunca lo trae: `cargar("plano.dxf", crs=32613)`. La capa de CAD viene en la columna `Layer` (`seleccionar_por_atributo(gdf, "Layer == 'curvas'")`), y si el archivo mezcla tipos de geometría avisa: sepáralos con `gdf[gdf.geom_type == "LineString"]`. **`bbox` lee SOLO las entidades que tocan esa ventana**, por el índice espacial del archivo; acepta una capa, una geometría o `(minx, miny, maxx, maxy)`. No es un recorte: devuelve las entidades ENTERAS que la tocan, así que `recortar` sigue haciendo falta después. Es contra la MEMORIA, no comodidad: la cartografía de trabajo aquí es estatal (hidrografía estatal, 384 554 tramos y 133 MB, curvas 1 GB), y medido sobre un predio de 1765 ha da **33.1 s / 763 MB sin `bbox` contra 7.1 s / 164 MB con él**. `recortar` no sirve para esto porque para recortar hay que haber cargado; `ancho_banda` ya llevaba su propio recorte por dentro justo por esto, pero esa defensa vivía dentro de una sola función. El CRS lo alinea GDAL: la ventana puede venir en otro sistema que el archivo (probado con un cuadro en UTM 13N sobre hidrografía en Cónica Conforme de Lambert) y se reproyecta la ventana, no las entidades.
-- `cargar_puntos(ruta, x="x", y="y", epsg=None, orden=None)`: puntos desde CSV/Excel. `epsg` fija CRS (sin él no reproyecta ni mide; avisa si falta). `orden` ordena filas antes (importa si conviertes a línea/polígono).
-- `convertir(entrada, salida, capa=None, gpx_como="track")`: `cargar`+`guardar` en una línea. Autodetecta capa GPX con datos.
-- `guardar(gdf, ruta, gpx_como="track", anchos=None)`: formato por extensión. .gpx/.kml/.kmz reproyecta a EPSG:4326 automáticamente. GPX no admite polígonos (exporta contorno como línea). `gpx_como`: `"track"`/`"route"`. Avisa si una columna de área (`SUP`, `superficie_ha`...) **o de longitud** (`longitud_m`, `PERIMETRO`...) ya no cuadra con la geometría, o sea que algún paso la movió después de calcularla. El aviso no nombra culpable a propósito: los que se olvidan no son el recorte ni la reproyección, sino `borrar` y `resolver_por_prioridad`, que recortan al FINAL de la cadena. La mitad de LONGITUD es la que muerde en la rama hidrológica, donde la cifra que se cita es km de cauce: medido, `calcular_longitud` y luego `recortar` dejaba la columna diciendo 71.0 km sobre una geometría de 60.7 (14 % de más) y se escribía sin una palabra. **`anchos` (solo .shp)** fija el ancho del campo en el .dbf: `{"CLASE": 50}` para texto o entero, `{"SUP": (12, 4)}` para decimal (ancho total con el punto, decimales). Sin él GDAL pone texto 80, entero 18, decimal 24.15. **Sin fiona**: pyogrio no expone el ancho (los decimales son un TODO en su código) y fiona no instala en Python 3.14 en Windows, así que el .dbf se escribe con GDAL en una carpeta temporal y se reescribe con la cabecera nueva antes de moverlo a la ruta. **Falla si un valor no cabe** (el ancho de texto cuenta BYTES: una letra con acento ocupa 2) y no deja nada en la ruta; avisa si los decimales redondean algún valor. Se comprueba con `listar_campos("capa.shp")`.
-- `comprobar_nombres_shp(gdf)` → dict `{columna: motivo}` con las columnas que NO sobreviven a un `.shp`; vacío = todas pasan. El formato corta a 10 caracteres, así que dos columnas pueden acabar siendo la misma y GDAL desempata con un sufijo (`superficie_ha` → `superfic_1` si `SUPERFICIE` ya ocupaba el corto). El dato se escribe bien; lo que se pierde es el NOMBRE. Separa las dos causas porque se arreglan distinto: **corte** pide acortar, **colisión** pide desambiguar (comparación insensible a mayúsculas). Es un aviso ANTICIPADO y **no un renombrador**, a propósito: GDAL ya resuelve el desempate y `guardar` ya lo traduce con los dos nombres, pero los dos llegan con el archivo ya escrito, y detrás de una corrida larga eso es volver a empezar. Renombrar solo sería resolver el problema equivocado — las dos veces que pasó de verdad, el arreglo bueno fue que el llamante eligiera un nombre corto **con sentido** (`SUP`), no otro inventado.
-- `exportar_tabla(gdf, ruta)`: tabla de atributos sin geometría a `.csv`/`.xlsx`. Valida la extensión y avisa de área obsoleta igual que `guardar`. El `.csv` va en UTF-8 con BOM, para que Excel en Windows lea bien acentos y `°`. Filtra campos con `gdf[cols]` antes de llamar (con o sin la geometría: sin ella es ya una tabla y se exporta sin el aviso de área, igual que la salida de `resumir`); no tiene opciones de separador ni encoding.
-- `cargar_waypoints(ruta)`: waypoints GPX con tabla limpia (NAME, LAYER, ELEVATION, time ISO UTC, sym).
-- `cargar_tracks(ruta, utc_offset=-6)`: tracks GPX, una línea por `<trkseg>` (NAME, LAYER, gpxx_DisplayColor, START_TIME, END_TIME en hora local).
-- `detectar_utm(gdf)`: EPSG del huso UTM (WGS84) del centroide de `gdf`. Falla si la capa cruza dos husos: ahí elegir es decisión de campo.
-- `detectar_cota(curvas, regularidad_min=0.9)`: `(campo, equidistancia)` de una capa de curvas de nivel. Busca la columna cuyos valores únicos caen en escalera (saltos MÚLTIPLOS de un paso, no iguales; una capa con curva faltante en un tramo llano deja un hueco de `2·paso` y sigue siendo escalera). No exige que la cota se repita entre filas (una entidad multiparte por nivel trae una fila por cota). Desempata por el paso más grueso: cualquier columna de enteros consecutivos es escalera de paso 1, así que eso se descarta a ojo, no por regularidad. Dentro de una columna también gana el paso MÁS GRUESO que pasa `regularidad_min`, no el que explica todos los saltos: una sola curva auxiliar de 10 m en una carta de 20 no baja la equidistancia (sale como cota fuera de escalera); con auxiliares en más del 10 % de los saltos sí sale 10. **La columna tiene que traer cota en al menos `regularidad_min` de las curvas**: en una costa real, `ALTURA` (texto, vacía en el 56 % de las curvas porque solo una carta la llena) ganaba a `ELEVACION` y `interpolar_mde` habría descartado la mitad de las curvas. Si la elegida tiene curvas sin cota, avisa siempre. El reporte imprime el reparto de saltos (una capa con curvas auxiliares mezcladas puede dar 10 donde se esperaba 20). **Avisa siempre de las cotas fuera de escalera** (fuera de la fase dominante `cota % paso`) o con salto mayor que 2 pasos, con la cota, el salto y las entidades: la regularidad tolera una curva mal capturada y esa curva hace un pico falso (medido en una carta real de curvas: 3302 sobre 2760 con e = 20, HAND hasta 2,982 m). Un hueco de 2 pasos es una curva que falta en un llano y no avisa.
-- `detectar_campo(gdf, vocabulario)`: columna cuyos valores contienen todo `vocabulario` (p. ej. `{'PERENNE','INTERMITENTE'}`). El nombre de columna cambia entre capas; el vocabulario legal no.
-- `listar_capas(ruta)` → lista de nombres de capa del archivo, **sin cargar ninguna** (lee el catálogo, no las entidades). Es lo que faltaba para poder usar `capa=` de `cargar`: se aceptaba desde el principio y no había forma de descubrir qué poner ahí sin abrir el archivo en un SIG. El reporte imprime también el tipo de geometría, que es lo que distingue la capa buena de sus hermanas vacías: un GPX lista SIEMPRE cinco (waypoints, routes, tracks, route_points, track_points) aunque cuatro estén vacías.
-- `describir(objeto, capa=None)` → dict con `n`, `tipos`, `crs`, `epsg`, `unidades`, `extension`, `campos`, `nulos`, `vacias`, `invalidas`. Acepta un GeoDataFrame o una ruta. Lo primero que se hace con cartografía de fuera. Las tres que no da `print(gdf)`: **unidades** (un CRS geográfico hace que superficies y buffers no signifiquen nada, y el aviso llega función por función, tarde), **vacias** (sobreviven al guardado y revientan tres pasos después) e **invalidas**. Las dos últimas se cuentan por SEPARADO porque se arreglan distinto: vacía se borra (`limpiar_vacias`), inválida se repara (`reparar_geometrias`). Un CRS **geográfico** sale como Aviso y no como la palabra 'degree' entre otros diez campos: si el aviso función por función llega tarde, imprimir un adjetivo aquí no lo adelanta. Del CRS imprime **nombre y código**, no el WKT: una capa sin código EPSG (la hidrografía estatal es Lambert ITRF92 en WKT suelto) escupía 700 caracteres en una línea y enterraba el único dato accionable, que es que no hay código; el WKT entero sigue en `ficha['crs']`.
-
-### tabla.py: la tabla de atributos
-
-Tres de las cuatro no tocan la geometría, y por eso no viven en `geometria.py`. Lo que añaden sobre pandas es la guarda, no el idioma.
-
-- `seleccionar_por_atributo(gdf, consulta)`: *Select by Attribute*, sintaxis de `DataFrame.query` (`"CLASE == 'A' and SUP > 5"`). Nombre con espacios o acentos entre acentos graves. Devuelve una vista (no copia) con el mismo CRS, y **avisa si sale vacía**: una capa vacía no revienta sola y reaparece cuatro pasos después como un total que no cuadra.
-- `seleccionar_por_ubicacion(gdf, otro, predicado="intersects", distancia=0)`: *Select by Location*. **No es `union_espacial`**: aquélla es un join y DUPLICA la fila si dos entidades de `otro` la tocan, ésta devuelve cada entidad una vez y sin columnas nuevas. Para filtrar, el join infla el total en silencio. El predicado se lee `gdf <predicado> otro` ('intersects', 'within', 'contains', 'crosses', 'touches', 'overlaps'); va por `sjoin` y no por el índice espacial porque ahí el orden es el contrario y un `within` invertido devuelve una capa plausible. `distancia` > 0 dilata `otro` esa distancia antes de aplicar el predicado (*within a distance*).
-- `estadisticas_de_resumen(gdf, por=None, campos=None)` → DataFrame, una fila por grupo con `n` y los estadísticos pedidos. *Estadísticas de resumen*. La tabla de ha por clase: `estadisticas_de_resumen(entregable, por="PENDIENTES", campos={"SUP": "sum"})`. `por=None` da el total en una fila. Nulos como grupo propio (`dropna=False`): un grupo que desaparece de la tabla es superficie que se va sin avisar. `campos` es `{col: estadistico}` o `{col: [estadisticos]}`; un nombre suelto asume `'sum'` **y lo dice**, porque asumir el estadístico en silencio es inventar la cifra que se cita. Salida `columna_estadistico`. **Comprueba antes que las columnas de área/longitud cuadren con la geometría**, que es la vía más corta a publicar una superficie muerta.
-- `unir_campo(gdf, tabla, clave, como="left")`: *Unir campo*, el join NO espacial (planilla de campo contra shapefile). `tabla`: DataFrame o ruta `.csv`/`.xlsx`/`.xls`. `clave`: un nombre, o `(columna_capa, columna_tabla)`. **Falla si no casa ninguna clave**, que es la razón de existir: un join que no casa devuelve la capa entera con nulos, sigue pareciendo una capa, y el error sale cuatro pasos después como un mapa en blanco. La causa casi siempre es de TIPO y no de datos (`'007'` del CSV nunca es igual a `7` del shapefile), así que el mensaje da los dos tipos y una muestra de cada lado: sin eso se audita el archivo equivocado. Ese mensaje **intercepta el de pandas**, que con tipos incompatibles revienta antes de unir y manda usar `pd.concat`, o sea el consejo equivocado: lo que hay que igualar es el tipo de la clave. Y la conversión que propone va del lado que CONSERVA el dato (entero a texto, no al revés), porque pasar `'007'` a número se come los ceros a la izquierda. Avisa si la tabla trae claves repetidas, que MULTIPLICAN filas. Columnas comunes entran con sufijo `_tabla`.
-- `atributos_a_mayusculas(gdf)`: copia con los nombres de campo y los valores de texto en MAYÚSCULAS; geometría, CRS, números y nulos intactos, la entrada no cambia. Va al final, después de calcular `SUP`: `geo.guardar(geo.atributos_a_mayusculas(entregable), "PENDIENTES.shp")`. TRAMPA 1: la geometría se reconoce por `gdf.geometry.name`, no por el texto `geometry` (un .gpkg la trae como `geom`, y renombrarla deja la capa sin geometría activa). TRAMPA 2: si dos nombres chocan al convertir (`sup` y `SUP`) → ValueError que los nombra, no desempata sola. Las columnas `category` no se tocan. También convierte las columnas de tipo `string` de pandas, no solo `object`.
-- `atributos_a_minusculas(gdf)`: gemela en minúsculas, mismas reglas y trampas que `atributos_a_mayusculas`.
-
-**Editar campos.** Casi todas son una línea de pandas; existen porque el nombre dice qué hace el script y porque la guarda revienta donde pandas calla (`rename` ignora un nombre mal escrito, `to_numeric` vuelve nulo `'S/D'`, `map` deja nulo lo que no tiene pareja). Todas devuelven COPIA y no tocan la geometría; las que reciben nombres de campo fallan si alguno no existe y listan las columnas.
-
-- `listar_campos(capa)` → DataFrame `campo`, `tipo`, `nulos`, `ejemplo`. `capa`: GeoDataFrame o ruta. Con la ruta de un `.shp` añade `tipo_dbf`, `ancho` y `decimales` leídos de la cabecera del `.dbf`, o sea lo que quedó ESCRITO: es lo que se mira cuando otro programa corta un texto.
-- `agregar_campo(gdf, campo, valor=None, tipo=None)`: *Agregar campo*. `valor`: uno solo (se repite) o una lista con uno por entidad, asignada por POSICIÓN. `tipo`: `'texto'`, `'entero'`, `'decimal'`, `'fecha'`; vacío y sin tipo sale texto. **Falla si el campo existe**: sobrescribir es `calcular_campo`.
-- `calcular_campo(gdf, campo, expresion)`: *Calculadora de campos*. `expresion`: texto de `DataFrame.eval` (`"SUP * 10000"`) o función por fila (`lambda f: f"{f.PREDIO}-{f.ID}"`). Crea o SOBRESCRIBE, y avisa si sobrescribe.
-- `renombrar_campos(gdf, nombres)`: `{"viejo": "NUEVO"}`. Falla si un viejo no existe o si un nuevo choca con otro campo.
-- `eliminar_campos(gdf, campos)`: *Eliminar campo*.
-- `conservar_campos(gdf, campos)`: deja SOLO esos, en ese orden. La lista de lo que va, no la de lo que sobra.
-- `ordenar_campos(gdf, campos)`: esos primero, el resto detrás; no quita nada.
-- `cambiar_tipo(gdf, campo, tipo, forzar=False)`: a `'texto'`, `'entero'`, `'decimal'` o `'fecha'` (día primero). **Falla si un valor no convierte** y lo muestra; `forzar=True` lo deja nulo y avisa. A entero falla si hay decimales (no trunca). A texto no inventa ceros a la izquierda.
-- `reemplazar_valores(gdf, campo, reemplazos)`: `{viejo: nuevo}`; lo no listado QUEDA como estaba (al revés que `Series.map`). Falla si ninguna clave aparece (casi siempre `1` contra `'1'`) y avisa de las que faltan.
-- `ordenar_filas(gdf, por, descendente=False)`: *Sort*; nulos al final, índice renumerado.
-- `crear_capa(geometrias, crs, atributos=None, tipos=None)`: capa desde cero. `crs` obligatorio. `atributos`: dict `{campo: lista}` o DataFrame, una fila por geometría. `tipos` como en `cambiar_tipo`, necesario en una capa vacía.
-
-**Cuándo `bbox` y cuándo la capa ENTERA.** La regla no es de rendimiento, y por eso hay que escribirla:
-
-> `bbox` es seguro para lo que trabaja **geometría por geometría**. No lo es para lo que **infiere una propiedad de la CAPA**.
-
-`recortar`, `quemar_cauces`, `interpolar_mde`, `rasterizar` miran cada entidad por separado: las de fuera de la ventana no podían cambiar el resultado, así que no cargarlas es gratis. En cambio `detectar_cota` y `detectar_campo` leen la COLUMNA ENTERA y deciden a partir de su forma: ahí qué filas cargaste **es** la respuesta. `ancho_banda` ya lo sabía para su escalera de cotas ("sale de las curvas COMPLETAS, antes del recorte"); esto es lo mismo enunciado como regla.
-
-Y no vale "cargar de más es el lado seguro". Medido sobre las curvas estatales con la misma capa, solo cambiando el margen:
-
-    predio+1500   43 niveles, saltos {20: 42}          -> ELEVACION, e = 20   correcto
-    predio+6000   45 niveles, saltos {20: 43, 2122: 1} -> ELEVACION, e = 20   correcto
-
-La ventana grande arrastra una fila mala del estatal (3302 m entre curvas de 1180), y **una sola fila así basta para que una detección por regularidad devuelva una columna de identificadores con `e`=1 m** (por eso `detectar_cota` elige el paso más grueso). O sea que ampliar la ventana puede mover la equidistancia, y de ella cuelga la cadena entera. Lo seguro no es una ventana grande ni chica: es un **dominio declarado y estable**, y detectar la cota una sola vez sobre él.
-
-En la práctica: declara un dominio (`crear_cuadro(predio, margen=DOMINIO_M)`), carga las curvas con `bbox=` de ese dominio, detecta cota y campo UNA vez sobre él, y no los vuelvas a detectar sobre capas ya recortadas. Tiene que contener al `cuadro_recorte`, que sale después (de `derivar_parametros`, que ya necesita `campo`): `ejemplos/mde.py` lo comprueba con un `assert`.
-
-### proyeccion.py: CRS
-
-- `reproyectar(gdf, destino, nombre="capa")`: deja la capa en ese CRS; si ya está, no hace nada y devuelve la MISMA capa (no copia: si la vas a mutar, copia tú). Avisa solo cuando reproyecta de verdad. `destino` = EPSG (int), cadena (`'EPSG:32613'`, WKT, proj4) u objeto CRS. `nombre` solo etiqueta avisos y errores. Falla si la capa no trae CRS. **Avisa del cambio de DATUM inexacto**: si la mejor operación de PROJ para el área de la capa pasa de 1 m o no declara exactitud, o falta la rejilla de una mejor, lo imprime con la exactitud y la rejilla. NAD27 → UTM 13N en la zona de trabajo da 12 m (`NAD27 to WGS 84 (18)`) sin que `to_crs` diga nada; ITRF2008 (INEGI) → WGS84 da 1 m y no avisa. Cambiar solo la proyección no avisa ni cuesta. No descarga rejillas ni activa `PROJ_NETWORK`.
-
-**Regla:** `recortar`, `intersecar`, `borrar` y `union_espacial` alinean el CRS solos, y siempre en el mismo sentido: reproyectan el **segundo** argumento al CRS del primero. La capa que procesas no se mueve; se mueve la máscara. Por eso conviene recortar primero en el CRS de origen y reproyectar el recorte después: mueves menos geometrías. No pongas `reproyectar` antes de ellas: la línea sobra. `fusionar` no alinea a propósito (concatenar dos sistemas da una capa mal ubicada en silencio); ahí sí, `reproyectar` antes.
-
-Las funciones que miden en metros sin decirlo en la firma (`superficie_total_ha`, `ancho_banda`, `cercano`...) **fallan con un CRS en grados o en pies** en vez de devolver la cifra en la unidad equivocada. `calcular_superficie`, `calcular_longitud`, `superficie_total` y `longitud_total` sí convierten cualquier CRS.
-
-Nunca pases `capa.crs.to_epsg()` como destino: da `None` si el CRS no tiene código EPSG registrado (cartografía INEGI en Cónica Conforme de Lambert ITRF92, viene como WKT suelto) y truena dentro de geopandas. Pasa `capa.crs` directo.
-
-```python
-cauces = geo.recortar(cauces, cuadro)  # sí
-cauces = geo.recortar(cauces, geo.reproyectar(cuadro, cauces.crs.to_epsg()))  # no
-```
-
-### geometria.py: vector
-
-- `recortar(gdf, mascara)`: clip por otra capa o por una geometría shapely suelta (reproyecta `mascara` al CRS de `gdf`). Conserva solo el tipo de geometría de entrada (`keep_geom_type`): descarta esquirlas punto/línea del clip, así guarda a shapefile sin error.
-- `disolver(gdf, campo=None, valor=None)`: une todo en una geometría; opcional etiqueta `campo=valor`. Devuelve solo `geometry` (+ `campo`): los demás atributos se pierden. Si los necesitas, `disolver_por_grupo` sí los conserva. Si la unión sale vacía (capa sin filas o solo geometrías vacías) lanza `ValueError` con mensaje claro, en vez de una fila vacía que viaja aguas abajo.
-- `disolver_por_grupo(gdf, campo)`: un polígono por cada valor único de `campo` (dissolve por grupo, p. ej. por `gridcode`); `campo` agrupa, no solo etiqueta. Conserva CRS.
-- `separar_multipartes(gdf)`: multiparte → una fila por pieza (*multipart to singlepart*). La **inversa de `disolver_por_grupo`**: tras disolver hay una entidad por clase y sus manchas sueltas ya no se pueden contar, medir ni indexar. Atributos copiados a cada pieza; conserva CRS y nombre de la columna de geometría. Envuelve `explode(index_parts=False).reset_index(drop=True)`; los dos argumentos son la trampa (sin ellos queda MultiIndex y el `iloc[[k]]` siguiente cambia de comportamiento). **No recalcula áreas**: `calcular_superficie` va aparte, detrás del último paso que mueva la geometría. Uso típico: `separar_multipartes(alta)` → `calcular_superficie(..., campo="AREA_HA")` para tener área POR PIEZA. También es lo que esperan `subdividir_por_area` y `eliminar_menores`, que razonan por FILA.
-- `zona_de_influencia(gdf, distancia)`: *Zona de influencia* (Buffer), en unidades del CRS; devuelve copia.
-- `borrar(gdf, otro)`: *Borrar* (Erase). Resta lo que pise `otro` (capa o geometría shapely suelta; prioridad a `otro`). Alinea CRS como `recortar`. Si el recorte deja una mezcla de área y línea (bordes que se rozan), conserva solo la de mayor dimensión: esas esquirlas no son solape y revientan al guardar a shapefile.
-- `resolver_por_prioridad(capas)`: lista ordenada de mayor a menor prioridad → una sola capa sin encimados. Cada capa se recorta contra la unión de **todas** las anteriores, no contra la vecina: con 3+ capas, recortar solo contra la vecina deja pasar el solape de la tercera con la primera donde la segunda no cubre (aparece justo en los cruces). Conserva atributos.
-- `repartir_por_cercania(gdf_a, gdf_b, resolucion=1.0, nombres=("A","B"))`: dos capas que se solapan sin jerarquía entre sí (asignación euclidiana). Parte la zona en conflicto y da cada pedazo a la capa cuyo núcleo esté más cerca; `resolucion` es la malla temporal que define ese borde. **Una sola entidad por capa** (`disolver` antes). → `(gdf_a, gdf_b, conflicto)`; `conflicto` trae columna `gana` para revisar a ojo. Empate → `gdf_a`. Si la malla pasa de 20 M píxeles falla pidiendo subir `resolucion`: el tope mide el **rectángulo envolvente** del conflicto, no su área, así que unas esquirlas en esquinas opuestas dan un rectángulo enorme casi vacío. Ante ese error sube `resolucion` a 2 o 5 antes de sospechar del solape.
-- `fusionar(capas)`: *Fusionar* (Merge). Concatena lista de capas (CRS de la primera). Falla si alguna viene en otro CRS; no reproyecta sola (concatenar dos sistemas daría una capa mal ubicada en silencio).
-- `puntos_a_linea(gdf, campo=None)`: puntos→línea en orden de filas; `campo` = una línea por grupo. ≥2 puntos.
-- `puntos_a_poligono(gdf, campo=None, envolvente=False)`: puntos→polígono (vértices en orden); `envolvente=True` usa convex hull. ≥3 puntos.
-- `linea_a_poligono(gdf)`: cierra cada línea en polígono.
-- `crear_cuadro(gdf, margen=0)`: bounding box ampliado `margen`.
-- `cuadros_mde(predio, resolucion=None, margen_borde_celdas=None, margen_salida=0.0, parametros=None)`: Con `parametros=p` toma `resolucion` y `margen_borde_celdas` del dict de `derivar_parametros` (lo pasado a mano manda). `(cuadro_recorte, cuadro_salida)`, el par de extents que pide `interpolar_mde` (práctica de ANUDEM). `cuadro_salida` = predio (extent que conservas); `cuadro_recorte` = salida ampliada `margen_borde_celdas × resolucion`, al que se recortan curvas/cauces. La entrada sobresale N celdas respecto a la salida (celdas de borde interpoladas con datos a ambos lados). Borde = 200 m a 20 m/px con 10 celdas.
-- `limpiar_vacias(gdf)`: quita geometrías vacías/nulas.
-- `reparar_geometrias(gdf)`: `make_valid` + descarta vacías e inválidas (y las esquirlas de línea o punto que deja `make_valid`). No `buffer(0)`: en un polígono en moño se queda con la mitad de la superficie.
-- `calcular_superficie(gdf, campo=None, unidad="ha", decimales=2)`: añade columna de área en `unidad` (`"m2"`, `"ha"`, `"km2"`); sin `campo` se llama `superficie_<unidad>`. Vale con **cualquier CRS**: proyectado mide plano (y convierte si el CRS va en pies), geográfico mide sobre el elipsoide WGS84. Redondea a **2 decimales** (0.01 ha = 100 m²; sube `decimales=` si necesitas más). Instantánea de la geometría actual: calcúlalo detrás del **último paso que toque la geometría**, o queda obsoleto (`guardar` avisa, con holgura 0.1% + 0.005 por ese redondeo). "Último" no es "después de reproyectar y recortar": `borrar`, `resolver_por_prioridad`, `simplificar`, `cerrar_microhuecos`, `subdividir_por_area`, `eliminar_menores`, `identidad`, `union` y `partir_por_linea` también la mueven, y los dos primeros van al final de la cadena de pendientes, ya pasado el recorte.
-- `superficie_total_ha(gdf)`: superficie total en ha, número y sin redondear. La otra mitad de `calcular_superficie` (esa da columna redondeada a 2 decimales, el orden mismo de la tolerancia con que se cuadran totales). Capa vacía -> `0.0`. Falla si el CRS no es proyectado en metros (grados o pies): el nombre promete ha. Plana y estricta a propósito, porque las guardas la restan de `.area` plana de shapely.
-- `superficie_total(gdf, unidad="ha")`: superficie total en `unidad` (`"m2"`, `"ha"`, `"km2"`), sin redondear y con **cualquier CRS** (geográfico -> elipsoide). La general; `superficie_total_ha` es la estricta que usan las guardas.
-- `comprobar_particion(capas, zona, tolerancia_ha)`: comprueba que `capas` PARTEN `zona`. Devuelve `(falta_ha, solape_ha)` y falla si alguna pasa la tolerancia. `falta` positiva = no cubre; negativa = se sale. Mide tres cifras POR SEPARADO: hueco (zona menos unión), exceso (unión menos zona) y doble conteo (suma de áreas − unión), y la guarda compara cada una contra la tolerancia, sin sumarlas; `falta` = hueco − exceso es solo informativa. Una guarda sobre la cifra neta compensaría: 0.5 ha sin cubrir dentro más 0.5 ha fuera darían 0.0. Si falla, el mensaje da piezas y centroide de lo mayor. Con UNA capa comprueba que sus propias filas parten la zona. `tolerancia_ha` sin default a propósito: es `declarado` y va con su razón, no heredado de otro predio.
-- `longitud_total_m(gdf)`: longitud total en metros, sin redondear; falla si el CRS no es proyectado en metros. Gemelo de `superficie_total_ha` para líneas; no pasa a km porque las comparaciones de las que sale van en metros.
-- `longitud_total(gdf, unidad="m")`: longitud total (perímetro en polígonos) en `unidad` (`"m"`, `"km"`), sin redondear y con **cualquier CRS**. La general; `longitud_total_m` es la estricta.
-- `concordancia_lineas(lineas, referencia, tolerancias, zona=None)`: cuánto se parecen dos redes de líneas, **en las dos direcciones** -> DataFrame con una fila por `tol` (creciente): `tol_m`, `km_lineas`, `km_referencia`, `precision_pct` (% de `lineas` a <= tol de `referencia`) y `cobertura_pct` (% de `referencia` a <= tol de `lineas`). Una sola dirección engaña: una red más corta gana precisión y pierde cobertura por construcción. `tolerancias` es escalera y no un número porque no hay `tol` verdadero; se lee si el ORDEN entre dos redes aguanta todos los peldaños. `zona` limita lo que se MIDE, no lo que casa: la otra capa entra hasta `max(tolerancias)` fuera, para que el borde no baje la cobertura. **Un juez no puede ser insumo**: si `referencia` entró como `quiebres` de `interpolar_mde`, el parecido sale por construcción (pasó con la hidrografía de INEGI). Ahí va hold-out con `bloques_ajedrez` y se pasa como `referencia` solo la parte reservada. Falla con CRS distinto o geográfico, `tol` <= 0, o una capa sin largo dentro de `zona`.
-- `bloques_ajedrez(zona, lado)`: parte `zona` en cuadros de `lado` alternados como tablero -> GeoDataFrame recortado a `zona` con `pliegue` (0/1), `fila`, `col`. La partición del **hold-out espacial**: el pliegue 0 impone (`recortar(cauces, b[b.pliegue == 0])` como `quiebres`), el 1 juzga con `concordancia_lineas`, y luego al revés. Bloques y no tramos al azar: un tramo reservado al azar queda entre vecinos impuestos del mismo cauce y el juez sale contaminado por vecindad. Los del mismo pliegue solo se tocan en esquinas, así que `zona_de_influencia(bloques, -guarda)` quita la franja de todas las aristas. `lado` es DECLARADO; la rejilla se ancla en múltiplos de `lado` (misma `zona`, mismos cuadros). TECHO: el drenaje no es local, el agua de un bloque que impone entra al que juzga; la guarda lo recorta, no lo elimina.
-- `pendiente_sostenida(curvas, zona, equidistancia)`: `(separacion_m, pendiente_pct)` que la cartografía sostiene dentro de `zona`. Juez de la cartografía INDEPENDIENTE del MDE (sombrear el propio ráster es circular). Para el rango `>100%`: separación por G'(0) (`separacion_media`), y pendiente = equidistancia/separación. **No área/largo**: ese cociente divide entre la longitud REAL y la tortuosidad lo hunde (-29 % medido con zigzag 1.41), justo el número que luego se compara contra `h` y contra el piso, que se miden sin ese sesgo. Sin curvas dentro -> `(nan, nan)`, compruébalo con `sep == sep`.
-- `ancho_banda(curvas, campo, zona, equidistancia, zigzag, pendiente_pct=100.0, cortes=None, devolver_banda=False)`: el ancho transversal **medido** `w` de la clase más alta, por escalera de cortes -> `(tabla, resumen)`. Es la medición que `resolucion_regla(..., ancho_medido=w)` no puede hacer sola: sin ella su techo de `trazado` cae al ancho GEOMÉTRICO `equidistancia/p_max` (medido en un predio: `w` = 15.5 m contra 20 m geométricos, y con ello `h` = 5.17 contra 6.67 — una de las cuatro decisiones que se pierden en silencio al cambiar de script). Y es EXTERNA al MDE, que es el punto: la clase alta se juzga contra la cartografía, no contra un sombreado del mismo ráster que la produjo. Dos partes: (1) reconstruye la banda — un tramo de la cota `b` pertenece a la clase si su nivel contiguo `a` pasa a menos de `s_max = equidistancia/(pendiente_pct/100)`; (2) repite el recorte a cada `x` de `cortes`, y el largo que APARECE entre `x_previo` y `x` aporta una franja de ancho medio `(x+x_previo)/2`. Sumadas son el área que la carta sostiene, y `w = area/largo_efectivo`. `cortes=None` -> `s_max·(0.4, 0.6, 0.8, 1.0)`, que con equidistancia 20 da los 8/12/16/20 con que se midió `w`=15.5; `s_max` se añade siempre si falta, porque el largo efectivo sale del ÚLTIMO corte y una escalera que no cierra la banda infla `w`. **`zigzag` se CANCELA en `w`** (divide área y largo por igual) pero SÍ manda en `area_ha`, que es el blanco cartográfico que se cita: pasar `1.0` por descuido no mueve `w` y sí infla el blanco por el factor entero. `resumen`: `ancho_m`, `area_ha`, `largo_efectivo_m`, `separacion_max`, `ancho_geometrico`. COSTO: `len(cortes)·(nº cotas−1)` buffer+recorte vectoriales (~236 con 59 cotas y 4 cortes). Sin banda medible levanta `ValueError`: "esta cartografía no tiene banda limpia" es un resultado, no un cero reutilizable. **No hace falta recortar `curvas` antes**: se recorta aquí a `zona` engordada `max(cortes)`, que es exacto (más allá de ese alcance ninguna geometría puede cambiar el resultado) y es lo que hace la función usable con cartografía estatal; sin ese recorte el buffer se aplicaba a la multilínea completa de cada nivel, agotaba la memoria y el sistema mataba el proceso sin traza. La escalera de cotas sale de las curvas COMPLETAS, antes del recorte: recalcularla sobre lo recortado haría contiguos dos niveles separados `2e` si el de en medio queda fuera, y aparecería una banda que no existe. **`devolver_banda=True` devuelve `(tabla, resumen, banda)`**, y `banda` son los TRAMOS DE CURVA de la clase al último corte ya recortados a `zona`, o sea la misma geometría con la que se contó `largo_efectivo_m`. Es lo único con lo que sale la cifra que el resumen numérico no puede dar: el % del escarpe cartográfico que el MDE VE, que se citó en un predio como *"el MDE ve el 56 % del escarpe (10 436 m efectivos)"* y que es `longitud_total_m(recortar(banda, clase_alta))/zigzag` sobre `largo_efectivo_m`. Sin ella solo sale un PISO (área del MDE sobre el largo efectivo entero) y **los dos números NO se comparan**. TRAMPA: `longitud_total_m(banda)` es largo de TRAZO, con el zigzag dentro, mientras que `largo_efectivo_m` ya viene dividido entre él; olvidarlo son 40 puntos porcentuales con zigzag 1.408. Son líneas y no polígono porque es lo que ya se calcula por dentro; el polígono es `zona_de_influencia(banda, w/2)` en la llamada, con la `w` que la propia función acaba de devolver.
-- `sostenimiento_por_clase(gdf, curvas, campo, rangos, equidistancia)`: qué separación sostiene la cartografía en cada clase ACUMULADA (`>= p`), de una sola clasificación. Para cada límite inferior `p` de `rangos` toma la unión de esa clase y todas las superiores (= reagrupar `rangos` con la abierta empezando en `p`) y le mide `pendiente_sostenida`. → lista de dicts de mayor a menor corte con `corte`, `etiquetas`, `area_ha`, `n_piezas`, `s_sostenida`, `piso_local` (= `s_sostenida/2`), `p_sostenida`. **Es la función que decide qué clase puede entregar un predio**, y de UNA interpolación, no de una por corte: `s_sostenida` es estable al 1 % frente a `h` (medido en dos predios y tres cortes, `h` de 20 a 52 m) porque el ancho del objeto es del terreno y de las curvas, no del píxel. Uso: recorre las filas de arriba abajo y quédate con el corte MÁS ALTO que cumpla **`piso_local <= h <= s_sostenida`**. Las dos condiciones son distintas: `h >= piso_local` es antialias (el rizo ondula con la separación LOCAL y Horn deriva sobre `2h`; es el `antialias` de `resolucion_regla` con la λ de ESA clase) y `h <= s_sostenida` es que el objeto sea más ancho que el píxel. **No uses el piso global para esto**: en un predio mayormente suave describe el llano y sobre-restringe la banda empinada (medido: global 37.0 m contra local 15.5 m, factor 2.4, y con el global se condenaba una clase que sí era resoluble). Fundir clases ensancha el objeto, y por eso un corte más bajo puede pasar donde el alto no. `s_sostenida` NaN = sin curvas dentro, rizo puro, ese corte no se cita. **`h <= s_sostenida` es necesario y NO suficiente**: dice que el objeto cabe en el píxel, no que sobreviva a cómo se llenó ese píxel (medido: el CEM de INEGI cumple `9.6 <= 15 <= 19.2` y pierde el 90 % de la banda).
-- `separacion_media(curvas, zona, paso=None, resolucion=None)`: `(lambda_m, longitud_efectiva_m, factor_zigzag)`. λ por `G'(0)` de la escalera de buffers, no por el cociente global (sesga hacia lo llano). `paso` = el `d` de la diferencia finita (estable al 0.17 %); `h=` deriva `paso=h/2` si no se da `paso`. λ es media armónica ponderada por área: la dominan las zonas empinadas y **subestima los llanos**; no derivar parámetros de λ sola. `longitud_efectiva_m` convierte un `intervalo_muestreo` de terreno al que espera `interpolar_mde` sobre el trazo (`* factor_zigzag`). Sin curvas dentro -> `(nan, nan, nan)`.
-- `auditar_rangos(gdf, curvas, campo, rangos, equidistancia, distancia, mascara, resolucion)`: audita cada rango contra un techo cartográfico EXTERNO al MDE (área a más de `e/(2p)` de TODA curva no puede sostener `p`; cota FLOJA, no el blanco firme). `distancia`/`mascara`/`h` son las de `raster_distancia`, sobre el mismo dominio que produjo `gdf`. El juez real por rango es `pendiente_sostenida` (columna `p_sostenida`; NaN = sin curvas dentro, rizo puro). Devuelve lista de dicts (`etiqueta`, `area_mde_ha`, `acumulado_ha`, `techo_ha`, `s_sostenida`, `p_sostenida`, `bandera`); `mostrar` además la imprime.
-- `intersecar(gdf, otro)`: *Intersecar* (Intersect). `overlay` de intersección; una parte por cada par de entidades que se pisan. Conserva los atributos de `gdf`; de `otro` solo la forma (para traer sus columnas, `union_espacial`). Solo devuelve el tipo de geometría de `gdf`: las esquirlas línea/punto de bordes compartidos no son solape.
-- `union_espacial(gdf, otro, como="left", predicado="intersects")`: *Unión espacial*, sin cortar geometrías.
-- `entidad_a_punto(gdf, dentro=True)`: *De entidad a punto*: un punto por entidad con sus atributos. `dentro=True` usa `representative_point()`, que siempre cae dentro y NO es el centroide; `False`, el `centroid`. TRAMPA: el centroide de una U o de un multipolígono cae FUERA, y un `union_espacial` posterior le pega los datos de la parcela vecina sin avisar.
-- `cercano(gdf, otro, campo_id=None, max_distancia=None)`: *Near*. Añade `DIST_M` y `ID_CERCA` (valor de `campo_id` en `otro`, o su índice). Con `max_distancia`, lo más lejano sale en NaN. TRAMPA: en empate `sjoin_nearest` devuelve una fila POR EMPATE y la capa crece sin avisar (medido: 61 → 2413). Aquí sale una fila por entidad (la del primer empatado) y un aviso cuenta las empatadas. Falla con CRS geográfico, `otro` vacía o `max_distancia` <= 0.
-- `puntos_sobre_linea(gdf, intervalo, incluir_final=True)`: cadenamiento, puntos cada `intervalo` sobre cada línea. Explota multilíneas primero; añade `CADENA_M` e `ID_LINEA` y copia atributos. TRAMPA: `arange(0, largo, intervalo)` pierde el final (50 m cada 20 da 0, 20, 40 y **50**); `incluir_final` lo añade si no coincide. Cadenas de múltiplos enteros, no de float acumulado.
-- `identidad(gdf, otro)`: *Identity*. `gdf` entera, partida donde la pisa `otro`, con las columnas de los dos (NaN donde `otro` no cubre). `keep_geom_type=True` como `intersecar`. MUEVE la geometría: área después (regla 2); una superficie heredada se copia a cada pedazo y la suma sale inflada.
-- `union(gdf, otro)`: *Unión* (Union). Todo lo de las dos capas partido en sus cruces, con las columnas de las dos. No es `disolver` ni `fusionar`. Misma trampa: mueve la geometría.
-- `thiessen(puntos, zona)`: polígonos de Voronoi recortados a `zona`, con los atributos de su punto; parten `zona` exacta (`comprobar_particion` cierra). Gemelo vectorial de `repartir_por_cercania`, sin malla ni tope de píxeles. TRAMPA 1: `voronoi_polygons` devuelve las celdas SIN ORDEN respecto de los puntos; aquí se asignan por contención, no por índice. TRAMPA 2: puntos duplicados → ValueError que los nombra. Falla con CRS geográfico.
-- `partir_por_linea(poligonos, lineas)`: parte polígonos con líneas, no con polígonos. Cada polígono se corta con la unión de las líneas que lo tocan; una fila por pieza con los atributos del origen. TRAMPA: una línea que no atraviesa de borde a borde no parte nada y `split` no dice nada; aquí se cuentan los polígonos tocados que salieron enteros y se avisa. Mueve la geometría.
-- `calcular_longitud(gdf, campo=None, unidad="m", decimales=2)`: añade longitud por geometría en `unidad` (`"m"`, `"km"`), con cualquier CRS y el mismo redondeo que `calcular_superficie`; sin `campo` el nombre es `longitud_<unidad>`. **Misma regla que el área, y por la misma razón: va detrás del ÚLTIMO paso que mueva la geometría**, no solo detrás de recortar y reproyectar. `guardar` avisa si quedó obsoleta. En polígonos `.length` es el perímetro, y una columna `PERIMETRO` entra en la misma guarda.
-- `calcular_coordenadas(gdf, crs=None, formato="decimal", decimales=None)`: *Agregar coordenadas XY*: añade las coordenadas de cada PUNTO como columnas, expresadas en `crs` (sin él, el de la capa) y sin mover la geometría. Geográfico → `LAT`/`LON` (6 decimales por defecto, ~0.1 m); proyectado → `X`/`Y` (2 decimales). `formato="gms"` da texto `20°32'29.44" N` en `LAT_GMS`/`LON_GMS` (hemisferios N/S y E/O, `decimales` de los segundos, 2 por defecto) y falla con CRS proyectado. Lat/lon y UTM en la misma tabla: dos llamadas, `calcular_coordenadas(gdf, crs=4326)` y `calcular_coordenadas(gdf, crs=geo.detectar_utm(gdf))`. **Falla con líneas o polígonos**: qué punto representa una entidad lo decide `entidad_a_punto`, no esta función. TRAMPA del `.shp`: `°` ocupa 2 bytes en el .dbf, cuéntalo si fijas `anchos` en `guardar`.
-- `medir_geodesico(gdf)`: añade `SUP_GEO` (ha) y `LONG_GEO` (m; perímetro en polígonos) medidos sobre el elipsoide WGS84 con `pyproj.Geod`, sin depender de la proyección. Imprime la diferencia en % contra el cálculo plano (si el CRS es proyectado): es cuánto deforma la UTM. **TRAMPA:** `geometry_area_perimeter` da área NEGATIVA con anillo horario (se toma `abs()`) y en una línea su perímetro es el doble del largo (`LONG_GEO` sale de `geometry_length`). Misma regla que el área: detrás del último paso que mueva la geometría.
-- `simplificar(gdf, tolerancia, conservar_topologia=True)`: con polígonos simplifica la COBERTURA (`simplify_coverage`): cada arista compartida se simplifica una vez y los vecinos siguen encajando; el borde exterior de la capa no se toca. Con líneas, puntos o `conservar_topologia=False`, cada geometría por su cuenta (Douglas-Peucker). Simplificando cada vecino por su cuenta salen 40.03 ha de hueco y 29.81 de solape en un predio real. Si la capa de polígonos no es una partición → ValueError (mide con `comprobar_particion`, arregla con `borrar`/`resolver_por_prioridad`). OJO: con polígonos la tolerancia NO es una distancia máxima (Visvalingam-Whyatt, por área): sobre una escalera de píxel de 10 m, tolerancia 5 no quita nada y 10 quita la escalera moviendo el borde 6 m. Usa `tolerancia` = tamaño de píxel. **Hoy falla sobre la salida de `poligonizar`** (rasterio no pone vértice en las juntas en T, y GEOS exige los mismos vértices a los dos lados de cada arista): 330 polígonos rechazados en un predio real, 154 en otro. Se arregla con `shapely.coverage_clean` (shapely 2.2, GEOS 3.14); pasos en el comentario de `simplificar` (`geometria.py`).
-- `cerrar_microhuecos(gdf, distancia)`: closing morfológico de la UNIÓN. Cada rendija que toca 2 o más polígonos va al vecino de borde compartido más largo; no toca un hueco ni un entrante de un solo polígono (eso es `rellenar_huecos`). Un closing por polígono invadiría al vecino: 261 ha de solape en un predio real. NO conoce la zona: una muesca del lindero entre dos clases cuenta como rendija (medido a 10 m: +0.09 ha en un predio real, +0.02 en otro); si la capa ya se recortó, `recortar` otra vez después. Tras `poligonizar` no hace falta: los vecinos comparten arista.
-- `rellenar_huecos(gdf, area_max_ha=None)`: quita los huecos de DENTRO de cada polígono (los anillos interiores). La otra mitad de `cerrar_microhuecos`, y las dos hacen falta. Salen a puñados de `poligonizar`: cada mancha de otra clase encerrada por la de al lado deja un anillo, y a escala de trabajo la mayoría no llega a la UMM. `area_max_ha` es la decisión de campo — se quitan los huecos ≤ esa superficie y se conservan los mayores; ponle la UMM y la capa queda coherente con el resto de la cadena. Con `None` se quitan TODOS, que es lo que hace un borrado de huecos sin condición, y desaparece también el claro grande y real. Va DESPUÉS de `poligonizar` y ANTES de `calcular_superficie`: rellenar cambia el área.
-- `subdividir_por_area(gdf, area_max_ha, campo_area="superficie_ha", min_esquirla=100)`: parte polígonos grandes por bisección.
-- `eliminar_menores(gdf, area_min_ha, area_max_ha, campo_area="superficie_ha")`: *Eliminar* (Eliminate). Absorbe los polígonos chicos en su mejor vecino.
-- `ruta_red(caminos, puntos, velocidades, campo=None, campo_sentido=None, nodar=False)` → capa con una línea y los campos `METROS` y `MINUTOS`. Ruta más rápida sobre una red de LÍNEAS (calles, caminos): la pareja vectorial de `ruta_costo_minimo`. Cada línea se parte vértice a vértice y dos líneas se conectan donde COMPARTEN vértice (a menos de 1 cm); peso = metros / km/h, Dijkstra de scipy. `velocidades` = un número para todas, o dict `{valor de campo: km/h}` con `campo`. `campo_sentido`: 'yes'/'true'/'1' = solo en el sentido del dibujo, '-1' = al revés, lo demás = los dos; con un .osm o .pbf (`cargar(ruta, capa="lines")`) se busca en `other_tags` si no es columna. `puntos` = dos, origen y destino **en ese orden** (la vuelta es otra ruta: los sentidos únicos la cambian); cada uno se engancha al vértice más cercano y la distancia de enganche se imprime; la línea va de vértice a vértice, no a los puntos exactos. `nodar=True` parte las líneas en cada cruce, para CAD cuyos cruces no comparten vértice; también vuelve cruce cada puente, por eso no es el default. Falla claro sin velocidad para un tipo (dice cuáles y cuántas vías), con red partida (en cuántas piezas y de cuántos km la del origen y la del destino) o si lo impiden los sentidos. **TRAMPA: las velocidades deciden la RUTA, no solo los minutos**: en una ciudad real (OSM) bajar las residenciales de 25 a 20 km/h cambió el 93 % del trazado de ida; calíbralas con algún trayecto medido antes de citar tiempos. **TRAMPA: las capas `Caminos*` de las cartas urbanas INEGI 2009 son contornos de CAD** (banquetas, bordes de pavimento), no ejes: ninguna línea toca a otra y no hay red; usa ejes de calle (OSM o la Red Nacional de Caminos). Medido en una ciudad real (OSM, 344 km, 6353 vértices): menos de 1 s por ruta.
-- `isocronas(caminos, origenes, velocidades, cortes, campo=None, campo_sentido=None, nodar=False, hacia=False, ancho=None)` → una fila por banda con `MIN_DESDE`, `MIN_HASTA`, `KM` (km de red en la banda) y la geometría (vacía si la banda no alcanza nada). Lo que se alcanza por la red en menos de cada corte: la misma red que `ruta_red` (mismos `velocidades`, `campo`, `campo_sentido`, `nodar` y errores), con un Dijkstra sin destino. Los tramos se cortan a media calle donde cae el corte. `cortes` = minutos crecientes (`[5, 10, 15]` → 0-5, 5-10, 10-15). `origenes` = uno o varios puntos; con varios, cada tramo toma el del origen más cercano en tiempo (la base de brigada más próxima). `hacia=False` mide SALIENDO de los orígenes; `True`, LLEGANDO (un herido al hospital): con sentidos únicos no da lo mismo. `ancho=None` devuelve LÍNEAS, la red real; con un número (m), polígonos a menos de `ancho` m de los tramos de cada banda, sin solaparse. **`ancho` es un supuesto que se declara** ("servido a pie hasta 100 m de la calle"), no sale de la red; sin envolvente cóncava a propósito: su parámetro de concavidad no sale de ningún dato y mueve la mancha. Lo que queda a más de `ancho` de una vía no aparece: para un rodal sin camino, `ruta_a_pie`. Escenario de corte: quita los tramos antes, p. ej. `caminos[~caminos.intersects(zonas.union_all())]`. Medido en una ciudad real (OSM, 344 km): 0.1 s con cuatro cortes.
-- `nombre_campo_libre(gdf, campo)`: nombre de columna sin colisión.
-
-### raster.py (trabajan sobre arrays 2D numpy + transform/crs)
-
-- `cargar_raster(ruta)` → `(array, transform, crs, resolucion_m)`. Nodata del archivo entra como NaN. Aplica `scale`/`offset` del archivo; un Sentinel-2 L2A de línea base 04.00 o posterior sin esto da un NDVI sesgado (0.51 en vez de 0.82 en el ejemplo).
-- `cargar_bandas(ruta, bandas=(1, 2, 3))` → **la misma tupla de 4**, con el array en 3D `(banda, y, x)` en el orden pedido. La hermana multibanda de `cargar_raster`, que solo lee la banda 1. Bandas **numeradas desde 1** (rasterio, GDAL). Sale en float aunque el .tif sea uint8, y eso no es cosmético: en aritmética entera `nir - rojo` hace **underflow** (10-200 = 66, no -190) y el índice sale con el signo cambiado, con un mapa perfectamente creíble. Aplica `scale`/`offset` del archivo; un Sentinel-2 L2A de línea base 04.00 o posterior sin esto da un NDVI sesgado (0.51 en vez de 0.82 en el ejemplo).
-- `guardar_raster(arr, ruta, transform, crs, nombres=None)`: array 2D, 3D o lista de 2D → GeoTIFF float32 con NoData NaN declarado, en la malla de `transform`/`crs` (los que devolvió `interpolar_mde`, `cargar_raster` o `mosaico`); sin perfil que armar; array 3D `(banda, y, x)` o lista de arrays 2D de la misma forma → una banda por array (formas distintas: ValueError). `nombres` = una descripción por banda, que los SIG de escritorio muestran; **ponla siempre en multibanda**, el orden de bandas no es universal y el nombre es lo único que viaja con el archivo. Sigue float32 con NaN. Acepta cualquier cosa convertible a array: el script no importa numpy. **No guardes el `mde_acondicionado` para flujo posterior**: es float64 y su micro-pendiente no cabe en float32 (medido: 0 sumideros en memoria, 8 955 tras guardar y releer).
-- `recortar_raster(ruta, mascara, nodata=nan)` → `(array, transform, crs, resolucion_m)`. Aplica `scale`/`offset` del archivo; un Sentinel-2 L2A de línea base 04.00 o posterior sin esto da un NDVI sesgado (0.51 en vez de 0.82 en el ejemplo). Funciona igual sobre la URL de un COG: solo baja los bloques que pisa la máscara. Nodata del archivo entra como `nodata`, igual que `cargar_raster`. **Sale siempre float, aunque el archivo sea entero** (int16 de INEGI): un NaN no cabe en un raster entero. El `crs` es el de rasterio y **no tiene `.name`**; para imprimirlo, `pyproj.CRS(crs).name`. Reproyecta la máscara al CRS del raster ella misma, así que **si falla con "no intersecta" NO es de proyección**: es que la escena no cubre la zona (el mosaico equivocado, la tesela vecina, otra fecha), y eso se arregla consiguiendo otro archivo, no tocando el código. El error trae los dos extents y la separación en km para que la tesela buena salga de una resta.
-- `mosaico(rutas, mascara, crs=None, metodo=nearest)` → la misma tupla de 4 que `recortar_raster`. Junta varios rásters de una banda (rutas o URL de COG) leyendo **solo el rectángulo de `mascara`**, con NaN fuera del polígono. CRS de salida: `crs` o el del primer ráster; una fuente en otro CRS (tesela del huso vecino) se reproyecta al vuelo. **El orden de `rutas` es la prioridad: en el solape gana la primera.** `metodo` nearest por defecto: casi siempre es la misma malla, y bilinear inventa clases en una banda categórica (la `scl`), la trampa de `reproyectar_raster`. Aplica nodata y `scale`/`offset` como los lectores; fuentes con escalas u offsets distintos entre sí → ValueError (`merge` junta valores crudos). Ninguna fuente pisa la máscara → ValueError con los extents. Predio con hueco (falta una tesela) no es error: imprime el %. Sirve también para el MDE de INEGI en varias cartas.
-- `rellenar_nodata(arr)`: NaN ← píxel válido más cercano.
-- `mascara_relleno(mde_original, iteraciones=1)`: booleana, celdas cuya ventana 3x3 contaminó `rellenar_nodata` (la zona rellenada es meseta plana al 0% sin marcar). SALIDA DE EMERGENCIA, no el camino normal: el relleno vive dentro de `acondicionar_mde` y `calcular_pendiente` recibe el NaN intacto, así que solo la necesitas si cargas de disco un .tif que ya venía relleno. Pásale el MDE ANTES de rellenar; sale dilatada un píxel (elemento 3x3 lleno). Uso: `relleno = mascara_relleno(mde)` → `rellenar_nodata` → `calcular_pendiente` → `pendiente[relleno] = np.nan`. Ojo si comparas con un script de referencia que sí la usa sobre un MDE recién interpolado: no es que haga falta, es que ese par marca **más** celdas que la regla 7 de 8 (dilatación 3×3 completa contra "menos de 7 vecinos válidos", que deja pasar la celda con un solo vecino sin dato). Las dos son defendibles; lo que no se puede es cambiar de una a otra a mitad de una serie de corridas que se comparan entre sí.
-- `remuestrear(arr, transform, crs, res_destino, metodo=bilinear)` → `(array, transform)`.
-- `reproyectar_raster(arr, transform, crs, crs_destino, res_destino=None, metodo=bilinear)` → `(array, transform)`. Es un **warp**. `remuestrear` cambia la resolución dentro del mismo CRS; ésta cambia el CRS, y la resolución también si le das `res_destino` (`None` = la que conserva aproximadamente el nº de píxeles, como los SIG de escritorio). La malla de salida **no se hereda**: se recalcula, porque al cambiar de proyección el rectángulo deja de ser rectángulo y forzar el shape recortaría las esquinas en silencio. **TRAMPA:** `metodo` es bilineal por defecto, correcto para continuos (elevación, pendiente, un índice) e **incorrecto para categóricos** — interpolar entre la clase 2 y la 4 inventa una clase 3 que no existe en ninguna leyenda, y nada avisa porque es un número válido. Para códigos de `reclasificar_rangos` o cuencas etiquetadas: `metodo=Resampling.nearest`. No se puede detectar desde dentro: un array de códigos y uno de elevaciones son los dos floats. NoData viaja como NaN en los dos sentidos. La línea de reporte dice el paso en **u/px** (unidades del CRS), no en m/px: es la única función que cruza de metros a grados.
-- `indice_vegetacion(tipo, rojo=None, verde=None, azul=None, nir=None, swir1=None, swir2=None)` → array float. `"ndmi"` = `(nir-swir1)/(nir+swir1)`, humedad de la vegetación; `"ndwi"` = `(verde-nir)/(verde+nir)` y `"mndwi"` = `(verde-swir1)/(verde+swir1)`, agua en positivo (`mndwi` separa mejor el agua de lo construido); `"nbr"` = `(nir-swir2)/(nir+swir2)`, biomasa y perturbación (quemas): con `ndvi` son los tres índices habituales de vegetación y quemas, y `imagen_sentinel2` los alimenta con `indice_vegetacion(tipo, **bandas)`. **No umbraliza**: el escalón siguiente es `reclasificar_rangos`, que ya resuelve la convención de bordes y devuelve las etiquetas; meter aquí un `umbral` sería la misma operación escrita dos veces. Las bandas van **por nombre** a propósito — el orden de bandas no es universal (RGB, BGR, y las multiespectrales ponen el NIR donde quieren), y un stack posicional se equivoca de banda en silencio con un mapa que sigue pareciendo un mapa. `tipo`: `"ndvi"` = `(nir-rojo)/(nir+rojo)`, el bueno si hay NIR, rango [-1,1] y vegetación por encima de ~0.2; `"vari"` = `(verde-rojo)/(verde+rojo-azul)` para **RGB puro** (captura de pantalla de un mapa base, dron sin NIR), con el denominador inestable en píxeles muy azules u oscuros; `"exg"` = `(2·verde-rojo-azul)/(rojo+verde+azul)`, *Excess Green* sobre coordenadas cromáticas, más estable que `vari` en sombra porque el denominador es suma de positivos, rango [-1,2]. Denominador 0 (negro puro) → NaN, no infinito. Cadena completa: `recortar_raster`/`cargar_bandas` → `indice_vegetacion` → `reclasificar_rangos` → `limpiar_moteado` → `poligonizar` → `recortar` → `separar_multipartes` → `eliminar_menores` → `calcular_superficie` → `comprobar_particion` → `guardar`. Sin `cerrar_microhuecos` (tras `poligonizar` los vecinos comparten arista y no hay rendijas) y con `comprobar_particion` al final: la cadena con `cerrar_microhuecos` y `simplificar` por polígono metía 303.74 ha de doble conteo en un predio real sin avisar. **Sin `simplificar` hasta shapely 2.2 final** (comentario en `simplificar`): la salida de `poligonizar` no es cobertura noded y `simplificar` la rechaza con `ValueError`. La escalera de píxel queda en la capa. **Con una banda por archivo (Sentinel-2 y casi cualquier producto satelital) la que sirve es `recortar_raster`, una vez por banda, y `cargar_bandas` no entra:** como las bandas van por NOMBRE a `indice_vegetacion`, no hace falta apilarlas. No es un hueco de API, y añadir un `cargar_bandas(rutas=[...])` sería API por simetría.
-- `interpolar_mde(curvas, campo, resolucion=None, equidistancia=None, intervalo_muestreo=None, cuadro=None, metodo=None, suavizado=0.0, vecinos=None, lambda_m=None, amplitud_rizo=None, quiebres=None, paso_quiebre=None, parametros=None)`: curvas de nivel vectoriales → MDE continuo → `(array, transform)`. Muestrea puntos a intervalo regular sobre cada curva e interpola en malla. Fuera de la envolvente convexa → NaN (no extrapola). **Avisa de los planos exactos a la cota de una curva**, con cualquier método (TIN: triángulos con los tres vértices en la misma curva; spline e IDW: `vecinos` todos en la misma curva, por muestreo demasiado fino o pocos vecinos. Meseta falsa, 0 % de pendiente y sin orientación), en ha y % del extent, también con `geo.MOSTRAR = False`: es mudo aguas abajo (medido en un predio real: 10.6 %, 535 ha dentro del predio, 353 de ellas en ladera). `resolucion` e `intervalo_muestreo` por defecto salen de la separación horizontal medida por **G'(0)** (`separacion_media`) **sobre el extent de interpolación**, no del cociente área/longitud sobre el bbox de las curvas, que el zigzag del trazo sesga a la baja (medido: 74.93 m contra 59.36 m sobre la misma zona, 26 %; con el valor sesgado el `>100 %` da 7.16 ha contra 4.37 ha). `resolucion` se redondea a un valor limpio; `intervalo_muestreo` **no**, porque `_redondear_limpio` salta de 50 a 100 con el corte en 75.0 y una separación de 74.93 decidiría el muestreo por centímetros. TECHO: `intervalo_muestreo` es UN número para todo el predio; si la separación varía mucho (medido: 9.8 m en la banda empinada contra 340 m en el llano) ningún valor único sirve en los dos regímenes, y la clase más alta queda con banda de incertidumbre real. La línea de reporte trae `sin dato: N ha`, y si no es 0 imprime debajo qué hacer: subir `margen_borde_celdas` y recortar del shapefile COMPLETO de curvas (recortar dos veces no devuelve lo que el primer recorte tiró), comprobar que la cartografía de verdad rebasa `cuadro_salida`, o encoger `cuadro_salida`. El aviso está aquí y no en `acondicionar_mde` porque la rama de pendiente nunca pasa por el acondicionado. Descarta curvas con cota NaN. Falla si las curvas no están en un CRS proyectado en metros, aunque se le den todos los parámetros a mano: en grados la pendiente salía en millones de % sin reventar. Encaja entre `recortar`/`disolver` y `acondicionar_mde`/`quemar_cauces`. **`quiebres`**: líneas SIN cota, típicamente cauces, que el TIN tiene que respetar. Cada una recibe z de sus cruces con las curvas (`cotas_por_cruce`) y sus puntos, cada `paso_quiebre` (None = `resolucion / 2`), se suman a los de las curvas antes de triangular. Quita los triángulos horizontales del fondo de las vaguadas; medido en un predio real, el `>100` pasa de 229.17 a 234.73 ha. **Solo `metodo="tin"` o `"malla"`**, y levanta `ValueError` con otro: el spline con una nube densa a lo largo del cauce ondula. **`metodo="malla"`**: placa delgada discretizada sobre la malla (un solo sistema disperso, gradiente conjugado con multimalla); opcional, para los rangos bajos cuando el spline queda muy grueso (§"Cuando el spline queda muy grueso"). Sobreestima `>=60` de 7 a 8 %: no es fuente de la clase alta. TECHO: densifica la línea, no la impone; la Delaunay con restricciones (`triangle`, CGAL) es el escalón siguiente si una medición lo pide.
-- `planos_de_curva(mde, transform, curvas, campo)` → máscara booleana de las celdas planas EXACTAS a la cota de una curva: en el TIN, triángulos con sus tres vértices en la misma curva; en spline e IDW, celdas cuyos `vecinos` cayeron todos en la misma curva (muestreo mucho más fino que la separación, o pocos vecinos). Las dos interpolan una meseta horizontal aunque el terreno sea ladera. Salen con 0 % de pendiente (inflan el rango más bajo) y sin orientación, y aguas abajo no se distinguen de un llano. `interpolar_mde` ya avisa con las hectáreas del extent, con cualquier método; la máscara sirve para contarlas dentro del predio o para dejarlas sin pendiente con `calcular_pendiente(..., invalidar=planos)`. Mismo criterio de plano que `calcular_orientacion` (gradiente < 1e-9), así que su superficie coincide con la de "sin orientación". Compara contra los NIVELES de la capa, no contra múltiplos de la equidistancia. **Es un subconjunto del `atomo` de `histograma_fase`**: el borde de cada meseta tiene la ventana de Horn tocando ladera y sale con pendiente baja y no cero, que también es artefacto pero no se ve como plano (en un predio real: 778.35 ha de `atomo` contra 535.05). Para el daño total, `atomo`; para lo que sale al 0 % y sin orientación, esta. Medido en un predio real con TIN a 5 m: 535 ha dentro del predio, 353 de ellas en ladera de más del 15 %, y el 47 % a más de 100 m de un cauce (los quiebres no las quitan); con spline a 20 m y muestreo de 20 m, 0. Qué hacer: §"Cuando gana el TIN".
-- `cotas_por_cruce(quiebres, curvas, campo, paso)`: da cota a una capa de líneas sin z por sus cruces con las curvas: cada cruce vale la cota de la curva y entre dos cruces se interpola a lo largo de la línea, cada `paso`. La z sale de las dos capas de entrada, no de un MDE, así que no es circular (es el *drainage enforcement* de ANUDEM). No extrapola: descarta lo anterior al primer cruce y lo posterior al último, y salta las líneas con menos de dos. Exige el mismo CRS en las dos capas (no reproyecta: la z sale del CRUCE). Avisa SIEMPRE de las líneas cuya cota sube y baja (parteaguas o cruce mal capturado) y las usa igual. Devuelve puntos con `z` y `origen`. `interpolar_mde(..., quiebres=)` la llama por dentro; llamarla aparte sirve para guardar los puntos y revisarlos en el SIG.
-  - `metodo`: `"spline"`/`"tps"` (default, placa delgada), `"tin"` (Delaunay; úsalo solo si la cartografía trae líneas de quiebre que deban respetarse: desde curvas inventa mesetas donde un triángulo cae con sus tres vértices en la misma curva: medido en un predio real, el 80 % a media ladera y el 14 % en cimas y lomos, y en vaguadas si no hay quiebres) o `"idw"` (respaldo si el TIN falla por geometría degenerada).
-  - `resolucion` default = la mitad de la separación horizontal (redondeada); `intervalo_muestreo` default = la separación completa (sin redondear). NO uses la equidistancia para esto, es vertical.
-  - Muestrear más fino que la separación hace ondular al spline e infla el rango >100%. Si lo ves, sube `intervalo_muestreo`. El reporte trae `separacion:` para comparar.
-  - **El tamaño de píxel también gobierna cuánta ondulación llega a la pendiente.** El rizo tiene la longitud de onda de la separación entre curvas (λ), y una diferencia finita de paso `h` lo convierte en pendiente espuria `A·sin(2πh/λ)/h`, que es MÁXIMA cuando `h ≈ λ/4`. Con λ=38 m, `resolucion=10` es el peor valor posible (57% de pendiente inventada) y `resolucion=20` lo cancela casi entero (~5%): la diferencia abarca una onda completa. λ/2 es el PISO antialias de `resolucion_regla`, y `interpolar_mde` avisa si la resolución cae por debajo, la hayas fijado tú o la haya derivado él (el redondeo al valor limpio más cercano salta hacia abajo: λ/2 = 22 → 20). Avisa, no corrige: una resolución que se mueve sola no se puede citar, y cuando el piso supera al techo de la UMM no hay valor bueno — `resolucion_regla` documenta cuál se elige y por qué.
-  - **El piso es un proxy para cuando NO has medido `A`.** Con la amplitud del rizo medida, pásala como `amplitud_rizo=A` (metros): el aviso deja de dictaminar y reporta `A·sin(2πh/λ)/h`, la pendiente espuria que el alias mete de verdad, para compararla contra el límite inferior de tu clase alta. Medido con λ=76 m, `A ≤ 1.4 m` y `h`=5 m: ~11 %, que no fabrica un `>100 %` aunque el piso (37.4 m) grite. Cuando el criterio y la medición directa chocan, gana la medición. No cambia el cálculo, solo lo que se imprime.
-  - `lambda_m` es costo, no verdad: si ya mediste λ sobre **este mismo extent** (`_bounds_cuadro(curvas, cuadro)`), pásala y no se vuelve a medir — medirla es un buffer + disolver + intersecar sobre todas las curvas, y en un barrido que no mueve el `cuadro` es el mismo número pagado N veces (`barrer_resolucion` ya la pasa). Una λ de otro dominio cambia los defaults y el piso: o es la del extent, o no se pasa. No finita = se mide.
-  - `geo.MOSTRAR = False` apaga el reporte, **no** el aviso de `sin dato: N ha`: un hueco no es una línea de reporte, es superficie sin dato de origen, y lo que salga de ahí es inventado. Los scripts entregables imprimen lo suyo con `geo.MOSTRAR = False` y aun así ven el hueco.
-  - `parametros=p` (el dict de `derivar_parametros`) rellena `resolucion`, `equidistancia`, `intervalo_muestreo`, `vecinos`, `lambda_m` y `metodo`; lo pasado a mano manda. `metodo=None` = el de `p`, o `"spline"` sin él.
-  - `suavizado` (solo spline) y `vecinos` son las perillas **directas** contra la ondulación; `intervalo_muestreo` es la indirecta. `suavizado=0` interpola exacto; >0 relaja el ajuste (no está en metros: barre por órdenes de magnitud). `vecinos=None` = el default de cada método (48 spline, 8 IDW), no comparten escala. Menos vecinos = menos rizo, más rápido, y menos margen de datos necesita el cuadro de recorte. `"tin"` ignora los dos y avisa.
-  - No calibres `suavizado` con `validar_mde`: empeora siempre por definición (ver abajo). Calíbralo con la superficie del rango más alto de pendiente y con la separación de las curvas medida **dentro** de ese rango.
-  - `equidistancia` se autodetecta y solo sirve para el reporte y para avisar si la que pasas no coincide.
-- `validar_mde(curvas, campo, resolucion=None, equidistancia=None, intervalo_muestreo=None, cuadro=None, metodo=None, suavizado=0.0, vecinos=None, lambda_m=None, amplitud_rizo=None, porcentaje_reserva=0.2, semilla=None, parametros=None)`: *hold-out* sobre `interpolar_mde`: aparta al azar `porcentaje_reserva` de los puntos, interpola con el resto y compara. `semilla` fija el reparto. Pásale los mismos `suavizado`/`vecinos` que a `interpolar_mde` o validarás otra superficie. → `(metricas, puntos_validacion)`: dict (`rms`, `error_medio`, `error_abs_medio`, `p50`/`p90`/`p95`/`max`, `n_puntos_prueba`) y GeoDataFrame de los reservados con columnas `residual` (real−interpolada) y `curva` (índice de la curva de origen). **Sirve para cazar cotas mal capturadas con `groupby("curva")["residual"].mean()`, no para elegir método** (mide la isolínea, no el terreno entre curvas). Tampoco sirve para tunear `suavizado` (suavizar es dejar de pasar por los puntos que reserva: el RMS empeora siempre) ni para comparar resoluciones (muestrea el **centro de celda** más cercano, así que el residual suma error de interpolación + discretización de la malla, y el segundo crece con el píxel: medido, 10→20 m/px subió el RMS de 7.16 a 11.59 con la misma superficie). Falla si falta CRS, campo inexistente, curvas vacías, `porcentaje_reserva` fuera de `(0,1)` o no alcanza para ≥10 puntos.
-- `rasterizar(gdf, forma, transform, valor=1, todo_tocado=False)`: vector→máscara. `todo_tocado=False` (la convención habitual) pinta el píxel solo si su **centro** cae dentro; `True` pinta cualquiera que la geometría toque. Usa `True` si la máscara se recorta en vector después: con `False` la celda mordida por el lindero cuyo centro quedó afuera no se poligoniza nunca y el recorte ya no la devuelve, así que la capa sale con menos superficie que el polígono de referencia (fuga ≈ perímetro · px/8, escala con el píxel).
-- `extraer_valores(arr, transform, puntos, crs=None, fuera=nan)` → array float, un valor por punto y en el mismo orden. `puntos` acepta una capa de puntos o un array `(N, 2)`; con `crs` dado reproyecta la capa. **Los puntos de FUERA devuelven `fuera` (NaN), no el valor del píxel del borde**, y esa es la razón de que exista: `validar_mde` lo llevaba inline con un `np.clip` sobre los índices, así que un punto de fuera se llevaba la cota del borde y entraba en las métricas como residual real. Además la inversión del transform iba escrita a mano (`(x-minx)/resolucion`), que asume celda cuadrada y sin rotación; aquí la hace la inversa del Affine completo. El borde lejano del extent es CERRADO: un punto en `maxx` cae en la última celda, no en una de más.
-- `combinar_categorias(a, b, factor=10)`: empaqueta 2 rasters (`a*factor+b`; recuperar con `//` y `%`). Falla si `factor` no supera al máximo de `b`, o si hay valores negativos (el `nodata_valor=-1` de `reclasificar_rangos` es el caso típico: reemplázalo antes).
-- `poligonizar(arr, transform, crs, mascara=None, campo="valor")`: raster→polígonos. Ignora el valor 0 (fondo): si es una de tus clases, recodifícala antes. **Usa `mascara` para no vectorizar fuera del área de interés**: recortar en raster es mucho más barato que poligonizar de más y recortar el vector después. Salida vacía = GeoDataFrame con columna `geometry` y CRS (usable sin comprobar el largo).
-- `limpiar_moteado(arr, min_pixeles, conectividad=4, mascara=None, exentos=None)`: **Sieve** de GDAL: absorbe las regiones menores a `min_pixeles` en su vecino más grande. Va entre `reclasificar_rangos` y `poligonizar`. `min_pixeles` es decisión de campo (a 10 m/px, 4 px = 400 m²); `conectividad` 4 (lados) u 8 (con diagonales). **Pásale `mascara` con el NoData excluido** (`codigos > 0`) o las regiones del borde se absorben en él. `exentos` = códigos que el sieve NO toca: una clase exenta ni se absorbe (sus regiones sobreviven por chicas que sean) ni absorbe (una región chica de otra clase se va a su mayor vecino NO exento). Es la decisión de campo de "esta clase es una CINTA, no una mancha", y **sustituye a la receta de dos pasadas + prioridad, que no era una partición**: el sieve mete en la clase alta píxeles que en el crudo eran de otra clase, y ésos no estaban en ninguna de las dos capas (medido en un predio real: 43.21 ha de hueco, 0.9 % del predio). Techo conocido: una región chica rodeada ENTERA por clase exenta se queda, porque no tiene vecino legal. Array nuevo, no muta.
-- `resumen_raster(arr, transform=None)` → dict con `n_celdas`, `n_nan`, `min`, `max`, `media`, `desv`, `p5`, `p50`, `p95` (NaN excluidos) y, con `transform`, `ha_sin_dato` (asume CRS en metros). Lo primero que se mira de un .tif. **TRAMPA:** con todo NaN, `np.nanmean` solo avisa y devuelve NaN, y un dict de NaN se imprime como un resumen más: aquí levanta `ValueError`. Solo NaN es sin dato: un -9999 numérico entra como valor y se ve en `min`.
-- `sombreado(mde, resolucion, azimut=315.0, altitud=45.0, z_factor=1.0)` → uint8 0-255. Hillshade (fórmula de Burrough) sobre la misma derivada de Horn que `calcular_pendiente` y `calcular_orientacion`. `azimut` de brújula (315 = sol del NW), `altitud` en `(0, 90]`. **TRAMPA:** el aspecto de la fórmula es el ángulo MATEMÁTICO, `atan2(dz/dy, -dz/dx)` con la `dz/dy` de Horn respecto a la fila (crece al sur); con el signo de los libros el relieve sale iluminado desde el lado contrario y el ojo lee valles donde hay lomos, sin aviso. 0 es a la vez NoData y sombra total (convención habitual).
-- `estadisticas_zonales(arr, transform, zonas, campo, estadisticas=("media", "min", "max", "n"))` → DataFrame, una fila por entidad de `zonas` (su orden y su índice): `campo`, cada estadística, `n_celdas` y `n_nan`. `estadisticas` de `media`, `min`, `max`, `n` (celdas con dato), `suma`, `desv`. Una celda es de la zona si su CENTRO cae dentro. `zonas` va en el CRS del ráster. **TRAMPAS:** (1) una zona más chica que el píxel no cubre ningún centro: sale con `n_celdas`=0 y NaN, y un aviso que las cuenta (si NINGUNA cubre una celda, `ValueError`: es otro CRS); (2) zonas solapadas: `rasterize` deja ganar a la última y la de abajo pierde celdas, así que levanta `ValueError` y pide `resolver_por_prioridad`; (3) el NaN del ráster se excluye del agregado y se cuenta en `n_nan`.
-- `alinear_rasters(referencia, *otros, metodo=bilinear)` → lista de arrays, uno por cada ráster de `otros`, en la malla de `referencia` (mismo CRS, transform y forma; fuera del origen, NaN). Cada ráster entra como `(arr, transform, crs)`. **TRAMPA:** dos arrays de la misma FORMA con distinto transform se suman sin error y dan basura (medio píxel de desfase entre dos MDE es una diferencia sistemática que parece hallazgo). Alineados, `a - b` o `(a > 5) & (b < 3)` ya son el álgebra de mapas; no hay `algebra(expr)`. `metodo=Resampling.nearest` para categóricos: una clase interpolada no es una clase.
-- `curvas_de_nivel(mde, transform, crs, equidistancia, base=0.0, campo="cota")` → GeoDataFrame de LineString con `campo`. Con `contourpy`; el camino de vuelta de `interpolar_mde` y el mejor QA del MDE (compara contra las curvas de partida con `concordancia_lineas`, una cota a la vez). **TRAMPAS:** (1) interpola entre CENTROS de celda; con las esquinas todo sale corrido medio píxel, sin error; (2) los NaN cortan la curva y no se rellenan; (3) los niveles son `base + k*equidistancia` con `k` entero, no un `np.arange` en float que deja la 2400 en 2399.9999999 y no casa al unir por cota.
-- `vista_previa(capa_o_array, ruta, transform=None, ancho_px=1200)` → la imagen uint8 que escribe en `ruta` (PNG en grises, sin georreferencia). Para MIRAR un resultado, no un mapa: sin leyenda, colores ni escala (para eso, `lamina`), y sin matplotlib. Array: estirado de p2 a p98 a grises 1-255, NaN en negro. GeoDataFrame: contorno blanco sobre negro en su extent (los polígonos por su borde). Tupla `(array, capa)`: la capa encima, y ahí `transform` es obligatorio. **TRAMPAS:** (1) un ráster de 21 M celdas no se escribe entero: se remuestrea a `ancho_px` con `remuestrear` antes de estirar, y nunca se agranda; (2) el dato mínimo va al gris 1, no al 0, o un hueco de NaN no se distinguiría del valle más bajo.
-- `calcular_orientacion(mde, resolucion, unidad="clase", z_factor=1.0, invalidar=None)`: *Orientación* (aspect). Horn 3x3 igual que `calcular_pendiente`, misma regla de NoData 7 de 8 (centro sin dato o <7 vecinos válidos → sin orientación). No lleva suavizado: la ventana de Horn ya promedia los 8 vecinos. `unidad="clase"` (default) → uint8 con 0=sin orientación, 1=N, 2=E, 3=S, 4=O, en cuadrantes centrados sobre el azimut de bajada: N `[315, 45)`, E `[45, 135)`, S `[135, 225)`, O `[225, 315)`. **El 0 junta dos cosas distintas**: NoData (centro sin dato, <7 vecinos válidos, `invalidar`) y **plano**, que aquí es gradiente `< 1e-9`, o sea EXACTAMENTE horizontal. Ese `1e-9` es un cero numérico que evita el azimut arbitrario de `atan2(0, 0)`, no un umbral de ingeniería: no hay "casi plano" escondido. Para separarlos, la `pendiente` de `calcular_pendiente` sobre el mismo MDE es NaN donde no hay dato y tiene valor donde es plano. **En un TIN el plano es artefacto, no clase del terreno**: son los triángulos horizontales con los tres vértices en la misma curva (medido en un predio real a 5 m: 535.02 ha, 11.4 % del predio). `poligonizar` ignora el 0, así que la capa de exposición no parte el predio: para entregarlo como clase, recodifica antes (`orientacion + 1`) y nómbralo "SIN ORIENTACION", no "PLANO". Un "PLANO" con umbral es otra cosa y sale de la pendiente, con el umbral declarado. `unidad="grados"` → float32 con el azimut continuo 0-360 (0=N, 90=E, 180=S, 270=O), para comparar contra la orientación de otro SIG; ojo, aquí plano y NoData salen NaN, otros SIG usan -1 o -9999.
-- `calcular_pendiente(mde, resolucion, unidad="porcentaje", z_factor=1.0, invalidar=None)`: pendiente por píxel, algoritmo planar de Horn, ventana 3x3. `res` = el `transform` (Affine) de `interpolar_mde`/`cargar_raster`, recomendado, y saca los dos ejes solo; también número o `(res_x, res_y)`. `unidad` = `"porcentaje"`/`"grados"` (muchos SIG traen grados; aquí no, los rangos de la librería están en %). `z_factor` = factor Z, unidades horizontales por unidad vertical: 1.0 (default) = mismas unidades, 0.3048 con z en pies y xy en metros. Regla NoData 7 de 8 (centro NoData, o <7 vecinos válidos → NaN). Array float32. Recibe el NaN intacto: el relleno vive dentro de `acondicionar_mde` y no llega hasta aqui.
-- `ruta_a_pie(mde, transform, crs, puntos, caminos=None)` → capa con una línea y el campo `HORAS` (tiempo de marcha). **Costo anisótropo**: se cobra cada PASO entre vecinos (8), con la pendiente del paso con signo en la dirección de la marcha (desnivel entre centros / distancia), no la pendiente máxima del píxel. Cruzar la ladera por la curva de nivel cuesta como llano y subir cuesta distinto que bajar; con una pendiente por píxel (la máxima, de Horn) el recorrido a media ladera se cobra como si se fuera de frente ladera arriba y abajo (con Tobler, unas 4 veces de más en una ladera de 45 %). Velocidad de Tobler (1993) `6·exp(-3.5·|s+0.05|)` km/h, máxima en bajada suave de 5 %; fuera de camino, 3/5 (su factor de campo traviesa). Un paso es de camino si uno de sus dos píxeles lo es, y paga la pendiente del paso: sobre el camino el paso a lo largo mide la pendiente del camino, no la de la ladera. `puntos` = dos, origen y destino **en ese orden**: la ruta es de un sentido y la vuelta es otra ruta con otro tiempo. `caminos` = máscara booleana, p. ej. `rasterizar(caminos, mde.shape, transform, todo_tocado=True) == 1`. NaN en el MDE = intransitable. Falla claro si un punto cae fuera del ráster o sin dato, si no hay paso, si `caminos` no tiene la forma del MDE, con `crs` geográfico o con transform rotado. Medido en un predio real (5.4 Mpx a 5 m): contra la ruta isótropa, 9 a 22 % menos tiempo (medido con el propio modelo anisótropo) y hasta 1.3 km de separación. Memoria ~550 bytes/px (2.9 GB), unas 7 veces la de `ruta_costo_minimo`, porque arma un grafo dirigido de scipy: con un MDE que no quepa, recórtalo a la caja de los puntos con margen.
-- `ruta_costo_minimo(costo, transform, crs, puntos)` → capa con una línea y el campo `COSTO`. Minimiza la suma de costo x metros recorridos, 8 vecinos (diagonal x raíz de 2). `costo` es el costo por unidad de distancia de cada píxel y **lo arma el script** (p. ej. `pendiente + 1`; sin la base, en llano el costo es 0 y la ruta da vueltas gratis; un camino existente: `costo[en_camino] = 1`). `puntos` = exactamente dos, origen y destino en ese orden; se reproyectan a `crs`. NaN o inf = intransitable. Falla claro si un punto cae fuera del ráster o en píxel intransitable, si no hay paso (predio multiparte, MDE partido por huecos), con costos negativos, con `crs` geográfico o con transform rotado. El costo es del píxel, igual en cualquier dirección: para caminar sobre un MDE, `ruta_a_pie`. La línea va por centros de píxel y arranca y termina en los puntos exactos. Memoria ~80 bytes/px (5.4 Mpx = 0.42 GB): con LiDAR que no quepa, recorta el costo a la caja de los puntos con margen.
-- `reclasificar_rangos(arr, rangos, nodata_valor=-1)`: reclasifica un raster continuo en códigos por rangos (genérica). `rangos` = lista de `(etiqueta, mín, máx)`; convención: cada rango `(mín, máx]`, el primero `[mín, máx]` (el límite compartido cae en el de abajo). NoData/NaN → `nodata_valor`. Devuelve `(códigos int32, dict {código: etiqueta})`.
-### hidrologia.py (todo pysheds. Encima de `raster`: solo usa `rellenar_nodata`, `poligonizar` y `rasterizar`)
-
-- `quemar_cauces(mde, cauces, transform, profundidad)` → `(array, n_píxeles)`. `n_píxeles`=0 significa que la hidrología no pisa el ráster (otro CRS, otro predio): no falla, devuelve el MDE intacto, y sin mirar la cifra el análisis sigue con la superficie interpolada creyendo que hay cauces. **El 0 no es mudo: imprime los dos extents**, porque las dos causas se arreglan distinto y un `0` pelado no las distingue. **Recibe `transform`, no CRS, así que no puede alinear nada**: reproyecta tú los cauces al CRS del ráster antes de llamar. Ojo con la regla de `recortar`, que mueve el SEGUNDO argumento — `recortar(cauces, cuadro)` deja los cauces en su CRS de origen, y eso es exactamente lo que produjo 0 píxeles con hidrografía estatal en Cónica Conforme de Lambert sobre un MDE en UTM. **Rellena el NoData ANTES de quemar**: una celda de cauce sobre NoData da `NaN - profundidad` = NaN, y el relleno posterior copia el vecino válido más cercano, que está SIN quemar — el lecho SUBE ahí y queda una presa dentro del cauce, con un MDE perfectamente válido y la red cortada. Avisa cuando pasa, sin perilla que lo apague (mismo criterio que el "sin dato" de `interpolar_mde`). **Fuerza la pendiente aguas abajo en el cauce**: priority-flood + epsilon restringido a la máscara, sembrado en el borde, en las celdas que desbordan a terreno más bajo y junto a NoData. Un tramo que ya baja no se toca; uno llano recibe micro-pendiente (del paso de float32, ~1e-4 m por celda) y uno que sube se rellena hasta su derrame. Hace falta porque `resolve_flats` no drena una zanja llana larga: en un predio real, 16 km de cauce sobre una meseta del TIN a 860 quedaban como 1,613 llanos. **Avisa siempre** de las celdas de cauce en tramos sin salida, que `acondicionar_mde` rellenaría (des-quemando). También avisa siempre de las celdas de cauce que quedan **por encima del terreno sin quemar**, con la mayor y su coordenada: ahí la línea sube cuesta arriba (en un predio real, 2,128 celdas más de 1 m, hasta 15.5 m).
-- `acondicionar_mde(mde_path)` → `(grid, mde_acondicionado)`. Rellena el NoData DENTRO (unico sitio de la libreria que lo hace: pysheds no ve NaN como nodata). Reporta las ha sin dato parcheadas, que son superficie SIN dato de origen; si no es 0, da mas curvas en vez de aceptar el relleno. Excepcion: si vas a `quemar_cauces`, rellena tu ANTES de quemar (NaN - profundidad sigue NaN y el relleno de aqui copiaria el vecino sin quemar). El acondicionado sale float64: usalo en la misma sesion, no lo guardes a .tif (float32 le borra la micro-pendiente).
-- `acumulacion_flujo(grid, dem)` → `Flujo(grid, fdir, acumulacion)`: dirección D8 y acumulación (array numpy) en una tupla con nombre, que es lo que reciben `red_drenaje`, `orden_cauces`, `delimitar_cuenca` y `microcuencas`. **AVISA cuando el flujo muere DENTRO del raster**, que es el sitio donde se puede decir no solo cuantas celdas se tragan el agua sino cuanta. `flowdir` marca con codigo negativo la celda sin salida; en el BORDE es correcto (el agua abandona el raster), en el INTERIOR es una fuga y lo que drena hacia ella desaparece de la red. Medido en un predio real: **55 celdas interiores sin salida, la mayor recoge el 21 % del raster** (sin quemar, 154 y el 31 %). El aviso fuerte no lleva umbral tecleado: salta cuando el sumidero MAYOR del raster es interior en vez de estar en el borde, o sea cuando la red no llega al borde y las cuencas que salgan seran de media finca. **Avisa y no repara**: los sumideros son de UNA celda con derrame de 0.000 a 0.005 m, residuo numerico del priority-flood, y subirlos seria inventar cota. Descartado midiendo: no es float32 (float64 da los mismos 55), no es el orden de `fill_pits` (55/59 segun donde vaya) y no es `eps` (subirlo reparte el daño: 1e-5 da 55 sumideros con el 21 % en el mayor, 1e-1 da 5059 con el 4 %).
-- `rellenar_sumideros(grid, dem, cauces=None)` → `(mde, informe)`. Rellena sumideros. **TERMINA el relleno que `acondicionar_mde` deja a medias**: sube cada sumidero interior por encima de su cota de derrame hasta que no queda ninguno. Es función aparte y no una bandera a propósito: `acondicionar_mde` **avisa y no repara**, y esa política costó encontrarla, así que la reparación la pide quien llama después de leer el aviso. **Comprobar ANTES de qué son los sumideros**: medido en dos predios reales, el 100 % son de UNA celda con derrame por debajo de 2 mm, o sea residuo del priority-flood de pysheds; una endorreica de verdad tiene fondo ancho y contorno bastante más alto, y esta función **la taparía sin avisar**. Es RELLENAR, no breaching: sube terreno (milímetros) en vez de bajar un canal de salida. Medido: el TIN liso converge en UNA ronda subiendo 1.6 mm, el TIN con líneas de quiebre en cuatro subiendo 2.3 mm como mucho, y el ráster pasa de varar el 22.8 % de sus celdas a no varar nada. **Cada ronda vuelve a pasar `fill_depressions` y `resolve_flats`, y eso no es decorativo**: subir una celda hasta su derrame la deja IGUAL que su vecino, o sea fabrica un llano nuevo, y un llano sin micro-pendiente es otro sumidero; sin cerrar la ronda con el mismo acondicionado que la abrió, la iteración entra en ciclo límite (8 y 9 sumideros alternando, derrame de picometros) y lo que mide la ronda siguiente es el parche, no el terreno. El `informe` lleva `rondas`, `celdas`, `subida_max_m`, `pits_iniciales`, `pits_finales` y `convergio`, y **hay que hacerlo viajar con cualquier cifra que salga de este MDE**: un MDE reparado no es el MDE interpolado. Si al agotar `rondas` quedan sumideros, `convergio` sale False: eso ya no son milímetros, es estructura. **Si se quemó, pasa los mismos `cauces`**: rellenar sube el lecho, y sobre la zanja eso es des-quemar (en un predio real, 1,612 celdas de cauce subidas más de 4.9 m). Con `cauces` avisa siempre de las celdas de cauce que suben más de 2 mm, con la subida máxima.
-- **TRAMPA, y muerde a cualquiera que toque un MDE acondicionado: el ráster que devuelven `acondicionar_mde` y `rellenar_sumideros` es float64, no float32 como el de disco.** `resolve_flats` lo promueve porque su micro-pendiente es del orden de 1e-5 m, y a cota 1620 m el paso de float32 es 1.2e-4 m. Castearlo de vuelta a float32 BORRA la micro-pendiente y los llanos vuelven a ser llanos: medido, los sumideros pasan de 55 a 11 872 en un predio real y de 60 a 373 595 en el TIN de otro. Manejarlo en float64 de principio a fin.
-- `altura_sobre_cauce(flujo, mde, cauces)` → array float64. Altura sobre el cauce (HAND): cuanto sube cada celda sobre la celda de cauce a la que drena. `flujo` sale del MDE QUEMADO, pero las cotas salen de `mde`, el MDE BASE sin quemar: no hay profundidad de quemado que devolver. La máscara de cauce es la MISMA rasterización que usa `quemar_cauces` (`todo_tocado=False`); medido en un predio real, cotas quemadas menos 5 m con máscara `todo_tocado=True` daban 163 ha de HAND negativo, esta variante 12 ha (depresiones del MDE base). HAND < 0 queda; NaN donde el base no tiene dato y donde la celda no llega a ningún cauce, y eso último **avisa siempre** con las ha.
-- `etiquetar_laderas(acumulacion, umbral)` → `(array, n_regiones)`. Cuenta **laderas separadas por el cauce**, no cuencas de drenaje: para que una vertiente salga aparte, el cauce tiene que cruzar el ráster de lado a lado. En un valle en V las dos vertientes se tocan por encima de la cabecera (donde la acumulación aún no llega al umbral) y sale UNA región por mucho que el ojo vea dos; bajar el umbral mueve la cabecera, no la elimina. Si lo que quieres es la cuenca vertiente de un punto, eso es `delimitar_cuenca`.
-- `red_drenaje(flujo, umbral)` → GeoDataFrame de LineStrings en el CRS del ráster. El entregable de la rama. `umbral` va en **celdas** que drenan (cauce = acumulación > umbral), y no tiene default porque es decisión de campo: a `h` m/px, `k` celdas son `k·h²/10000` ha de cuenca aportadora. **Un umbral heredado de otro MDE no significa lo mismo** — sube con la resolución (el mismo umbral sobre 5 m da muchos más cauces que sobre 20 m). Si la red sale vacía, falla con la acumulación máxima en el mensaje, para corregir el umbral con una cifra.
-- `orden_cauces(flujo, umbral)` → array int32. Orden de Strahler: 1 son las cabeceras y el orden sube solo cuando se juntan DOS cauces del mismo orden (un afluente menor no incrementa al mayor). Sirve para cartografiar por jerarquía y para quedarse con el cauce principal (`orden >= k`). **El 0 significa dos cosas**: fuera de la máscara, y dentro de la máscara pero sin orden asignado — pasa de verdad, porque `acumulación > umbral` es un criterio por celda mientras que el orden se asigna recorriendo la red por la dirección de flujo, y cerca del desagüe media ladera supera el umbral sin estar sobre un tramo trazado. El reporte da celdas numeradas contra celdas de máscara: si la máscara es mucho mayor, el umbral está marcando ladera baja en vez de cauce.
-- `delimitar_cuenca(flujo, desague, umbral)` → GeoDataFrame con UN polígono. `desague` es una capa de una sola geometría (se reproyecta al CRS del ráster) y admite **dos formas**: un **PUNTO**, cuando la coordenada existe (GPS, aforo, obra de toma); o una **ZONA** (polígono), que significa *"el desagüe de esto"* — toma la celda de mayor acumulación dentro y reporta cuál eligió. La variante de zona es el caso normal: lo que se quiere casi siempre es la cuenca que drena un predio, y ahí no hay punto de campo. **TECHO: una zona con DOS salidas devuelve solo la mayor** — un predio a caballo entre dos cuencas drena por dos sitios y sale la cuenca de media finca, correcta y engañosa; avisa cuando la cuenca es menos de la mitad de la zona (medido en un predio real: 737.82 ha de un predio de 1765.15). **AJUSTA el punto al cauce más cercano y reporta cuánto lo movió**, y ese ajuste no es comodidad, es la función: el desagüe casi nunca cae exactamente sobre celda de cauce (GPS, clic en pantalla, coordenada de gabinete), y a UNA celda de distancia la cuenca que sale es la de esa celda suelta, de unas pocas hectáreas — no falla ni avisa, devuelve un polígono pequeño y perfectamente formado. Es el error clásico de este cálculo; ajustar el desagüe al cauce (snap) es la práctica estándar por lo mismo. **La distancia movida es la cifra que hay que mirar:** si supera la diagonal de una celda lo dice, y las dos causas son la coordenada mal o un `umbral` tan alto que el cauce que buscas no está en la máscara. Avisa, no decide: mover el desagüe cientos de metros puede ser correcto con un umbral grueso a propósito.
-- `microcuencas(flujo, zona, umbral=None)` → GeoDataFrame con UNA fila por desagüe. Parte una ZONA en las microcuencas que la drenan, que es lo que `delimitar_cuenca` no puede dar: aquélla toma un desagüe y devuelve una cuenca. **La forma obvia —"la cuenca de cada desagüe"— está DESCARTADA MIDIENDO**: en un predio real las cuencas de los 38 desagües de cauce dejaban 1115.45 ha de la zona sin cubrir (63 %) y solapaban 6504 celdas, porque la cuenca de un desagüe contiene a otro desagüe aguas arriba; sumarlas cuenta doble. Lo que sí es una partición: **etiquetar cada celda por el desagüe por el que SALE**. D8 es una función, así que cada celda tiene un solo desagüe: sin solape y sin huérfanas POR CONSTRUCCIÓN, y el cierre se comprueba EXACTO, no con tolerancia. **Ojo con qué es "exacto": el cierre exacto es en CELDAS contra la MÁSCARA rasterizada, no en hectáreas contra el polígono que pasaste.** La salida vectorizada tiene el borde en aristas de celda y el polígono no, así que `comprobar_particion(micro, zona, ...)` mide un residuo — de rasterización, no un hueco de la partición (medido en un predio real: máscara 1765.11 ha contra polígono 1765.15, **0.04 ha** = 0.002 %). La función lo reporta al correr para que no se lea como defecto. **Y ojo con ese 0.04: es una diferencia NETA y los dos signos se compensan** — la superficie realmente no cubierta son 1.30 ha. Por eso `recortar` la salida contra el polígono no arregla el cierre sino que lo empeora (quita lo que sobra, no puede añadir lo que la máscara nunca cubrió): la tolerancia se deriva con `tolerancia_rasterizacion_ha`, que da el techo de esa banda. Un desagüe es un hecho geométrico (la celda de la zona cuyo vecino de aguas abajo cae fuera), no una elección. Columnas de ≤10 caracteres para que un .shp no las renombre: `ID_MICRO`, `DESAGUE_X`, `DESAGUE_Y`, `ACUM` (celdas), `EN_CAUCE` (sólo con `umbral`) y `ES_SUMIDER`. **No trae superficie**, por la regla de `SUP`: la calcula quien llame, al final. **No filtra**, tampoco: la partición de un predio real son 1737 microcuencas pero 85 cubren el 97 % y el resto son esquirlas de la orla; un tamaño mínimo por dentro sería un número inventado, y con `umbral` la columna `EN_CAUCE` da el corte con el criterio que ya declaraste (medido: 44 desagües sobre cauce se llevan el 95.9 %). `ES_SUMIDER` marca que el flujo MUERE ahí, y la distinción no es la obvia: sin aguas abajo en el BORDE del ráster es salida legítima, sólo cuenta en el interior. En un predio real son 13 desagües con **1063.38 ha, el 60 % del predio**, que no drenan a ningún sitio: la misma cosa que avisa `acumulacion_flujo`, contada por microcuenca.
-### satelite.py (imagen Sentinel-2 por Earth Search: sin cuenta, sin token, sin dependencias nuevas. Encima de `raster`)
-
-Solo Sentinel-2 L2A (`sentinel-2-c1-l2a`) por Earth Search. **Ni mapas base comerciales ni XYZ**: sus licencias prohíben guardar o analizar la imagen, o solo la dejan offline dentro de su propio software. Copernicus Data Space pide cuenta y token. **CITA OBLIGATORIA en el entregable: `Contains modified Copernicus Sentinel data AAAA`** (la licencia la exige; `imagen_sentinel2` la imprime con el año).
-
-- `buscar_sentinel2(predio, fechas, nubes_max=80)` → lista de escenas, **una por fecha**, de menos a más nubes. Cada una es un dict `fecha`, `teselas` (MGRS), `cubre` (% del predio dentro de las huellas, medido en UTM), `nubes` (máx. `eo:cloud_cover` de sus teselas, **de la tesela entera, no del predio**) y `urls` (`{asset: [una url por tesela]}`). `fechas` = `("AAAA-MM-DD", "AAAA-MM-DD")`, **obligatoria**: la temporada es decisión de campo. Pagina hasta el final (con `limit` lleno la API corta en silencio: así se perdieron tres semanas de febrero). Duplicados de tesela en una fecha: gana la huella que más predio cubre, luego la más reciente; hay días con **dos pasadas de órbitas distintas** y una puede ser media franja. Sin resultados → ValueError con bbox, fechas y `nubes_max`; red caída → RuntimeError con la URL y el código.
-- `imagen_sentinel2(predio, fechas=None, escenas=None, bandas=None, limpio_min=99.0, max_fechas=3, max_revisar=10, crs=None, margen_nube=2, max_dias=30, escenas_relleno=None)` → `(bandas, transform, crs, resolucion, informe, origen)`. `fechas` o `escenas` (de `buscar_sentinel2`), exactamente uno. `bandas` sale como dict en español (`azul`, `verde`, `rojo`, `nir`, `swir1`, `swir2`) en **reflectancia 0 a 1**, NaN fuera del predio, en nube y sin dato: `geo.indice_vegetacion("ndvi", **bandas)` directo. `bandas=` de entrada es `{asset: nombre}`; None = los seis (`BANDAS_S2`): `blue`→`azul` (B2), `green`→`verde` (B3), `red`→`rojo` (B4), `nir`→`nir` (**B8, 10 m, no B8A**: el NBR/NDMI publicado suele usar B8A, declararlo si se compara), `swir16`→`swir1` (B11), `swir22`→`swir2` (B12). Acepta cualquier otro asset del item: `rededge1`-`3` (B5-B7) y `nir08` (B8A) a 20 m, `coastal` (B1) y `nir09` (B9) a 60 m, y `scl`, `cloud` (probabilidad de nube 0-100), `snow`, `aot`, `wvp` a 20 m, que no son reflectancia. **No sirven** `visual` (RGB uint8 de 3 bandas: `mosaico` lee solo la 1) ni `preview`/`thumbnail`/metadatos. **Un nombre fuera de los seis rompe `indice_vegetacion(**bandas)` con `TypeError`**: pásale solo las que pide. **Una banda de 60 m con `margen_nube` 0 o 1 deja en NaN el anillo del lindero en TODAS las bandas** (la holgura de lectura es `20 * (1 + margen_nube)` m y un píxel solo entra si todas tienen dato); con el default 2 llega justo. Elige la primera fecha (de menos a más nubes) con `limpio_min` % del predio limpio en `scl` y que cubra el predio entero; si ninguna llega, rellena píxel a píxel con las fechas a `max_dias` o menos, **la más cercana primero** (cercana antes que limpia: no mezclar fenologías), hasta `max_fechas`; `max_dias=None` quita el tope. Con `escenas` a mano, **el orden manda**: la principal es la primera que llega a `limpio_min`, no la más limpia. `escenas_relleno` (de `buscar_sentinel2`) **nunca son la principal**: solo rellenan lo que dejaron las propias, después de todas ellas aunque estén más cerca, con los mismos topes; su `scl` solo se lee si la principal no llega a `limpio_min`, y salen en el `informe` y en `origen` tras las revisadas. Es para cuando la ventana que importa es una (el "antes" de un evento) y la fecha limpia cae fuera: estirar `fechas` haría principal a la de fuera. Una fecha no puede ir en las dos listas. `margen_nube` ensancha la nube de `scl` esos píxeles de 20 m antes de medir (a `scl` se le escapan bordes de nube y sombra); 0 = `scl` tal cual. La clase 7 (sin clasificar) cuenta como sucia; la 2 (sombra del terreno) no. Lee la `scl` de `max_revisar` escenas como mucho (una lectura por red cada una); si ninguna basta, avisa y elige entre las leídas. `informe`: DataFrame `fecha`, `teselas`, `nubes`, `cubre`, `dias` (a la principal), `limpio_pct`, `aporta_pct`, `usada` (`aporta_pct > 0`). `origen`: array con la fila del `informe` de la que salió cada píxel, NaN sin dato. HTTP 429/5xx se reintentan, en la búsqueda y en la lectura de COG. Reflectancia NEGATIVA en agua y sombra (desfase -0.1 del COG): no se recorta, es el dato. CRS de salida `crs` o `detectar_utm(predio)`; **si el predio cruza dos husos, pasa `crs=`**. TRAMPAS: **`scl` es una máscara de nubes pobre**: confunde suelo muy brillante con nube y se le escapan sombras, mira el resultado. El asset `cloud` (probabilidad de nube, 20 m) se puede bajar con `bandas={"cloud": "nube"}` para revisarlo a mano; la selección de fechas sigue usando solo `scl`. **`cloud > umbral` NO sustituye a `scl`**: la clase 8 de `scl` no es un corte de `cloud` (medido en un predio de bosque, 12 fechas: la mitad de sus píxeles tiene `cloud` < 26 y muchos 0) y esos píxeles son el halo de bruma alrededor de cada nube. Cambiar a `cloud > 65` bajaba el % sucio de 27 a 18 en una fecha, y todo lo "recuperado" era borde de nube. Falta medirlo sobre suelo brillante, el caso en el que `scl` falla. **`swir1`/`swir2` son de 20 m reales** llevados a 10 m con nearest: no inventa valores, pero el píxel real es de 20 m. En lluvias lo normal es que quede predio sin dato: se AVISA con el %, no falla; amplía `fechas`. Cadena: `imagen_sentinel2` → `indice_vegetacion` → `guardar_raster(..., nombres=...)`. Receta completa, con cómo leer el `informe`: §"Del predio a la imagen".
-
-### metrologia.py (las REGLAS: aritmética pura, sin rasters. Capa de abajo; aquí nada mide)
-
-- `min_pixeles_umm(umm_m2, resolucion)`: el `min_pixeles` de `limpiar_moteado`, `ceil(umm_m2/h²)`. `ceil` y no `round` porque la UMM es un **mínimo**: lo que no la alcanza no se entrega (`round(1.1)=1` dejaría pasar manchas de 361 m² con UMM 400). Es ENTERO y salta de golpe (umm 400: `h`=19 → 2, `h`=25.3 → 1), y como el sieve ABSORBE en vez de borrar, endurecerlo puede AGRANDAR una clase — ver `barrer_resolucion(min_pixeles=...)` para fijarlo. Se llama `_umm` para no sombrear el parámetro `min_pixeles` de `barrer_resolucion` ni el de `limpiar_moteado`: ésos son el valor, esto es la regla que lo produce.
-- `umbral_celdas(area_aportadora_ha, resolucion)`: el `umbral` de `red_drenaje`, `orden_cauces` y `delimitar_cuenca`, `ceil(area_ha·10000/h²)`. Los tres lo reciben en **celdas** y las celdas no son portables (Trampa 2 del flujo hidrológico): a `h` m/px, `k` celdas son `k·h²/10000` ha. Lo que se declara y se defiende es la SUPERFICIE aportadora; las celdas son la unidad interna de pysheds. Gemelo de `min_pixeles_umm`, y por lo mismo: sin ella el script escribe `int(area·10000/h²)` a mano o teclea el entero, y ése es el caso `derivado` de la REGLA DE LOS NÚMEROS — aritmética que la librería posee y el script nunca escribe. `ceil` porque el área aportadora es un MÍNIMO. **Techo de una celda:** los tres usan `acumulacion > umbral`, comparación ESTRICTA, así que la celda que drena exactamente la superficie declarada queda fuera (1 de 500 con 1.25 ha a 5 m/px, el 0.2 %). Va del lado seguro y se escribe en vez de compensarlo: un `-1` escondido sería otro número que nadie eligió.
-- `tolerancia_rasterizacion_ha(perimetro_m, resolucion)`: cuánto puede discrepar de su polígono una capa que pasó por una máscara de celdas, `P·h/2/10000`. La tolerancia de `comprobar_particion` cuando la capa viene de un ráster (`microcuencas`, `poligonizar` sobre máscara). El borde rasterizado va por aristas de celda y cae hasta media celda a cada lado, así que la banda es el **perímetro** por `h/2`: **no depende de la superficie sino de lo largo que sea el contorno**, y dos zonas de la misma área toleran distinto si una es más dentada. Es un TECHO: la discrepancia real es menor porque los dos signos se compensan, **y ahí está la trampa** — compensarse no es cerrar. En un predio real el cierre NETO daba 0.04 ha, que leído suelto parece exactitud, mientras la superficie realmente no cubierta era 1.30 ha (techo 5.24). Consecuencia medida: **`recortar` contra el polígono no mejora el cierre, lo empeora** (0.04 → 1.30), porque quita lo que sobra y no puede añadir lo que la máscara nunca cubrió. Gemelo de `umbral_celdas`: sin ella el script teclea la tolerancia, y una tecleada dejó pasar un defecto de 0.22 ha durante ocho versiones.
-- `margen_borde_celdas(vecinos, intervalo_terreno, s_vacio, resolucion)`: el `margen_borde_celdas` de `cuadros_mde`, `ceil(sqrt(n·i·s/pi)/h)+2`. Un ajuste local de la RBF usa los `n` puntos más cercanos, así que la celda del borde necesita curvas de FUERA del extent de salida hasta el radio que abarcan: `n` puntos a intervalo `i` sobre curvas separadas `s` ocupan un área `n·i·s`, o sea radio `sqrt(n·i·s/pi)`; el `+2` es el colchón de la ventana 3×3 de Horn. Dos trampas medidas: **`s_vacio` es la del VACÍO** (`2·q90` de `separaciones`), nunca la mediana — `s_equivalente_zona` es `2·q50` y pone 40 donde van 400; y **`intervalo_terreno` es el del TERRENO** (`equidistancia / p_max` con `p_max` en FRACCIÓN), no el del trazo, que lleva el `zigzag`. Con `n`=90, `i`=20, `s`=400, `h`=5 da 98, el margen de la corrida entregable de referencia.
-- `resolucion_regla(equidistancia, umm_m2, rangos, ancho_medido=None, lambda_m=None, amplitud_rizo=None)`: la resolución de un MDE de pendientes -> `(h, factible, cotas)`. `cotas` es el dict `{umm, deteccion, trazado}` y, solo si se pasa `lambda_m`, `antialias`. Los tres primeros son TECHOS (`h` ≤, manda el MENOR): `umm` = `sqrt(umm_m2/4)`; `deteccion` = un punto dentro del ancho de la clase más alta; `trazado` = `w/3`, tres celdas CRUZANDO ese ancho para poder dibujarla y no solo detectarla (`w` = `ancho_medido` o el geométrico `equidistancia/p_max`). `antialias` = `lambda_m/2` es un PISO (`h` ≥): con `metodo="spline"` la superficie ondula con λ, la ventana 3×3 de Horn deriva sobre `2h`, y esa onda entra como pendiente espuria `A·sin(2πh/λ)/h`, que se anula en `2h = λ` y crece de forma monótona por debajo (medido con λ=37.8 m: `h`=10 daba 57 % de pendiente inventada sobre 53 % real; `h`=20 la bajaba a ~5 %). NO reduzcas el dict con `min(...values())`: mezcla un piso con tres techos y devuelve justo el valor más ruidoso posible — usa el `h` que devuelve. El piso solo aparece con `lambda_m` (de `separacion_media` o de `resumen["lambda_armonica"]`; NaN se ignora), así que un llamador viejo sigue viendo exactamente los tres techos. **Y con `amplitud_rizo` medida el piso deja de ser el juez**: `lambda_m/2` solo era su proxy —el punto donde la espuria se anula sea cual sea `A`, que es lo único que se puede decir sin haberla medido—, así que con `A` en la mano la espuria se evalúa en el techo que manda y se compara contra **la MITAD** del ancho de la clase más estrecha de `rangos` (el umbral sale de `rangos`, no se teclea); si queda por debajo, `antialias` NO entra en el dict. Medido en dos predios reales: uno con `A`=0.00 m da 0.00 % y pasa; el otro, con `A`=16.67 m, da 245.73 % y no pasa. Sin esto el piso gritaba INFACTIBLE en los dos regímenes, o sea no discriminaba. **Techo, MEDIDO con `A` conocida y no supuesto:** el criterio es NECESARIO Y NO SUFICIENTE. Lo que gobierna no es el ancho de clase sino la distancia de la pendiente verdadera a su límite más cercano, y con la MISMA espuria de 4.07 % los píxeles que cambian de clase van de 0.00 % (distancia 5.00) a 52.81 % (distancia 0.00). El criterio acota esa distancia por su máximo geométrico —dentro de una clase de ancho `w` el punto más alejado está a `w/2`; usar `w` entero sería optimista por un factor de 2— pero no la conoce. Un terreno cuya pendiente cae sobre un límite se mueve con cualquier espuria > 0, y eso no lo cierra ninguna regla previa al MDE: se mira después, con `pendiente_espuria_pct` y el mapa delante. Se evalúa además en UN punto, el techo que manda.
-  La reducción a `(h, factible)`: Entre techos manda el menor y el piso tiene que quedar por debajo de él; cuando lo supera NO existe `h` que cumpla las dos cosas (la cartografía no sostiene la clase más alta a esa UMM) y sale `factible=False`. Ahí gana el PISO, no el techo: las pérdidas no son simétricas, con `h` en el piso la clase alta no se puede trazar a la UMM pedida y eso se reporta, con `h` en el techo el alias FABRICA superficie en esa misma clase y se cita como terreno. Infactible es un resultado, no un error: el flujo sigue. **El `h` sale REDONDEADO a un valor limpio y hacia el lado que respeta la condición: un techo hacia ABAJO, un piso hacia ARRIBA.** Crudo daba cifras como 18.9542 m, que es correcta y no se entrega — nadie la escribe en un SIG ni la cita en una memoria, y de ella cuelgan enteros que sí se citan (`min_pixeles`, `margen_borde_celdas`). Al valor limpio *más cercano* tampoco vale: un piso de 22 caería a 20 y quedaría por debajo de sí mismo, o sea la regla produciría un `h` que su propia guarda antialias rechaza. Las dos direcciones reproducen la decisión que se venía tomando a mano en cada predio (techo 15.5/3 = 5.1667 → **5 m**; piso λ/2 = 18.95 → **20 m**), que es la comprobación de que la regla ya se usaba sin estar escrita. Ojo, la escalera de valores limpios es rala entre 5 y 10: un piso de 6 sube a 10. Mira `resolucion_piso` (crudo, se reporta al lado) antes de citar el `h`.
-### zonas.py (ráster continuo -> polígonos por rangos. Capa de arriba: usa vector y ráster a la vez)
-
-- `zonificar(arr, transform, crs, rangos, min_pixeles, recorte=None, invalidar=None, exentos=None, campo="CLASE", por_clase=False, sin_dato="SIN DATO")` → GeoDataFrame con `gridcode`, `campo` y `SUP` (ha). La cadena de escritorio Reclasificar → Sieve → Raster a polígono → Recortar → Superficie, para **cualquier** continuo (pendiente, HAND, NDVI...). Estaba copiada a mano en cada flujo y en `barrer_resolucion`, y cada copia tenía que acertar las mismas trampas: máscara `todo_tocado=True` (con el centro de celda la capa cierra con menos superficie que el predio), sieve solo dentro de la máscara, recorte vectorial después y `SUP` detrás del último paso que mueve la geometría. `rangos` con la convención `(mín, máx]` de `reclasificar_rangos`; `min_pixeles` de `min_pixeles_umm` o `p["min_pixeles"]`. `recorte` limita el sieve a sus celdas y recorta la capa (se reproyecta al `crs`). `invalidar`: celdas que no entran en ninguna clase (otra condición, p. ej. `invalidar=~(pendiente <= 10)` para el HAND, NaN incluido); quedan fuera del sieve, no absorben ni son absorbidas. `exentos`: ETIQUETAS que el sieve no toca (la clase alta que es una cinta, ver "Cuando la CLASE MÁS ALTA"). `por_clase=False` da una fila por pieza; `True`, una multiparte por clase (la tabla). **`sin_dato`: las celdas NaN dentro de la zona salen como una clase más con esa etiqueta**, fuera del sieve (ni absorben ni son absorbidas), y avisa siempre con las ha. Es lo que pasa cuando parte del predio queda fuera de las curvas (una costa por debajo de la curva más baja, una carta que no llega): antes eran un hueco mudo y `comprobar_particion` tronaba (188 ha en una costa real). Así la partición cierra y el hueco va en el entregable con su nombre, no repartido entre las clases. Las celdas de `invalidar` no cuentan: ésas se excluyen a propósito. `sin_dato=None` deja el hueco como antes. **No tira las piezas menores a la UMM que deja el recorte** junto al borde o a lo invalidado: en una partición abrirían huecos. Para quitarlas, `eliminar_menores` (absorbe) o filtrar por `SUP`.
-
-### lamina.py (PNG de revisión con color, leyenda, escala y cita. Capa de arriba: usa vector y ráster a la vez)
-
-Para REVISAR, no para entregar: la cartografía final se arma en el SIG. El PNG sale sin georreferencia (para eso está `guardar_raster`) y sin mapa base (las licencias prohíben guardarlo). Solo Pillow; la fuente (DejaVu Sans) va empaquetada porque la de Pillow (`load_default`) dibuja la Ñ y la é como caja vacía. `vista_previa` sigue para mirar un resultado suelto en grises.
-
-**Cuándo y cómo.**
-
-- **Cuándo:** el usuario pide una figura, una imagen o una lámina (antes y después, NDVI del predio, clases de pendiente). Para mirar un array mientras se trabaja basta `vista_previa`.
-- **Qué paleta:** NDVI, NDMI o NBR → `"vegetacion"`. Una diferencia (`dNDVI = ndvi_despues - ndvi_antes`, dNBR) → `"divergente"`, y con ese orden la pérdida sale en café. Pendiente, HAND o MDE → `"gris"`. Clases → `panel_clases`, con colores en orden de la variable (verde a rojo si sube el riesgo o la pendiente). Ningún panel va encima de otro: clases y foto van en paneles lado a lado.
-- **Los paneles son dicts opacos:** se arman solo con los `panel_*` y se pasan en lista a `lamina`, en el orden de lectura (fila por fila).
-- **`estirado=` es un número tecleado:** cae bajo la REGLA DE LOS NÚMEROS. El default ya comparte el rango medido entre paneles comparables. Se pasa solo si el usuario pide una escala fija (p. ej. NDVI de -1 a 1 para comparar con otra lámina), y con la razón al lado.
-- **Antes y después no salen en la misma malla:** dos llamadas a `imagen_sentinel2` NO garantizan el mismo `transform`, porque la malla sale del mosaico de la fecha principal. Pide la segunda con `crs=` de la primera y alinea sus bandas con `alinear_rasters` antes de restar índices o armar paneles. Receta completa en §"Del predio a la imagen" ("La lámina del antes y el después").
-
-- `panel_rgb(bandas, transform, crs, titulo, contorno=None, estirado=None)` → panel (dict) en color natural con `rojo`, `verde` y `azul` del dict de `imagen_sentinel2`. El estirado se toma sobre las tres bandas juntas: estirar cada una por su lado cambia el tono entre fechas.
-- `panel_continuo(arr, transform, crs, titulo, paleta, unidad, contorno=None, estirado=None)` → panel con barra de color. `paleta`: `"gris"`, `"divergente"` (café pérdida, verde ganancia; rango simétrico `±max(|p2|, |p98|)`, así el 0 cae siempre en el color central) o `"vegetacion"`. `estirado=(vmin, vmax)` fija el rango a mano y saca al panel del grupo compartido.
-- `panel_clases(arr, transform, crs, titulo, etiquetas, colores, contorno=None)` → panel con leyenda por clase. `etiquetas` es el dict `{codigo: etiqueta}` que devuelve `reclasificar_rangos`; `colores` es `{codigo: "#rrggbb" o (r, g, b)}` con las mismas claves. Un código fuera de `etiquetas` (el -1 de NoData) cuenta como sin dato.
-- `lamina(paneles, ruta, cita, columnas=None, titulo=None, pie=None, ancho_px=2000)` → dict `ruta`, `ancho`, `alto`, `escala_m`, `escala_px` y `paneles` (una fila por panel: `titulo`, `estirado`, `sin_dato_pct`); imprime los rangos usados. `cita` es **keyword y sin default**: con Sentinel-2 va `cita_sentinel2(informe)` (la licencia la exige); con datos propios, `cita=None` y la lámina sale sin línea de cita. Olvidarla levanta `TypeError`. `columnas` None = hasta 3. El `contorno` de cada panel (cualquier CRS, se reproyecta) se dibuja en magenta; si es polígono, el % sin dato se mide dentro de él, y si no, sobre la malla. **TRAMPAS:** (1) **estirado compartido**: los paneles con la misma `(paleta, unidad)` usan un solo rango p2-p98 conjunto, y los RGB uno entre todos; sin eso "antes" y "después" no se comparan; (2) **sin dato en lavanda**, distinto de toda paleta (también de la gris), con su % en la leyenda; (3) falla con `ValueError` si dos paneles no comparten forma, `transform` y `crs`: con igual forma y otro transform se dibujarían desalineados sin error, así que alinea antes con `alinear_rasters`; (4) falla con CRS en grados o `transform` rotado: la barra de escala (1, 2 o 5 × 10^n m, hasta el 30 % del ancho del panel) se mide en metros y la flecha de norte supone norte arriba; (5) un ráster más ancho que su celda se reduce (promedio en continuos y RGB, vecino más cercano en clases) y uno más angosto se agranda solo por un múltiplo entero y por vecino más cercano: las clases nunca se interpolan.
-- `rotulo_escenas(informe)` → `"03-oct-2026 (64.9 %) y 05-oct-2026 (2.4 %)"`: las fechas `usada` del `informe` de `imagen_sentinel2`, en orden de fecha y con su `aporta_pct`. Para el título del panel sin teclear fechas.
-- `cita_sentinel2(*informes)` → `"Contains modified Copernicus Sentinel data 2026"`, con los años de las fechas usadas. Acepta varios `informe` (antes y después) y junta sus años: `cita_sentinel2(inf_a, inf_d)`.
-
-### barridos.py (lo que MIDE sobre el MDE y la cartografía; capa de arriba, usa vector y ráster a la vez. Ninguna decide: reportan)
-
-- `barrer_resolucion(curvas, campo, predio, rangos, umm_m2=None, resoluciones=None, lambda_m=None, equidistancia=None, intervalo_muestreo=None, cuadro=None, metodo=None, suavizado=0.0, vecinos=None, etiqueta_alta=None, min_pixeles=None, quiebres=None, paso_quiebre=None, exentos=(), parametros=None, nucleos=None)`: Con `parametros=p` toma `umm_m2`, `lambda_m`, `equidistancia`, `intervalo_muestreo`, `vecinos` y `metodo` del dict de `derivar_parametros`. corre la cadena de pendientes completa a varios `h` y tabula cómo se mueve la clase más alta -> lista de dicts (de fino a grueso) con `h`, `lambda_m`, `n_celdas`, `min_pixeles`, `area_alta_ha`, `pct_predio`, `delta_pct`, `n_piezas`, `s_sostenida`, `piso_local`, `p_sostenida`, `sin_clase_ha`, `segundos`. `lambda_m` se mide sobre el EXTENT de `cuadro`, no sobre `predio`: dominios distintos dan pisos distintos (37.2 contra 37.9 m medido) y el que gobierna es el del extent, que es el que usa `interpolar_mde`. **Es la BANDA DE INCERTIDUMBRE de la cifra frente a `h`**: el rango entre la primera y la última fila es lo que se declara junto al número. **NO es el juez de si la clase es resoluble** — ese es `sostenimiento_por_clase` (`piso_local <= h <= s_sostenida`, de una sola interpolación). No dictamina con `delta_pct` contra un umbral porque se equivoca: `delta_pct` arrastra el escalón entero de `min_pixeles` y comparaba contra el piso GLOBAL, que en un predio de dos regímenes es el del llano (factor 2.4 de sobre-restricción). Lectura: `delta_pct` es el cambio contra el `h` inmediatamente más fino y solo significa algo si `min_pixeles` no saltó entre esas dos filas. `p_sostenida` es el juez cartográfico externo al MDE, y NaN ahí = ninguna curva dentro, rizo puro. El EXTENT no cambia entre corridas (un solo `cuadro`) para que `h` sea la única variable: rehacerlo por `h` movería los márgenes de `cuadros_mde`, que escalan con la resolución. `intervalo_muestreo` y `vecinos` se dejan fijos por lo mismo. Lo único que sí se recalcula por `h` es `min_pixeles` del sieve (`ceil(umm_m2/h²)`), que es parte de la cadena de producción; `min_pixeles=<int>` lo fija para diagnóstico, porque ese entero salta de golpe (a umm 400: `h`=19 -> 2, `h`=25.3 -> 1) y el sieve ABSORBE en el vecino mayor en vez de borrar, así que el escalón cae dentro de `delta_pct` y puede AGRANDAR la clase alta (medido a `h`=19: 1491.89 ha con 1 px contra 1733.38 con 2). `resoluciones=None` deriva `λ·(1/4, 1/3, 1/2, 2/3, 1)`, que bracketea el piso λ/2, y no baja de λ/4 a propósito (ahí ya se sabe que la clase alta se dispara y la malla cuesta el cuadrado). El reporte imprime cada fila al terminarla, no al final: el barrido es largo. COSTO: son N interpolaciones completas y la más fina domina. Por eso corre varias a la vez, una por proceso, con las mismas filas: `nucleos=None` (default) usa `geo.NUCLEOS`, los núcleos de la máquina menos uno: deja uno libre para que el equipo siga respondiendo durante el barrido (con 2 núcleos, en serie), y los procesos corren con prioridad baja: el sistema atiende primero lo que el usuario tiene abierto. El script no necesita `if __name__ == "__main__":`. La memoria sube por el número de procesos; si no alcanza, avisa y sigue en serie, y `geo.NUCLEOS = 1` lo deja en serie desde el principio. **Receta TIN:** `metodo="tin"` exige `resoluciones` (la escalera de λ es del spline y en un TIN queda toda por encima de `w/3`); `quiebres`/`paso_quiebre` van a `interpolar_mde` tal cual, y `exentos` son ETIQUETAS de `rangos` que el sieve no toca, las mismas que producción exime (en la receta TIN, la clase alta). Sin los tres, el barrido mide otra cadena que la de producción y la banda no es la de la cifra.
-- `barrer_vecinos(curvas, campo, zona, resolucion, intervalo_terreno, s_vacio, enes=(20, 32, 48, 64, 90, 122, 160, 200), zigzag=1.0, equidistancia=None, tolerancia=0.01, p_max=1.0, nucleos=None, lambda_m=None)`: la RODILLA de `vecinos` -> `(filas, n_rodilla)`. `vecinos` es el único parámetro de `interpolar_mde` que **no se deriva de nada**: la fórmula `pi·k²·s/(4·i)` solo dimensiona el orden de magnitud (con la misma zona da 14, 120 o 141 según qué `s` le metas). Sale de este barrido o no sale; correr con el default de 48 en vez de la rodilla medida es otra de las cuatro decisiones que se pierden en silencio (medido: de 20 a 90 quitó el 12 % de la clase alta, que era terraceo). QUÉ MIDE: **la cifra que se entrega**, las ha de `zona` con pendiente `> p_max` (la clase alta; `p_max` en fracción, el de `_p_max(rangos)`, y `derivar_parametros` se lo pasa). Pocos vecinos aterrazan la superficie contra las curvas y eso mueve la clase alta; más vecinos lo quitan hasta que deja de moverse. Recorre `enes` en orden y **PARA en cuanto dos `n` seguidos dan la misma cifra dentro de `tolerancia`**; la rodilla es el menor de los dos. Así la rodilla no depende de dónde acabe `enes` (extenderla no la mueve, el barrido ya no llega ahí) y los `n` grandes, que dominan el costo, solo se pagan si hacen falta. **La rodilla se busca sobre el número que se entrega, no sobre un sustituto.** `meseta_ha` (`< 1 %`) va en las filas como diagnóstico del terraceo. `h` y el extent NO se mueven entre corridas: `cuadros_mde` da el mismo `cuadro_salida` (bbox de `zona`) y lo único que crece con `n` es `cuadro_recorte`, o sea cuántas curvas de FUERA sostienen el borde, que es justo lo que un vecindario mayor necesita. λ se mide UNA vez sobre ese extent fijo y se reparte. `intervalo_terreno` = `equidistancia/p_max` y va al margen (`ceil(sqrt(n·i·s/pi)/h)+2`); el muestreo que recibe `interpolar_mde` es ése por `zigzag`, porque la API muestrea sobre el TRAZO. `s_vacio` es `2·q90` de `separaciones`, la del VACÍO, nunca la mediana. `filas`: `vecinos`, `margen_borde_celdas`, `n_celdas`, `alta_ha`, `delta_pct` (de `alta_ha`), `meseta_ha`, `segundos`; solo las de los `n` que llegó a correr. `n_rodilla` es un `Rodilla`, o sea un `int` con `.avisos`: **una rodilla solo es rodilla si la cifra converge**, y si `.avisos` no está vacío el barrido se quedó sin `enes` antes de converger, devolvió el `n` más grande y no midió nada. El aviso **se imprime SIEMPRE, con `geo.MOSTRAR` o sin él** (`geo.MOSTRAR` decide si sale la TABLA, no si la cifra vale). Sin convergencia, `vecinos` pasa a DECLARADO por costo con su razón al lado, y eso es un resultado del predio, no un fallo del método. COSTO: una interpolación por `n` corrido, y las grandes dominan; el spline evalúa con BLAS a un hilo (`_interp_spline`), porque OpenBLAS multihilo hacía que n=122 costara 6x n=90. Reparte los `n` en procesos igual que `barrer_resolucion` (`nucleos`, `geo.NUCLEOS`): adelanta los siguientes y al converger tira los que ya corrían (mismas filas y misma rodilla, hasta `nucleos - 1` corridas de más).
-- `raster_distancia(curvas, zona, resolucion)`: `(distancia, mascara, transform)`, metros a la curva más cercana en cada celda de una malla sobre `zona`. Sustituye la escalera de buffers de `separaciones`/`auditar_rangos` (hasta ~30 pasadas vectoriales): un ráster no cuenta área doble y su cobertura es monótona por construcción. Llamarla UNA vez y compartir su salida entre `separaciones` y `auditar_rangos` es lo que garantiza que midan sobre el mismo dominio de píxeles.
-- `separaciones(distancia, mascara, resolucion, lambda_m, zigzag, cortes=None)`: `(tabla, resumen)` con la distribución de separaciones dentro de `mascara`, leída del ráster de `raster_distancia`. `tabla`: `distancia`, `area_ha`, `area_acum_ha`, `s_equivalente`. `resumen`: `lambda_armonica`, `factor_zigzag`, `q50`, `q80`, `q90`, `area_sin_curvas_ha` (solo con `cortes` explícitos; con derivados es NaN, sería 0.5 % por construcción), `s_equivalente_zona` (= `2·q50`, NO la `s` del vacío que usa `derivar_parametros`, que es `2·q90`). `cortes=None` -> derivados del rango de esta zona; una lista fija mete el cuantil en un bracket ancho y la cifra hereda su resolución. Sin curvas dentro -> tabla vacía y resumen en NaN.
-- `histograma_fase(mde, curvas, campo, resolucion, mascara=None, ancho_bin=None)`: terraceo del MDE por fase `φ(z)=(z−c0) mod e` plegada a `[0,e/2]` (uniforme bajo rampa lineal; cualquier desviación es terraceo del interpolador). `e` se detecta de `curvas[campo]`. `resolucion` convierte conteo de píxeles a hectáreas (pásale `abs(transform[0])`). Devuelve `(densidad, exceso_ha, evacuacion, atomo_ha, n_intervalos_completos)`: `exceso` es el único citable junto a su δ (la razón sola solo ordena); `evacuacion` blanco 1.0, bajar es empeorar; `atomo` = superficie con φ < 1 mm; `n_intervalos_completos` cuenta los intervalos entre cotas sin sesgo de cobertura parcial. Su `atomo` es el ÁREA de las mesetas a cota de curva; la parte que llega a 0 % y sin orientación es `planos_de_curva` (en un predio real, TIN a 5 m: 778.35 contra 535.05 ha).
-- `juzgar_clasificaciones(candidatas, curvas, campo, zona, rangos, equidistancia, zigzag, campo_clase="PENDIENTES")`: juzga N clasificaciones del MISMO predio contra la cartografía y recomienda una -> `(filas, recomendada)`. `candidatas` = `{nombre: (clases, metodo, h)}`, `metodo` en `"tin"`/`"spline"`/`"malla"` (la malla con el criterio del TIN: supuesto, no medición), `h` la resolución de SU MDE. Sobre la clase más alta de `rangos`: **veredicto** con el criterio de SU método (`h <= s_sostenida` los dos; además `h >= piso_local` el spline, porque el piso antialias es del MÉTODO y no del predio) — falla de ancho es `NO`, spline que falla SOLO por alias es `CONDICIONAL` (entregable con la amplitud del rizo medida y su espuria bajo la clase, como en un predio real; eso no lo decide una función); **`pct_visto`**, el largo del escarpe cartográfico que cae dentro de la clase sobre el largo efectivo, que es la cifra comparable (área contra área, `pct_blanco`, premia al que dibuja más ancho); `ancho_x_w`; y `corte`, el acumulado más alto que pasa sin condiciones. **Recomendada = la de mayor `pct_visto` entre `SI` y `CONDICIONAL`**, o None; el reporte imprime además la BANDA de la clase alta entre las que pasan, que es como se cita cuando dos métodos legítimos difieren. Es una regla escrita, no un óptimo, y el porqué está medido: en un predio real gana el TIN con quiebres y en otro el TIN da 28 % menos clase alta que el spline, así que **el método no se elige por receta**. `zigzag` es el de `derivar_parametros` (divide el largo de trazo). COSTO: un `sostenimiento_por_clase` por candidata, minutos cada uno en un predio grande.
-- `amplitud_rizo(mde, transform, curvas, campo, mascara=None, cuantil=99.0)`: `(a, detalle)`, **PISO** de la amplitud `A` del rizo del interpolador, en metros. Entre dos curvas contiguas el terreno está acotado por ellas; salirse de `[z_lo, z_hi]` es artefacto puro, y `a` es un cuantil alto de `max(0, z−z_hi, z_lo−z)`. **Es un piso, no `A`**: el rizo que ondula DENTRO del intervalo no se ve, así que se lee en un solo sentido (si ya supera lo que toleras, terminaste; si no, no dice que el rizo sea menor). Las dos cotas envolventes salen de una transformada de distancia por nivel; un píxel cuenta solo si los puntos más cercanos de los dos niveles quedan a **lados opuestos**, que es lo que descarta cimas y hoyas (dentro de la curva de cumbre no hay cota por encima, y contarla inventaría decenas de metros de excursión). Lo que la discriminante NO atrapa: el lomo o la vaguada que no llegan al siguiente nivel (sin curva que los cierre por arriba se les atribuye la banda de abajo, y reportan hasta casi `e` de excursión que no es rizo); por eso se avisa cuando la cifra pasa de `e/4`. `transform` tiene que ser el de `mde`. `detalle`: `cuantil`, `px_usados`, `frac_usada`, `frac_excursion`, `excursion_max`, `niveles`; mira `frac_excursion` y `frac_usada` antes de citar la cifra. Medido en un predio real (`e`=20 m): p50 a p95 dan **0.00 m** y el máximo 15.36 m, o sea la cola entera son lomos sin cerrar y el piso NO llega a atar nada. Alimenta `interpolar_mde(..., amplitud_rizo=a)` y `derivar_parametros(..., amplitud_rizo=a)`, donde con `A` medida manda la medición y no el piso antialias.
-### parametros.py (parámetros con PROCEDENCIA. Capa de arriba: encadena todo lo anterior)
-
-- `derivar_parametros(curvas, campo, zona, rangos, escala, vecinos=None, equidistancia=None, lambda_m=None, zigzag=None, ancho_medido=None, s_vacio=None, amplitud_rizo=None, resolucion=None, cuadro=None, medir_ancho=True, metodo="spline", medidos=None)`: **Con dos o más llamadas sobre el mismo predio (otro método, o la segunda pasada con `A`), `medidos=p` de la primera**: toma `equidistancia`, `lambda_m`, `zigzag`, `ancho_w` y `blanco_carta_ha` con su procedencia en vez de volver a medirlos, que es casi todo el costo (en un predio real: 192 s contra 0.7 s por llamada). Falla si la huella de `curvas` o `zona` no es la misma. **El dict se pasa entero como `parametros=p` a `interpolar_mde`, `validar_mde`, `cuadros_mde` y `barrer_resolucion`**, en vez de copiarlo clave por clave; trae también `metodo`. encadena las mediciones y las reglas y devuelve **todo con su procedencia** -> dict de `Valor`/`ValorEntero` (subclases de `float`/`int`, se pasan tal cual a `interpolar_mde`) con `.fuente` y `.origen`. Sustituye el bloque de constantes a mano de un script de producción. Cinco fuentes, y la asimetría es el punto: `declarado` (lo decide el ingeniero: escala, rangos), `medido` (sale de la cartografía: `w`, λ, zigzag, `s_vacio`), `derivado` (aritmética de los anteriores: UMM, `min_pixeles`, margen, intervalos), `convencion` (constante de oficio, la misma en todos los predios y sin medición que la sustituya: `LADO_MM`=2 mm, `N_MIN`=4, `N_CRUCE`=3, `CUANTIL_VACIO`=90, constantes de `metrologia`) y **`default` (NADIE lo eligió, y sí hay medición que lo sustituye)**, que es el que cuesta dinero: `vecinos`=48 no estaba escrito en ningún sitio del script que lo usó y se llevó por delante el 12 % de la clase alta. `convencion` y `default` se separan porque solo el segundo se arregla midiendo; si las convenciones entraran en `sin_medir`, esa lista tendría cinco nombres en cada corrida y se dejaría de mirar. Visibles las dos en la tabla, accionable solo una. ORDEN, único posible porque cada paso alimenta al siguiente: equidistancia y `p_max` → λ y zigzag (`separacion_media`) → `w` (`ancho_banda`) → techos, piso y `h` (`resolucion_regla`) → `s_vacio` = `2·q90` (`raster_distancia` + `separaciones`, ya con `h`) → margen, `min_pixeles`, intervalos. El `s_vacio` va DESPUÉS de `h` y no antes: `resolucion_regla` no lo usa, así que no hay circularidad, y medir las distancias a la resolución que de verdad se va a usar es lo que hace comparables sus hectáreas con las del MDE. Un valor dado a mano SE SALTA su medición y entra como `declarado`; `curvas`/`zona` pueden ser None sólo si se dan todos los que se medirían. **No decide nada**: ni se niega a correr por un `default`, ni corrige `h` cuando cae bajo el piso — devuelve los números y `sin_medir`. Claves: `metodo`, `escala`, `umm_m2`, `lado_mm`, `n_min`, `n_cruce`, `cuantil_vacio` (las cuatro `convencion`), `equidistancia`, `p_max`, `lambda_m`, `zigzag`, `ancho_w`, `blanco_carta_ha` (sólo si `w` se midió), `resolucion`, `resolucion_regla`, `resolucion_piso`, `factible` (bool), `techos` (dict), `s_vacio`, `intervalo_muestreo_terreno`, `intervalo_muestreo`, `vecinos`, `margen_borde_celdas`, `min_pixeles`, `pendiente_espuria_pct` (sólo con `A`), `insumos`. **`lambda_m` se mide sobre el EXTENT (`cuadro`, o el bbox de `zona`) y el `zigzag` sobre `zona`**: son dos llamadas a `separacion_media` con dominios distintos, y sacarlas de una sola pasada deja uno de los dos en el dominio equivocado sin que nada avise (medido en un predio real: λ 76.15 polígono / 74.90 bbox / 68.34 bbox+1500; zigzag 1.413 polígono / 1.26 bbox, que son 10 % en el muestreo y 12 % en el blanco cartográfico). `insumos` responde a "medido sobre QUÉ": ruta (de `attrs["ruta"]`, que pone `cargar`, best effort) más la huella geométrica de `curvas` y `zona` — entidades, CRS, bbox y tamaño — que no se pierde nunca. Hace falta porque dos capas del mismo predio salen las dos como `medido` y dan cifras distintas: la ya recortada al predio da un blanco de 10.28 ha, el estatal recortado al cuadro da 16.14.
-  `vecinos` NO se deriva, pero sí se MIDE. **Los siete valores que se pueden dar a mano (`equidistancia`, `lambda_m`, `zigzag`, `ancho_medido`, `s_vacio`, `resolucion`, `vecinos`, más `amplitud_rizo`) respetan la procedencia que traigan**: si les pasas el `Valor` de otra llamada sale TAL CUAL, con su fuente y su origen; si les pasas un número pelado entra `declarado`, porque la librería no midió nada y `medido` sería una afirmación que no le consta. **No les pases `int(...)` ni `float(...)`: ese cast es donde muere la procedencia**, y es lo que hacía que una segunda llamada convirtiera en `medido` el `default` de la primera y vaciara `sin_medir` (medido en un predio real: etapa 0 `48 default NADIE lo eligió`, etapa 4 `48 medido`, sin que nadie midiera nada en medio, y la tabla que va al entregable es la segunda). `pendiente_espuria_pct` hereda la fuente de `A` por lo mismo: es función suya y no puede ser más firme que su operando. Pásalo como int (entra `declarado`), o `vecinos="medir"` y se barre aquí con `barrer_vecinos` (también `medido`), o déjalo y entra el default 48 marcado `default`. `vecinos=(20, 32, 48)` barre ESA rejilla en vez de la de `barrer_vecinos`, porque extender la rejilla es lo primero que pide el aviso de "la clase alta no convergió": sin ese paso hay que saltarse la función que lleva la procedencia para poder hacerlo. **Si el barrido avisa, `vecinos` entra como `default` con el aviso en `.origen` y sale en `sin_medir`**, no como `medido`: una rodilla sin convergencia es "nadie lo eligió" con otro nombre. El barrido cuesta una interpolación por cada `n`, por eso está apagado por defecto; corre después de `h` y `s_vacio` y antes del margen, que depende de él.
-  **`metodo="tin"`** cambia tres cosas, y ninguna es cosmética: (1) **sin piso antialias** (el piso es del MÉTODO, no del predio: sale de que el spline ondula con λ, y un TIN es lineal a trozos), así que `resolucion` sale solo de los techos y `resolucion_piso` es NaN; (2) **sin `vecinos`**, que es de la RBF: la clave no sale, no cae en `sin_medir`, y pasarlo levanta `ValueError`; (3) **margen de borde `ceil(s_vacio/h)+2`**, la curva siguiente de fuera, en vez del vecindario. Medido en un predio real con la tabla del spline: `resolucion` 20 m INFACTIBLE y `vecinos` SIN MEDIR para una superficie que se hizo, y se juzgó entregable, a 5 m. Con `metodo="tin"` el `assert not sin_medir(p)` de la regla 1 pasa sin barrer nada que el TIN no use.
-- `sin_medir(params)`: los nombres del dict anterior cuya fuente es `default`, o sea los que nadie eligió. Es la lista que se mira antes de citar una cifra. Vacía = todo viene de una declaración, una medición o una derivación de las dos. La aritmética de un `Valor` devuelve `float` pelado y PIERDE la procedencia, a propósito: un valor calculado a partir de otro ya no tiene la misma procedencia que su operando, y heredarla sería mentir.
-- `tabla_procedencia(params)`: rinde (e imprime) la tabla `parametro / valor / fuente / origen`, más el bloque de `SIN MEDIR`, el aviso de `INFACTIBLE` y la pendiente espuria si `A` está medida. Es la tabla que hoy se escribe a mano en la memoria técnica de cada predio; que se genere sola es el punto, porque un `default` aparece así en el ENTREGABLE y no en un aviso de consola que ya se aprendió a ignorar. Devuelve el texto además de imprimirlo.
-- `comprobar_cifras_firmes(medidos, firmes, tol=0.05, nombre="cifras firmes")`: compara lo medido contra las cifras firmes del predio y **levanta ValueError** si no cae dentro de `tol` (relativa; absoluta si el esperado es 0). **En la PRIMERA corrida de un predio no hay cifras firmes y no se inventan**: se corre sin arnés, se revisa el resultado a mano (tabla de procedencia sin `default`, guardas de salida, los tres jueces), y sólo entonces se escriben en el script las cifras de esa corrida, con su fecha y su versión de librería, para que a partir de ahí el arnés proteja. Un `firmes` copiado de otro predio no protege nada: mide otra cartografía. Y ojo con lo contrario — una cifra firme puede ser un defecto que nadie miró: el `-0.22 ha` del predio de referencia se citó como residuo de redondeo durante ocho versiones y era el hueco del sieve. Es el `assert` a mano de un script de predio, generalizado: la primera corrida buena de un predio FIJA sus cifras, se escriben, y a partir de ahí cualquier cambio de librería, de script o de parámetro que las mueva sale como excepción en vez de como una tabla nueva que parece igual de válida. Con el arnés corriendo ANTES de imprimir, una regresión de las cuatro decisiones perdidas (14.86 → 4.35 ha) habría pasado por resultado. Va antes de la tabla, no después: si no cae, nada de abajo es citable. No devuelve nada a propósito — un booleano invitaría a ignorarlo con un `if`.
-
-## Estilo de script
-
-- Docstring corto al inicio (qué, y por qué si no es obvio).
-- Bloque `CONFIG` en mayúsculas arriba de todo (rutas, EPSG, distancias, campos). Nada de esto suelto en la lógica.
-- 3+ casos parecidos → lista de tuplas + `for` (el orden puede codificar prioridad). Con 2 casos, escribe los bloques directo (YAGNI).
-- Pasos numerados: `# ── N. VERBO EN MAYÚSCULAS ──`.
-- Encadena funciones de `geophis`; la única lógica propia es la del caso (niveles, prioridades, claves de dominio como UMM).
-- `print()` como reporte, no logging. Si el script imprime lo suyo, `geo.MOSTRAR = False` al principio calla los reportes de la librería (los avisos de defecto salen igual).
-- `geo.NUCLEOS` (default: los núcleos de la máquina menos uno, para no dejar al usuario sin equipo; además corren con prioridad baja) es cuántos procesos usan los barridos cuando no se les pasa `nucleos`. `geo.NUCLEOS = 1` al principio los deja en serie, por ejemplo si la memoria no da para una malla por proceso.
-- **Un script no importa `math` ni `numpy`.** Si lo necesita, lo que falta es una función en la librería. Los dos casos que aparecían — `ceil(umm/h²)` y `ceil(sqrt(n·i·s/pi)/h)+2` — son `min_pixeles_umm` y `margen_borde_celdas`; el `pendiente[relleno] = np.nan` es `calcular_pendiente(..., invalidar=relleno)`. No es cosmética: una fórmula copiada en el script es una fórmula que la librería ya no controla, y ésas dos vivían en cinco sitios con un bug de `round`/`ceil` de por medio. Excepción legítima: medir algo que la librería no mide todavía (p. ej. percentiles del espaciado de vértices); ahí el `numpy` marca dónde falta API, no dónde sobra disciplina.
-- Script de un uso = lineal, sin funciones propias; reasigna la misma variable (`gdf = geo.algo(gdf)`).
-- Variables en español, cortas (`gdf`, `capas`, `combinado`); constantes en mayúsculas.
-
-## REGLA DE LOS NÚMEROS: no se inventa ninguno
-
-**Quien escribe el script no elige cantidades.** Un número que aparece en un script sin decir de dónde salió es indistinguible de uno medido, y ése es el modo de fallo más caro que tiene este repo: cuatro decisiones perdidas al cambiar de script llevaron la misma clase de pendiente de 14.86 ha a 4.35 ha, y ninguna avisó al correr. Un `48` escrito a mano y un `48` medido se ven igual en el código, en la salida y en el mapa.
-
-La regla, en dos partes:
-
-1. **Si la cantidad tiene procedimiento de medición, el script NO escribe el número.** Escribe la variable y deja que la librería la mida (`derivar_parametros`), o la recibe ya medida. Nunca la teclea.
-2. **Si por lo que sea hay que teclearla, al lado va escrito: de dónde sale, qué procedimiento la produce, y qué pasa si está mal.** Sin las tres cosas, el número no se escribe.
-
-Cada cantidad cae en una de las cinco fuentes de `derivar_parametros`, y lo que puede hacer el script depende de cuál sea:
-
-| fuente | ¿lo escribe el script? | ejemplos |
+### El área se calcula al final
+
+La superficie de cada polígono se calcula después del último paso que mueve la geometría, no solo después de recortar y reproyectar. `borrar` y `resolver_por_prioridad` recortan al final de la cadena y dejaban la columna de área desactualizada. Con la longitud pasó lo mismo en hidrología: calcular la longitud y luego recortar dejaba la columna diciendo **71.0 km sobre una geometría de 60.7 km** (14 % de más). `guardar` ahora avisa cuando la columna no cuadra.
+
+### La comprobación de partición mide tres cosas por separado
+
+Comprobar que las clases cubren el predio exige medir aparte el hueco (predio sin cubrir), el exceso (lo que se sale) y el doble conteo (lo que está en dos clases). Una cifra neta compensa: 0.5 ha sin cubrir dentro y 0.5 ha fuera dan cero. En un predio real el cierre neto daba **0.04 ha** mientras la superficie realmente no cubierta era **1.30 ha**. Y en el predio de referencia el doble conteo valía 0.0000 ha exactas mientras el hueco valía 0.22: una guarda que solo mirara el solape habría dado la capa por buena.
+
+La tolerancia no tiene valor por defecto. Una tolerancia de 1 ha, heredada de un ejemplo, dejó pasar el hueco de 0.22 ha durante ocho versiones.
+
+### Cuando la capa viene de un ráster
+
+Una capa que pasó por una malla de celdas tiene el borde en escalera, y discrepa de su polígono hasta media celda a cada lado. La tolerancia correcta es el perímetro por media celda (`tolerancia_rasterizacion_ha`), que depende de lo dentado del contorno y no del área. **Recortar contra el polígono no arregla el cierre, lo empeora** (de 0.04 a 1.30 ha en un predio real): quita lo que sobra pero no puede añadir lo que la malla nunca cubrió.
+
+### Otras decisiones de geometría
+
+- **Máscaras con todas las celdas tocadas.** Si una máscara solo pinta las celdas cuyo centro cae dentro, la celda mordida por el lindero no se poligoniza nunca y la capa cierra con menos superficie que el predio. La fuga es de perímetro por píxel entre 8.
+- **Simplificar polígonos como cobertura.** Simplificando cada polígono por su cuenta salían **40.03 ha de hueco y 29.81 ha de solape** en un predio real. Simplificar la cobertura completa resuelve eso, pero hoy falla sobre la salida de la poligonización (330 polígonos rechazados en un predio y 154 en otro): rasterio no pone vértice en las juntas en T. Se arregla con una función de shapely 2.2.
+- **Cerrar rendijas por la unión, no por polígono.** Un cierre morfológico polígono por polígono invadía al vecino: 261 ha de solape.
+- **La cadena del índice de vegetación sin simplificar ni cerrar rendijas.** Con esos dos pasos metía **303.74 ha de doble conteo** sin avisar.
+- **Reparar geometrías con `make_valid`, no con `buffer(0)`**: en un polígono en forma de moño, `buffer(0)` se queda con media superficie.
+- **El más cercano, sin duplicar.** El join al más cercano devuelve una fila por empate, y una capa pasó de **61 a 2 413 filas** sin avisar. `cercano` deja una fila por entidad y cuenta los empates.
+- **Seleccionar por ubicación no es un join.** El join espacial duplica la fila si dos entidades la tocan; para filtrar, inflaba el total en silencio.
+
+## 3. Clases de pendiente
+
+### La clase más alta es una cinta, no una mancha
+
+La pendiente más empinada (más de 100 %) aparece en los escarpes como una franja angosta y larga. Sobre una banda de 15.5 m de ancho, alcanzar una UMM de 0.25 ha exige 162 m continuos. Aplicar la UMM por superficie borraba entre el **47 y el 55 % del escarpe**, que es terreno real. Por eso esa clase queda exenta del filtro de manchas y la UMM se aplica como ancho mínimo: la cifra que se entrega es un piso defendible, y esa salvedad va pegada a la cifra.
+
+### Una sola pasada del filtro
+
+La receta anterior pasaba el filtro de manchas a todas las clases, luego a ninguna, y se quedaba con la clase alta de la versión sin filtrar. No era una partición: el filtro no borra, **reasigna** cada mancha chica a su vecina mayor, y así metía en la clase alta píxeles que en la versión sin filtrar eran de otra clase. Esos píxeles no estaban en ninguna de las dos capas y desaparecían. En el segundo predio en que se aplicó dejó **43.21 ha de hueco** (0.9 % del predio). En el primero el hueco era casi cero y la receta pasó por buena.
+
+La solución es una sola pasada con la clase alta exenta: ni absorbe ni es absorbida, sale idéntica píxel a píxel y no hay hueco ni doble conteo.
+
+### El ancho de la cinta se mide
+
+Sin medirlo, el ancho de la clase alta se calcula como equidistancia entre pendiente (20 m para 100 %). Medido sobre la carta, reconstruyendo la banda donde las curvas están más juntas que esa separación, dio **15.5 m**, y con eso el tamaño de píxel bajó de 6.67 a 5.17 m. La medición también da el área que la carta sostiene en esa clase: el **blanco cartográfico** contra el que se compara el MDE.
+
+Dos cuidados: el zigzag del trazo se cancela en el ancho pero manda en el área (pasar zigzag 1.0 por descuido infla el blanco por el factor entero), y el largo de los tramos de la banda es largo de trazo, que hay que dividir entre el zigzag (con zigzag 1.408, olvidarlo son 40 puntos porcentuales de "escarpe visto"). Y la escalera de cotas se toma de las curvas completas, antes del recorte: si no, dos niveles separados 2e quedan como contiguos y aparece una banda que no existe.
+
+### Cuántos píxeles mide la UMM
+
+`min_pixeles` se redondea hacia arriba porque la UMM es un mínimo (redondear dejaría pasar manchas de 361 m² con UMM de 400). Es un entero que salta de golpe al cambiar `h`, y como el filtro absorbe en vez de borrar, endurecerlo puede **agrandar** una clase: a `h` = 19 m, la clase alta medía 1 491.89 ha con 1 píxel mínimo y 1 733.38 con 2.
+
+### Qué corte se puede entregar
+
+`sostenimiento_por_clase` mide, para cada corte acumulado (≥ 35, ≥ 45...), la separación que sostienen las curvas dentro de esa clase. Un corte se entrega si el píxel cabe en el objeto y además no está bajo el piso de pendiente falsa. Dos hallazgos:
+
+- **La separación sostenida es estable al 1 % frente a `h`** (dos predios, tres cortes, `h` de 20 a 52 m): el ancho del objeto es del terreno, no del píxel. Basta una interpolación.
+- **El piso se calcula con la separación de ESA clase, no con la global.** En un predio mayormente suave, el piso global describe el llano: 37.0 m contra 15.5 m locales, un factor de 2.4, y con el global se condenaba una clase que sí era resoluble.
+
+La condición es necesaria y no suficiente: un MDE externo de 15 m cumplía `9.6 ≤ 15 ≤ 19.2` y perdía el 90 % de la banda.
+
+### El escarpe visto
+
+Para comparar métodos se mide qué fracción del largo del escarpe de la carta cae dentro de la clase alta del MDE. Se citó así en un predio: "el MDE ve el 56 % del escarpe (10 436 m efectivos)". Comparar áreas premiaría al método que dibuja la cinta más ancha.
+
+## 4. Del vector al MDE
+
+### La separación entre curvas se mide por G'(0)
+
+La separación media se calculaba como área entre longitud de curvas. El zigzag del trazo la sesga a la baja: 59.36 m contra **74.93 m** medidos por la derivada en cero de la escalera de buffers, un 26 % menos, y con el valor sesgado la clase de más de 100 % daba 7.16 ha en vez de 4.37. La separación así medida es una media armónica dominada por lo empinado, y subestima los llanos.
+
+### Separación sobre el extent, zigzag sobre el predio
+
+Son dos mediciones con dominios distintos. La separación gobierna cómo ondula el spline, que se construye sobre todo el extent del MDE; el zigzag convierte un muestreo de terreno en uno de trazo y debe describir las curvas del predio. Sacarlas de la misma pasada deja una en el dominio equivocado: la separación da 76.15 m sobre el polígono, 74.90 sobre su rectángulo y 68.34 sobre el rectángulo más 1 500 m; el zigzag, 1.413 sobre el polígono y 1.26 sobre el rectángulo (10 % en el muestreo, 12 % en el blanco).
+
+### El tamaño de píxel: techos y piso
+
+`resolucion_regla` junta tres techos (que la UMM quepa en 4 píxeles, detectar la cinta, trazarla con 3 celdas cruzando su ancho) y un piso que solo aplica al spline. Las decisiones:
+
+- **El piso existe porque el spline ondula.** Entre curvas, la superficie forma un rizo con la longitud de onda de la separación. La pendiente se calcula con una ventana de 3 × 3 celdas (2h de ancho), y ese rizo entra como pendiente falsa `A·sin(2πh/λ)/h`, máxima cuando `h` ≈ λ/4. Con λ = 38 m, `h` = 10 m inventaba **57 % de pendiente** sobre 53 % real; `h` = 20 m la bajaba a ~5 %. El piso es λ/2.
+- **Cuando el piso supera al techo, gana el piso.** No hay `h` que cumpla los dos. Con `h` en el piso, la clase alta no se puede trazar a la UMM pedida, y eso se reporta. Con `h` en el techo, el rizo fabrica superficie en esa misma clase y se cita como terreno. Las pérdidas no son simétricas.
+- **Con la amplitud del rizo medida, el piso deja de mandar.** El piso es un sustituto para cuando no se conoce `A`. Con `A` medida se calcula la pendiente falsa y se compara contra la mitad del ancho de la clase más estrecha. En dos predios: uno con `A` = 0.00 m da 0.00 % y pasa; otro con `A` = 16.67 m da 245.73 % y no pasa. Sin `A`, el piso gritaba "infactible" en los dos.
+- **El criterio tampoco es suficiente.** Con la misma pendiente falsa de 4.07 %, los píxeles que cambian de clase van de 0.00 % (si la pendiente real está lejos del límite) a 52.81 % (si está sobre él).
+- **`h` se redondea a un valor limpio, en la dirección segura.** Un techo hacia abajo (5.17 → 5 m) y un piso hacia arriba (18.95 → 20 m). Al más cercano, un piso de 22 caería a 20, debajo de sí mismo. Son las decisiones que se venían tomando a mano en cada predio.
+- **El intervalo de muestreo no se redondea**: la escalera de valores limpios salta de 50 a 100 con el corte en 75.0, y una separación de 74.93 decidiría el muestreo por centímetros.
+
+### Los vecinos del spline se miden
+
+El spline ajusta una superficie con los `n` puntos más cercanos a cada celda. Pocos vecinos aterrazan la superficie contra las curvas; más vecinos lo quitan hasta que la clase alta deja de moverse. La fórmula de tamaño solo da el orden de magnitud (14, 120 o 141 en la misma zona según qué separación se le meta). Se mide con un barrido que para en cuanto dos `n` seguidos dan la misma cifra (la "rodilla"): en un predio a 20 m tardó 8 min y la rodilla fue 64; en otro a 5 m, 50 min y 90.
+
+Si el barrido no converge, o si la clase alta mide 0 ha a esa resolución, no hay rodilla y `vecinos` queda marcado como no medido. Una rodilla sin convergencia es "nadie lo eligió" con otro nombre.
+
+El álgebra lineal del spline corre a un hilo a propósito: con varios hilos, `n` = 122 costaba 6 veces `n` = 90.
+
+### Los cuadros del MDE
+
+Las curvas se recortan a un cuadro más amplio que el predio, para que las celdas del borde se interpolen con datos a los dos lados. El margen sale del vecindario del spline (`ceil(sqrt(n·i·s/π)/h)+2`, con la separación del VACÍO, el doble del cuantil 90, no la mediana: con la mediana salían 40 m donde iban 400). El MDE de salida va dos celdas más ancho que el predio: la ventana de 3 × 3 deja sin dato la celda del borde, y sin ese margen la capa perdía un anillo (0.80 de 2.16 ha en la ladera de prueba).
+
+### El sin dato no se tapa
+
+Fuera de la envolvente de las curvas el interpolador devuelve sin dato. Rellenarlo copia el vecino más cercano y deja una meseta al 0 % sin marcar: superficie inventada que sale en la tabla como terreno llano. Por eso el aviso de "sin dato" se imprime siempre, aunque se apaguen los reportes, y `zonificar` entrega ese hueco como clase `SIN DATO` (188 ha en una costa sin curvas, que antes rompían la comprobación de partición).
+
+### Curvas mal capturadas
+
+Una sola curva con cota errónea hace un pico falso. En la carta estatal hay una de 3 302 m entre curvas de 1 180 m, y en hidrología produjo alturas sobre cauce de hasta 2 982 m. `detectar_cota` avisa siempre de cotas fuera de escalera. También tuvo que aprender a no elegir una columna a medias: en una costa, una columna de texto vacía en el 56 % de las curvas ganaba a la buena, y se habría descartado la mitad de las curvas.
+
+### Por qué la validación por reserva no elige método
+
+`validar_mde` aparta puntos de las curvas, interpola sin ellos y mide el error. Mide la isolínea, no el terreno entre curvas, que es donde se decide la pendiente. Tampoco sirve para comparar resoluciones (mide el centro de celda más cercano, y ese error crece con el píxel: de 10 a 20 m el RMS subió de 7.16 a 11.59 con la misma superficie) ni para ajustar el suavizado (suavizar es dejar de pasar por los puntos reservados). Sí sirve para cazar cotas mal capturadas, agrupando el error por curva. Un defecto viejo: los puntos de fuera del ráster tomaban la cota del borde y entraban como error real.
+
+## 5. Qué interpolador para qué
+
+### El método no se elige por receta
+
+Medido en cinco predios contra la carta:
+
+- **TIN con cauces como líneas de quiebre** para la clase alta. Mide la pendiente media entre dos curvas, que es lo mismo que mide la carta. En un predio vio el 45.7 % del escarpe contra 34.6 % del spline.
+- **Pero el TIN deja mesetas falsas.** Un triángulo con sus tres vértices en la misma curva es plano. En un predio a 5 m: **535 ha (11.4 %) al 0 % exacto**, 778.35 ha contando su borde contaminado, el 80 % a media ladera, 353 ha en laderas de más de 15 % y el 47 % a más de 100 m de un cauce (las líneas de quiebre no las quitan). Del 5 al 19 % del extent según el predio. Por eso el TIN nunca da los rangos bajos ni la exposición.
+- **En otro predio el TIN dio 28 % menos clase alta que el spline** y 76 ha más de 0-5 %. Por eso hay un juez y no una regla fija.
+- **Las líneas de quiebre** dan cota a los cauces por sus cruces con las curvas y quitan los triángulos planos del fondo de las vaguadas: la clase alta pasó de 229.17 a 234.73 ha.
+
+### La cascada: clase alta del TIN, rangos bajos de otra superficie
+
+Cuando gana el TIN, la tabla completa se arma en cascada: la clase alta del TIN, los rangos bajos del spline (o de la malla) y lo que sobre, con la clase del TIN. En un predio real: 233.61 ha de clase alta del TIN, 4 426.26 ha de rangos bajos del spline y 51.89 ha de residuo.
+
+**Los rangos bajos van sin filtro de manchas.** Medido contra la carta en cuatro predios, el corte ≥ 60 % pasa de entre −2.6 y +0.8 % sin filtro a entre +16.7 y +45.3 % con él. No depende de a quién se reparte la mancha: al vecino mayor, al píxel más cercano o a la clase contigua da casi lo mismo (+11 a +42 %). Las manchas chicas son terraceo del spline (pendiente baja junto a cada curva) que compensa lo que la superficie suave se empina a media ladera; quitarlas deja solo lo empinado. Promediar la pendiente antes del filtro fue lo menos malo (+4 a +18 % en ≥ 45) y aun así peor. El costo es que los rangos bajos quedan con miles de piezas bajo la UMM (entre 4 337 y 37 964 según el predio), y eso va como salvedad.
+
+Los vecinos de ese spline se declaran en 90: la rodilla medida (64) se mide sobre la clase alta, que aquí no sale de él, y con 64 la exposición sacaba 3.52 ha sin orientación que con 90 no aparecen.
+
+### La malla, para cuando el spline queda muy grueso
+
+El piso del spline es λ/2. Si λ es grande, el spline queda muy por encima del tamaño de píxel del TIN y aplana las laderas. La señal es el cociente entre el `h` del spline y el techo de trazado:
+
+| Factor | Rangos bajos del spline (≥60 / ≥45 / ≥35) | Rangos bajos de la malla a 5 m |
 |---|---|---|
-| `declarado` | **Sí**, es lo suyo: lo decide el ingeniero y ningún dato lo sabe | escala, `RANGOS`, cuál es la `CLASE_ALTA`, que esa clase va exenta del sieve |
-| `medido` | **No.** Sale de la cartografía con un procedimiento; se mide o se recibe medido | `w`, λ, zigzag, `s_vacio`, `vecinos`, `A` |
-| `derivado` | **Nunca.** Es aritmética que la librería posee | UMM, `min_pixeles`, `margen_borde_celdas`, intervalos, `h` |
-| `convencion` | No hace falta: es constante de oficio y ya vive en la librería | `LADO_MM`=2, `N_MIN`=4, `N_CRUCE`=3, `CUANTIL_VACIO`=90 |
-| `default` | **Nunca a sabiendas.** Es un valor que NADIE eligió | `vecinos`=48 |
+| 4.0 | −1.1 / +1.5 / +4.0 % | +8.3 / +2.5 / +2.6 % |
+| 4.8 | −3.8 / +0.0 / +1.1 % | +7.4 / +3.4 / +2.5 % |
+| 9.7 | **−40.1 / −23.3 / −14.6 %** | **+7.2 / +10.1 / +6.3 %** |
 
-Lo declarado se escribe **con su razón al lado**, no pelado: `ESCALA = 25_000` no dice nada; `ESCALA = 25_000  # compromiso de entrega; la UMM es consecuencia` sí.
+Dos predios más dan factor 4.0. El umbral se fijó en **9.5**, con margen sobre el único predio de factor alto (9.71): con 9.7 exacto, un techo un 0.3 % más ancho lo dejaba fuera. Entre 4.8 y 9.5 no hay mediciones.
 
-**El cierre es mecánico, no de buena voluntad.** Cada corrida imprime `tabla_procedencia(p)` y comprueba `sin_medir(p)`. Esa lista trae exactamente los `default`, o sea los números que nadie eligió, y sale en el ENTREGABLE y no en un aviso de consola que ya se aprendió a ignorar. Vacía = ningún número inventado.
+La malla es una placa delgada resuelta como un solo sistema para todo el MDE (el núcleo del método de Hutchinson, sin imponer el drenaje). No deja mesetas, pero **sobreestima el corte ≥ 60 % de 7 a 8 % de forma estable**, porque una superficie suave se empina a media ladera por encima de la pendiente media entre curvas. No es cuestión de ajuste: el peso de la suavidad, barrido de 1e-3 a 1, solo lo bajó a +6.5 %. Por eso no es fuente de la clase alta. Pide más relleno de sumideros que el TIN, cuesta unos 860 bytes por celda (1.6 GB para 1.9 millones de celdas) y no necesita vecinos.
 
-```python
-geo.tabla_procedencia(p)
-assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
-```
+El prototipo resolvía por teselas con factorización directa y las costuras metían hasta 1.9 m de error junto al borde de cada tesela (62.7 ha cambiaban de clase). Con gradiente conjugado y multimalla se resuelve todo de una vez, sin costuras.
 
-### La ficha que hay que escribir cuando una cantidad se teclea
+### Cuando el spline no ve la clase alta
 
-Tres líneas, y las tres importan. El ejemplo real es `vecinos`, que es el único parámetro de `interpolar_mde` que **no se deriva de nada**:
+Con λ grande, a su `h` (50 m en un predio real) el spline ve 0 ha de clase alta. El barrido de vecinos no tiene qué medir y no hay rodilla. No es un fallo: el spline no es candidato para la clase alta en ese predio, y la receta lo saca de las candidatas. Antes, la receta se detenía en ese punto.
 
-```python
-# vecinos = 90
-#   COMO SE OBTIENE: `barrer_vecinos` (o `derivar_parametros(vecinos="medir")`).
-#     Barre n = 20/32/48/.../200 y PARA en la RODILLA: el primer n cuya clase
-#     alta (la cifra que se entrega) se mueve <= 1 % al pasar al siguiente.
-#     Pocos vecinos aterrazan la superficie contra las curvas (terraceo) y eso
-#     mueve la clase alta; mas vecinos lo quitan hasta que deja de moverse, y
-#     pasado el codo solo se paga tiempo. NO se estima con `pi*k^2*s/(4*i)`:
-#     esa formula da 14, 120 o 141 en la misma zona segun que `s` le metas, y
-#     sirve para el orden de magnitud, no para el valor.
-#   COSTO: una interpolacion por cada n hasta converger; las grandes dominan.
-#     un predio real a 20 m: 8 min, rodilla 64. Otro a 5 m: 50 min, rodilla 90.
-#   SI ESTA MAL: con el default 48 en vez de la rodilla medida, en el predio de
-#     referencia sobraba el 12 % de la clase alta, y era terraceo. No avisa.
-```
+## 6. Hidrología
 
-Y si aun así se corre sin medirla, se corre **sabiéndolo**: `sin_medir` la nombra y la cifra que dependa de ella no es firme.
+### Dos MDE distintos
 
-**Qué NO es esta regla.** No es que el script pida permiso para todo: lo `declarado` es del ingeniero y se escribe sin ceremonia. Es que un número **medible** no se estima nunca, ni "para tantear", porque un tanteo que sobrevive a la siguiente sesión ya no se distingue de una medición.
+Quemar los cauces (bajar el terreno sobre ellos) y acondicionar el MDE (rellenar depresiones y dar micro-pendiente a los llanos) son correctos para calcular el flujo y dañinos para la pendiente: el quemado mete un escalón falso en cada orilla y llena la clase más alta de cauces que no existen. Por eso el MDE de pendiente se guarda antes de quemar.
 
-## Convenciones clave
+### Rellenar antes de quemar
 
-- Una función = una operación de la librería base.
-- Distancias/márgenes en unidades del CRS (usar UTM para metros).
-- `zona_de_influencia`, `borrar`, `limpiar_vacias` devuelven copia (no mutan).
-- `disolver`/`fusionar` conservan CRS; `recortar`, `intersecar`, `borrar` y `union_espacial` lo alinean solos (ver proyeccion.py).
-- Prioridad entre capas → `borrar` (`otro` gana el solape); con 3+ capas, `resolver_por_prioridad` (recorta contra la unión acumulada, no contra la vecina).
-- Dos capas que se solapan sin jerarquía entre sí → `repartir_por_cercania` reparte el conflicto en vez de que una gane entera.
-- **Contar o medir PIEZAS después de un disolver → `separar_multipartes` primero.** `disolver_por_grupo` deja una fila multiparte por clase, y todo lo que razona por fila (`calcular_superficie`, `subdividir_por_area`, `eliminar_menores`, `len()`) mide entonces el grupo y no la mancha. No avisa: devuelve un número plausible del objeto equivocado.
-- **El área y la longitud van detrás del ÚLTIMO paso que mueva la geometría**, no solo detrás de recortar y reproyectar: `borrar` y `resolver_por_prioridad` también la mueven, y van al final de la cadena. `guardar` avisa si la columna quedó obsoleta, las dos medidas.
-- Errores con `raise ValueError` de mensaje claro (CRS faltante, campo/ruta inexistente, capa vacía, máscara sin intersección).
+Una celda de cauce sobre sin dato da "sin dato menos profundidad", que sigue siendo sin dato. El relleno posterior copia el vecino válido más cercano, que está sin quemar: el lecho sube ahí y queda una presa dentro del cauce, con un MDE perfectamente válido y la red cortada. `quemar_cauces` avisa cuando pasa.
 
-## CLI
+### El quemado fuerza la pendiente aguas abajo
 
-```bash
-geophis ARCHIVO [ARCHIVO ...] TIPO   # convierte entre formatos (lote)
-geophis C:\SIG\proyecto\datos\predio.shp kmz
-geophis ayuda
-```
-Tipos: `shp`, `gpkg`, `geojson`, `gpx`, `kml`, `kmz`. Opciones: `--capa NOMBRE`, `--gpx-como {track,route}`, `--si` (sobrescribe sin preguntar). Salida autonombrada (misma carpeta/nombre, extensión nueva).
+Bajar el cauce una profundidad fija no basta: en un predio real, 16 km de cauce sobre una meseta del TIN quedaban como 1 613 celdas llanas que el acondicionado no drenaba. Ahora un tramo llano recibe micro-pendiente y uno que sube se rellena hasta su derrame. Avisa de las celdas de cauce que quedan por encima del terreno (en un predio real, 2 128 celdas más de 1 m, hasta 15.5 m): ahí la línea de la carta sube cuesta arriba.
 
-## Ejemplo mínimo
+### El MDE acondicionado no se guarda en disco
 
-```python
-import geophis as geo
+El acondicionado sale en precisión doble porque su micro-pendiente es del orden de 1e-5 m, y a 1 620 m de cota la precisión simple solo distingue 1.2e-4 m. Guardarlo y releerlo borra la micro-pendiente: los sumideros pasaron de 55 a **11 872** en un predio y de 60 a **373 595** en el TIN de otro.
 
-EPSG_UTM = 32613
-NIVELES = [
-    ("PRIMARIO", r"C:\SIG\proyecto\datos\camino_prim.shp", 5.0),
-    ("SECUNDARIO", r"C:\SIG\proyecto\datos\camino_sec.shp", 3.0),
-    ("SACA", r"C:\SIG\proyecto\datos\camino_saca.shp", 1.75),
-]
+### Los sumideros se avisan y no se reparan solos
 
-capas = []
-for nombre, ruta, dist in NIVELES:
-    gdf = geo.cargar(ruta)
-    gdf = geo.reproyectar(gdf, EPSG_UTM, nombre)
-    gdf = geo.disolver(gdf, campo="camino", valor=nombre)
-    gdf = geo.zona_de_influencia(gdf, dist)
-    capas.append(gdf)
+`acumulacion_flujo` avisa cuando el flujo muere dentro del ráster: en un predio real, 55 celdas interiores sin salida, la mayor recogiendo el **21 % del ráster**. Son de una celda y con derrame de milímetros: residuo numérico del relleno de pysheds. Se descartó midiendo que fueran por precisión (en doble salen los mismos 55), por el orden de las operaciones o por el parámetro de micro-pendiente (subirlo solo reparte el daño: con 1e-1 salen 5 059 sumideros con el 4 % en el mayor).
 
-combinado = geo.resolver_por_prioridad(capas)  # el orden de NIVELES es la prioridad
-geo.guardar(combinado, r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER.shp")
-```
+La reparación es una función aparte, `rellenar_sumideros`, porque una endorreica real se taparía igual sin avisar. Sube cada sumidero hasta su derrame: el TIN liso convergió en una ronda subiendo 1.6 mm, el TIN con quiebres en cuatro subiendo 2.3 mm, y el ráster dejó de varar el 22.8 % de sus celdas. Cada ronda vuelve a acondicionar: sin eso, subir una celda la deja igual a su vecina, fabrica un llano nuevo y la iteración entra en un ciclo (8 y 9 sumideros alternando). Si se quemó, hay que pasarle los cauces: rellenar sobre la zanja la des-quema (1 612 celdas de cauce subidas más de 4.9 m en un predio real).
 
+### Altura sobre el cauce
 
-## Del vector al MDE, y del MDE a la pendiente
+Las cotas salen del MDE base, sin quemar, y la máscara de cauce es la misma del quemado. Con otra máscara salían 163 ha de altura negativa en un predio real; con esta, 12 ha (depresiones del MDE base).
 
-La receta mínima y correcta. **Validada contra verdad analítica**, no contra sí misma (`tests/test_mde_pendiente.py`): sobre un plano al 50 % da 50.00 %, y sobre un cono al 50 % —cuyas curvas son círculos, o sea el caso curvo— da 49.96 %. `calcular_pendiente` sobre un MDE analítico es exacto al 1e-6 en porcentaje y en grados.
+### El umbral de cauce va en celdas, y no es portable
 
-```python
-predio = geo.reproyectar(geo.cargar(RUTA_PREDIO), EPSG_UTM, "predio")
-curvas = geo.reproyectar(geo.cargar(RUTA_CURVAS), EPSG_UTM, "curvas")
-campo, e = geo.detectar_cota(curvas)
+Un cauce es una celda que drena más de `k` celdas. A 5 m de píxel eso es dieciséis veces más celdas que a 20 m, así que el mismo umbral da muchos más cauces. Se declara la superficie aportadora (ha) y la librería la convierte. La comparación es estricta, así que la celda que drena exactamente esa superficie queda fuera (0.2 %): se deja así y se escribe, en vez de esconder un "−1".
 
-# 1. LOS PARAMETROS, DERIVADOS. Ninguno se escribe a mano salvo la escala y
-#    `vecinos`, que es el unico que no se deriva de nada (`barrer_vecinos`).
-p = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos=VECINOS)
-geo.tabla_procedencia(p)
-assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
-h = p["resolucion"]  # es un float: se pasa tal cual, lleva su procedencia
+### La cuenca de un punto se ajusta al cauce
 
-# 2. LOS DOS CUADROS. `cuadro_recorte` trae el margen de datos que necesita el
-#    vecindario de la RBF; `cuadro_salida` es el EXTENT del MDE, y va DOS celdas
-#    mas ancho que el predio: la ventana 3x3 de Horn deja NaN la celda del borde,
-#    y sin margen la capa de pendientes pierde ese anillo alli donde el predio
-#    toca su bbox (medido en la ladera del test: 0.80 de 2.16 ha).
-cuadro_recorte, cuadro_salida = geo.cuadros_mde(
-    predio, margen_salida=2 * float(h), parametros=p
-)
+Un desagüe casi nunca cae exactamente sobre una celda de cauce, y a una celda de distancia la cuenca que sale es de unas pocas hectáreas, perfectamente formada y sin aviso. Por eso el punto se ajusta al cauce más cercano y se reporta cuánto se movió. Cuando el desagüe es una zona (el predio), un predio que drena por dos sitios devuelve la cuenca mayor: en un predio real, 737.82 ha de 1 765.15.
 
-# 3. EL MDE. `parametros=p` entero, no clave por clave: copiar a mano deja
-#    fuera `lambda_m` y `metodo`, y `interpolar_mde` los vuelve a medir o a
-#    suponer por su cuenta.
-mde, transform = geo.interpolar_mde(
-    geo.recortar(curvas, cuadro_recorte), campo, cuadro=cuadro_salida, parametros=p
-)
+### Microcuencas: una partición por construcción
 
-# 4. LA PENDIENTE. El `transform`, NO una constante de resolucion: si `h` se
-#    deriva sola, una constante se separa del transform sin avisar.
-pendiente = geo.calcular_pendiente(mde, transform)
-```
+La forma obvia, la cuenca de cada desagüe, dejaba **1 115.45 ha (63 %) sin cubrir y 6 504 celdas solapadas** en un predio real, porque la cuenca de un desagüe contiene a otro aguas arriba. La solución es etiquetar cada celda por el desagüe por el que sale: cada celda tiene uno solo, así que no hay solape ni huérfanas. No se filtra por tamaño: de 1 737 piezas, 85 cubren el 97 %, pero un mínimo sería un número inventado. Una columna marca los desagües que son sumideros interiores: en un predio real, 13 con 1 063.38 ha, el 60 % del predio, que no drenan a ningún sitio.
 
-Cuatro cosas que hay que saber antes de escribir el script:
+### Un juez no puede ser insumo
 
-- **`interpolar_mde` no extrapola.** Fuera de la envolvente convexa de los puntos muestreados devuelve NaN, y avisa con las hectáreas sin dato. Para la pendiente **no lo rellenes**: `calcular_pendiente` recibe el NaN y aplica la regla 7 de 8. Si hay hueco, la respuesta es dar más curvas (ampliar `cuadro_recorte`), no taparlo: `rellenar_nodata` copia el vecino más cercano y deja una MESETA plana al 0 % sin marcar. Solo si el .tif ya viene relleno de disco: `mascara_relleno` sobre el MDE de ANTES de rellenar, y `calcular_pendiente(..., invalidar=relleno)`.
-- **Guarda el MDE antes de `quemar_cauces` / `acondicionar_mde`.** Los dos son correctos para hidrología y veneno para pendiente: el quemado mete un escalón falso en cada orilla y llena el rango alto de cauces que no existen.
-- **Unidades.** `calcular_pendiente` sale en **porcentaje** por defecto (muchos SIG traen grados); 100 % = 45°. Si la z está en pies y el xy en metros, `z_factor=0.3048`, o la pendiente sale 3.28 veces alta y en silencio.
-- **NoData.** Se aplica la regla 7 de 8: centro sin dato, o menos de 7 de 8 vecinos válidos, → NaN. El borde del ráster entero sale NaN. Un píxel pegado a un hueco SÍ se computa, con el vecino sustituido por el valor del centro, así que da una pendiente menor que la real sin quedar marcado.
+La hidrografía que entra como línea de quiebre no puede juzgar la red que sale de ese MDE: se le parece por construcción. Pasó con la red estatal, que era el insumo de un cálculo y el "juez externo" del otro. Para juzgar hace falta campo, LiDAR, o reservar una parte de los cauces (`bloques_ajedrez`, en cuadros alternados y no en tramos sueltos, que quedarían contaminados por sus vecinos impuestos).
 
-## Flujo de pendientes (MDE -> polígonos por rango)
+## 7. Carga de capas y sistemas de coordenadas
 
-Reimplementa el flujo clásico de escritorio (Pendiente -> Reclasificar -> Sieve -> Raster a polígono -> recorte -> Disolver por gridcode). **`SUP` se calcula al final**, para que refleje el área del predio y no la de todo el raster.
+### Leer solo la ventana de trabajo
 
-**"Al final" es literal: detrás del último paso que mueva la geometría, no solo detrás del recorte.** En esta cadena corta el recorte es el último, así que aquí coinciden; en la de la sección siguiente NO, porque `resolver_por_prioridad` recorta después. Calcular el área en cuanto se ha recortado cumple la regla mal enunciada y deja el `SUP` obsoleto igual.
+La cartografía de trabajo es estatal: la red hidrográfica tiene 384 554 tramos y 133 MB, las curvas 1 GB. Leer solo las entidades que tocan una ventana alrededor del predio bajó la carga de **33.1 s y 763 MB a 7.1 s y 164 MB**. No es un recorte: devuelve entidades enteras, y el recorte sigue haciendo falta.
 
-**Usa el MDE interpolado, NO el quemado.** `quemar_cauces` y `acondicionar_mde` (`resolve_flats`) son correctos para flujo y veneno para pendiente: el quemado mete un escalón falso en cada orilla y llena el rango `>100` de cauces que no existen. Guarda el MDE antes de quemar.
+### Pero no para lo que infiere una propiedad de la capa
 
-**Toda la limpieza va en raster, antes de vectorizar**, o poligonizas cientos de miles de esquirlas: `mascara` recorta al predio (el MDE se interpola sobre su *bounding box*) y `limpiar_moteado` quita las manchas sub-mínimas. El `recortar` vectorial no se quita: la máscara corta por bordes de píxel, el clip da el límite exacto y es lo que hace cuadrar la superficie.
+`detectar_cota` decide la equidistancia por la forma de la columna completa. Con una ventana grande entró una sola curva mala (3 302 m entre curvas de 1 180) y bastó para que una detección por regularidad eligiera una columna de identificadores con equidistancia 1 m. Ampliar la ventana movía la equidistancia, y de ella cuelga todo lo demás. La regla: declarar un dominio estable, cargar con esa ventana y detectar una sola vez sobre él. Por eso también `detectar_cota` prefiere el paso más grueso que cumple la regularidad.
 
-```python
-mde, transform, crs, res = geo.cargar_raster(RUTA_MDE_BASE)  # sin quemar
-pendiente = geo.calcular_pendiente(mde, transform)  # % por defecto; NaN donde no hay dato
-predio = geo.cargar(RUTA_PREDIO)
-# reclasificar, sieve dentro del predio, poligonizar, recortar y SUP al final
-gdf = geo.zonificar(
-    pendiente, transform, crs, RANGOS, p["min_pixeles"],  # `p` de derivar_parametros, no tecleado
-    recorte=predio, campo="PENDIENTES", por_clase=True,
-)
-geo.guardar(gdf, RUTA_SALIDA)
-```
+### Quién se reproyecta
 
-### Cuando la CLASE MÁS ALTA es la cifra que se cita
+`recortar`, `intersecar`, `borrar` y la unión espacial mueven siempre el segundo argumento al sistema del primero: la capa que se procesa no se mueve. `fusionar` no alinea, a propósito: concatenar dos sistemas da una capa mal ubicada en silencio. `quemar_cauces` recibe la transformación del ráster y no un sistema de coordenadas, así que no puede alinear: recortar los cauces y quemarlos sin reproyectar dio **0 píxeles quemados** con la red estatal en cónica conforme sobre un MDE en UTM.
 
-La cadena de arriba entrega la tabla. **No entrega una cifra defendible del rango más empinado**, y ese suele ser el que se pide. Un script escrito solo con lo de arriba corre, no avisa de nada, y da un número que puede estar 3 veces abajo del bueno: medido, la misma clase dio 14.86 ha con el método completo y 4.35 ha sin él, y 1.68 ha con `h` a ojo.
+La capa estatal no tiene código EPSG (viene como WKT suelto), así que pedir su código devuelve vacío y rompe la reproyección. Se pasa el sistema completo. Las funciones que miden en metros sin decirlo fallan con coordenadas en grados: antes, una pendiente calculada en grados salía en millones de por ciento sin error.
 
-Las cuatro cosas que se pierden, **ninguna de las cuales avisa al correr**:
+### El cambio de datum
 
-| decisión | si se pierde | de dónde sale |
+Cambiar de proyección no cuesta nada, pero cambiar de datum puede: de NAD27 a UTM 13N en la zona de trabajo hay **12 m** de error sin que la reproyección diga nada. `reproyectar` avisa cuando la mejor transformación pasa de 1 m o falta la rejilla.
+
+### Atributos
+
+- **El join de tablas falla si no casa ninguna clave.** Un join que no casa devuelve la capa entera con nulos y el error sale cuatro pasos después como un mapa en blanco. Casi siempre es el tipo (`'007'` del CSV contra `7` del shapefile), y la conversión va del lado que conserva el dato (entero a texto, porque al revés se pierden los ceros).
+- **Los nombres de columna del shapefile** se cortan a 10 caracteres y pueden chocar. Se avisa antes de la corrida, no se renombra: las dos veces que pasó, el arreglo bueno fue elegir un nombre corto con sentido (`SUP`).
+- **El ancho de los campos del .dbf** se fija reescribiendo la cabecera, porque la librería de escritura no lo expone y la alternativa no instala en Python 3.14 en Windows. El texto cuenta bytes: una letra acentuada ocupa 2.
+
+## 8. Rutas
+
+- **A pie, el costo es por paso y con dirección.** Con una pendiente por píxel, caminar a media ladera se cobra como subir de frente (unas 4 veces de más en una ladera de 45 %). Con la pendiente de cada paso, en un predio real la ruta tardó entre 9 y 22 % menos y se separó hasta 1.3 km. Velocidad de Tobler; fuera de camino, 3/5. Ocupa unos 550 bytes por píxel.
+- **En una red de calles, las velocidades deciden la ruta, no solo los minutos**: bajar las calles residenciales de 25 a 20 km/h cambió el 93 % del trazado en una ciudad real. Hay que calibrarlas con un trayecto medido.
+- **Las capas de calles de las cartas urbanas son contornos de dibujo**, no ejes: ninguna línea toca a otra y no hay red. Hay que usar ejes de calle.
+- **Las isócronas como polígonos** necesitan un ancho de servicio (hasta dónde se llega a pie desde la calle), que es un supuesto que se declara; no se usa una envolvente cóncava porque su parámetro no sale de ningún dato.
+
+## 9. Imagen satelital
+
+- **Solo Sentinel-2 por Earth Search.** Los mapas base comerciales prohíben guardar o analizar la imagen; otro servicio pide cuenta y token. La licencia de Copernicus exige citar "Contains modified Copernicus Sentinel data" con el año.
+- **Escala y desfase del archivo.** Sin aplicarlos, una escena de línea base reciente daba un NDVI de 0.51 donde el correcto era 0.82.
+- **La búsqueda pagina hasta el final**: con el límite lleno el servicio corta en silencio, y así se perdieron tres semanas de febrero. Hay días con dos pasadas de órbitas distintas, y una puede cubrir media franja.
+- **La máscara de nubes de la escena es pobre**: confunde suelo brillante con nube y deja pasar sombras. La probabilidad de nube no la sustituye: en un predio de bosque la mitad de los píxeles marcados como nube tenía probabilidad menor a 26, y bajar el umbral "recuperaba" bordes de nube.
+- **El relleno con otras fechas toma la más cercana, no la más limpia**, para no mezclar estaciones; mezclar fechas puede tapar un desmonte o una quema, y se declara.
+- **El "antes" de un evento**: estirar las fechas hacia atrás hace que la fecha limpia de fuera sea la principal. El relleno de fuera se pasa aparte y nunca es la principal.
+- **Bandas en enteros sin signo** hacen que rojo menos infrarrojo dé la vuelta (10 − 200 = 66) y el índice salga con el signo cambiado. Se leen en flotante.
+- Medido en secas de 2026: 30 de 43 fechas salieron 100 % limpias según la máscara, pero un "antes" al 100 % traía una nube y su sombra visibles.
+- **Las láminas** usan una fuente empaquetada (la de la librería de imágenes dibuja la ñ y la é como cajas) y comparten el estirado entre paneles comparables, o el antes y el después no se comparan. Dos imágenes pedidas por separado no salen en la misma malla y se alinean antes de restar.
+
+## 10. Rendimiento
+
+| Cambio | Antes | Después |
 |---|---|---|
-| UMM derivada de la ESCALA | UMM a ojo | `(2 mm · escala)²`; lo declarado es la escala |
-| `h` = `w`/3 con `w` MEDIDA | ancho geométrico `e/p_max` | `ancho_banda` → `resolucion_regla(ancho_medido=w)` |
-| `vecinos` = la rodilla | el default 48 | `barrer_vecinos` |
-| clase lineal EXENTA del sieve | sieveada como mancha | decisión de campo |
-
-La cuarta es la que más pesa. **Una clase de pendiente alta suele ser una CINTA, no una mancha**: sobre una banda de `w`=15.5 m, alcanzar una UMM de 0.25 ha exige 162 m continuos, y aplicar la UMM por superficie borra el 47-55 % del escarpe, que es terreno real. Por eso la UMM se aplica como **ancho mínimo**, la clase queda exenta del sieve, y la tabla se resuelve **por prioridad y no concatenando**: `limpiar_moteado` no borra, REASIGNA al vecino mayor, así que concatenar las dos pasadas cuenta doble.
-
-El orden, y cada paso alimenta al siguiente. **Es una sola cadena; no la escribas a mano por partes.** `derivar_parametros` encadena `separacion_media` → `ancho_banda` → `resolucion_regla` → `raster_distancia`/`separaciones` en el único orden posible y devuelve todo con su procedencia. Escribir esa cadena suelta es cómo se pierden las cuatro decisiones de la tabla de arriba.
-
-```python
-# ── 1. LOS PARAMETROS, CON SU PROCEDENCIA ──────────────────────────
-campo, e = geo.detectar_cota(curvas)
-p = geo.derivar_parametros(
-    curvas, campo, predio, RANGOS, ESCALA, vecinos="medir"
-)  # sin esto `vecinos` es el default 48
-geo.tabla_procedencia(p)  # va al entregable, no a la consola
-assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
-
-# ── 2. UNA INTERPOLACION ───────────────────────────────────────────
-h = p["resolucion"]  # float con procedencia; se pasa tal cual
-cuadro_recorte, cuadro_salida = geo.cuadros_mde(
-    predio, margen_salida=2 * float(h), parametros=p  # Horn deja NaN el borde
-)
-mde, tf = geo.interpolar_mde(
-    geo.recortar(curvas, cuadro_recorte), campo, cuadro=cuadro_salida, parametros=p
-)
-geo.guardar_raster(mde, r"C:\SIG\proyecto\salidas\MDE_BASE.tif", tf, EPSG_UTM)
-
-# ── 3. `A`, QUE SOLO SE PUEDE MEDIR SOBRE EL MDE ───────────────────
-# El orden es el unico posible y no es opcional: `A` se mide SOBRE una
-# superficie interpolada, asi que la primera pasada va sin ella (manda el piso
-# antialias como proxy) y se vuelve a derivar con `A` para que mande la
-# medicion. Mira `frac_excursion` y los avisos antes de citar `a`.
-mascara_predio = geo.rasterizar(predio, mde.shape, tf, todo_tocado=True) == 1
-a, det = geo.amplitud_rizo(mde, tf, curvas, campo, mascara=mascara_predio)
-p = geo.derivar_parametros(
-    curvas,
-    campo,
-    predio,
-    RANGOS,
-    ESCALA,
-    vecinos=p["vecinos"],  # sin int(): el cast mata la procedencia
-    resolucion=h,
-    amplitud_rizo=a,
-    medidos=p,  # lambda, zigzag y w ya medidos: no se pagan dos veces
-)
-
-# ── 4. PENDIENTE, CLASES Y UNA SOLA PASADA DE SIEVE, A VECTOR ──────
-pendiente = geo.calcular_pendiente(mde, tf)  # el transform, no una constante
-entregable = geo.zonificar(
-    pendiente, tf, predio.crs, RANGOS, p["min_pixeles"], recorte=predio,
-    exentos=[CLASE_ALTA],  # la CINTA, exenta del filtro
-    campo="PENDIENTES", por_clase=True,
-)
-```
-
-**Por qué UNA pasada y no dos.** La receta anterior era sievear todo, sievear nada, y `resolver_por_prioridad` quedándose con la clase alta del array crudo. **No es una partición.** El sieve no borra, REASIGNA al vecino mayor, así que mete en la clase alta píxeles que en el crudo eran de otra clase; ésos no están ni en la capa cruda de la alta ni en la sieveada de las demás, y desaparecen. Medido al aplicarla al segundo predio: **43.21 ha de hueco**, 0.9 % del predio, con la capa cerrando 4669.77 ha contra 4713.20. En el primer predio el hueco era ~0 y la receta pasó por buena. Con `exentos` hay un solo array, la clase alta sale idéntica a la del crudo píxel a píxel, y no hay ni hueco ni doble conteo. Si ves la receta de dos pasadas en un script viejo, es esto lo que le falta.
-
-De regalo, `SUP` deja de ser una trampa en este flujo: sin `resolver_por_prioridad` al final, el recorte vuelve a ser el último paso que mueve la geometría. La regla general no cambia — **el área va detrás del último paso que mueva la geometría** — y `guardar` sigue avisando si se queda obsoleta.
-
-**Guardas sobre la SALIDA, no sobre la entrada.** Una guarda que mira lo que entra no es guarda: mira justo lo que el paso acaba de resolver. Y que diga la cifra, no solo que falló:
-
-```python
-# TOL: el borde exterior de todas las clases es el del predio (van recortadas
-# contra el), asi que el residuo legitimo es de reparacion de geometria, no de
-# pixel. Si esto salta, hay un defecto, no un redondeo.
-falta, solape = geo.comprobar_particion([entregable], predio, tolerancia_ha=TOL)
-```
-
-Esa es la que cazó el hueco de 43.21 ha, y por eso está en la librería y no copiada en cada script. Mide las dos cosas de una vez, y la clave es que **son poblaciones distintas**: el hueco es lo que no está en ninguna capa, el doble conteo lo que está en dos. En el predio de referencia el solape medía `0.0000 ha` exactas mientras el hueco valía `0.22`, así que una guarda de solo solape —que es todo lo que `resolver_por_prioridad` puede ver— habría dado la capa por buena. Y el hueco y el exceso tampoco se restan entre sí: en un predio real el cierre NETO daba 0.04 ha mientras la superficie realmente no cubierta era 1.30 ha.
-
-`tolerancia_ha` **no tiene default y no se hereda de otro predio**: es un `declarado` y va con su razón al lado (REGLA DE LOS NUMEROS). El `1.0` que este ejemplo tecleaba antes es la advertencia: con 1 ha de tolerancia en un predio de 1765, un hueco de 0.22 ha pasa por redondeo, y pasó durante ocho versiones.
-
-**Y los tres jueces, que son externos al MDE** (juzgar una capa de pendientes con un sombreado del mismo ráster que la produjo es circular):
-
-- **sostenimiento_por_clase** (`entregable, curvas, "PENDIENTES", RANGOS, e`): qué corte se puede entregar, de UNA interpolación. Toma el corte **más alto** con `piso_local <= h <= s_sostenida`. Con `A` medida ese `piso_local` es un proxy y pierde contra la medición.
-- **barrer_resolucion**: la **banda de incertidumbre** frente a `h`, que se declara junto a la cifra. No dictamina.
-- **auditar_rangos**: el techo cartográfico por rango. Es una cota FLOJA; el juez fino es `p_sostenida`, y `NaN` ahí significa "ninguna curva dentro: es rizo puro".
-
-Cuando una clase se entrega como elemento lineal, **la salvedad va pegada a la cifra y no se separa**: la UMM se aplicó como ancho mínimo y no como superficie, la clase quedó exenta del filtro por área, y la cifra es un PISO defendible. Convergencia en área no se cita como prueba de geometría.
-
-## Elegir el método de interpolación: TIN con quiebres o spline
-
-**No se elige por receta, se juzga por predio.** Medido con la misma librería y la misma cartografía estatal: en un predio real (λ 37.9 m, zigzag 1.002) el TIN con quiebres ve el 45.7 % del escarpe y el spline el 34.6 %, y el spline además falla por ancho a su `h`; en otro (λ 74.8 m, zigzag 1.408) el TIN da 28 % MENOS `>100` que el spline entregable y 76 ha más de `0-5`, porque entre curvas lejanas apoya triángulos planos y los quiebres solo lo arreglan en las vaguadas. Lo que decide son los mismos jueces externos para los dos, con el criterio de CADA método.
-
-El orden: una derivación de parámetros POR MÉTODO, las dos superficies, la misma cadena de clases para las dos, y `juzgar_clasificaciones`.
-
-```python
-# ── 1. PARAMETROS, UNO POR METODO ──────────────────────────────────
-campo, e = geo.detectar_cota(curvas)
-p_tin = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, metodo="tin")
-# `medidos`: lambda, zigzag y w son los mismos para los dos metodos
-p_spl = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos="medir", medidos=p_tin)
-assert not geo.sin_medir(p_tin), f"nadie eligio: {geo.sin_medir(p_tin)}"
-# si el barrido sale SIN rodilla porque el spline ve 0 ha de clase alta a su
-# `h`, el spline no es candidato para esa clase: ver abajo, no se fuerza
-assert not geo.sin_medir(p_spl), f"nadie eligio: {geo.sin_medir(p_spl)}"
-
-# ── 2. TIN CON LINEAS DE QUIEBRE ───────────────────────────────────
-h_tin = p_tin["resolucion"]  # solo techos: el TIN no tiene piso antialias
-cuadro_recorte, cuadro_salida = geo.cuadros_mde(
-    predio, margen_salida=2 * float(h_tin), parametros=p_tin  # Horn deja NaN el borde
-)
-curvas_rec = geo.recortar(curvas, cuadro_recorte)
-# lineas SIN cota. `recortar` no las mueve de su CRS, y `quiebres` exige el de
-# las curvas (ValueError si no)
-cauces = geo.reproyectar(geo.recortar(cauces, cuadro_recorte), curvas.crs, "cauces")
-mde_tin, tf_tin = geo.interpolar_mde(
-    curvas_rec,
-    campo,
-    cuadro=cuadro_salida,
-    quiebres=cauces,  # z de sus cruces con las curvas: `cotas_por_cruce`
-    parametros=p_tin,  # trae metodo="tin"
-)
-puntos = geo.cotas_por_cruce(cauces, curvas_rec, campo, h_tin / 2)
-geo.guardar(puntos, r"C:\SIG\proyecto\salidas\PUNTOS_QUIEBRE.shp")  # para revisarlos en el SIG
-
-# ── 3. SPLINE: pasos 2 y 3 de §"Cuando la CLASE MAS ALTA" con `p_spl` ──
-
-# ── 4. LA MISMA CADENA DE CLASES PARA LAS DOS: paso 4 de esa receta y su guarda ──
-# -> clases_tin, clases_spl, cada una cerrada con `comprobar_particion`
-
-# ── 5. EL JUEZ, CON EL CRITERIO DE CADA METODO ─────────────────────
-filas, recomendada = geo.juzgar_clasificaciones(
-    {
-        "TIN": (clases_tin, "tin", float(h_tin)),
-        "SPLINE": (clases_spl, "spline", float(p_spl["resolucion"])),
-    },
-    curvas,
-    campo,
-    predio,
-    RANGOS,
-    e,
-    p_tin["zigzag"],  # el de la ZONA: divide el largo de trazo de la banda
-)
-```
-
-**Cuando el spline no ve la clase alta a su `h`.** Con λ grande el piso antialias lo manda muy grueso (en un predio real, 50 m contra un techo de trazado de 5.15), y a esa `h` la clase alta mide 0 ha: el barrido de `vecinos` sale SIN rodilla (no hay cifra que converja) y `vecinos` queda `default`. No es un fallo de la receta, es el resultado: **el spline no es candidato para la clase alta en ese predio**, y forzarlo con un `vecinos` declarado solo produce una candidata que el juez descarta por "sin curvas dentro". Se juzga el TIN solo (o el TIN y la malla, §"Cuando el spline queda muy grueso"), y el spline, si hace falta, vuelve para los rangos bajos con `vecinos` declarado y su ficha. La señal en la tabla de procedencia es `vecinos ... barrido SIN rodilla: la clase alta es 0 ha a esta resolucion` junto con `factor_techo` alto.
-
-Cómo se lee la tabla, y la regla que aplica `recomendada`:
-
-1. **`NO` por ancho** (`h > s_sostenida`): el objeto no cabe en el píxel. Esa candidata no entrega la clase alta; su `corte` dice qué corte sí.
-2. **`CONDICIONAL`**: spline que falla SOLO por alias. Es entregable si la amplitud del rizo está medida (`amplitud_rizo`) y su espuria no alcanza la clase. Lo decide quien firma, no la función.
-3. **Entre las que pasan, gana la que ve más escarpe en LARGO** (`pct_visto`). No el área contra el blanco: esa premia al método que dibuja la cinta más ancha.
-4. **Si pasan dos, la clase alta se cita como BANDA** entre ellas, con la salvedad de elemento lineal pegada.
-
-**La hidrografía que entra como quiebre NO puede juzgar la red de drenaje** que sale de ese MDE: se le impuso, así que se le parece por construcción (medido: en un predio real la capa de hidrografía de una máquina era la red estatal de INEGI de la otra, y el "juez externo" de la red resultó circular). La red del TIN con quiebres no tiene juez externo sin campo, LiDAR, o dejar fuera una parte de los cauces para juzgar con ella.
-
-**Drenaje sobre el TIN con quiebres: no se quema.** Los quiebres sustituyen al quemado. `acondicionar_mde` y luego `rellenar_sumideros`, y el informe de este viaja con la cifra (en un predio real: 60 sumideros a 0, 2.267 mm).
-
-### Cuando gana el TIN: la clase alta del TIN, el resto del spline
-
-El juez recomienda TIN por la clase ALTA, y ahí se queda. Los rangos bajos y la exposición no pueden salir de ese mismo MDE: sus triángulos con los tres vértices en la misma curva son mesetas falsas que salen al 0 % y sin orientación. Medido en un predio real a 5 m: **778.35 ha de meseta a cota de curva** (`atomo` de `histograma_fase`), de las que **535 ha (11.4 %) salen al 0 % exacto**; el resto es su borde, con pendiente baja contaminada. El 80 % está a media ladera y el 14 % en cimas y lomos, 353 ha en ladera de más del 15 %, y el 47 % a más de 100 m de un cauce, así que los quiebres no las quitan. Ya se había visto (641.85 ha de `0-5` contra 130.62 del spline, declarado no citable), atribuido solo a cimas y lomos. El rango 0-5 daba 617 ha; con los rangos bajos del spline, 143.59. `CLAS_SUP` no cambia, porque solo usa la clase alta.
-
-**Cómo se ve:** el aviso de `interpolar_mde` (`N ha (x %) del extent del MDE TIN son planos exactos a la cota de una curva`). Sin él, el síntoma solo aparece si el script calcula la exposición ("SIN ORIENTACION" grande); en la tabla de pendientes es mudo.
-
-```python
-# ── 1. EL SPLINE, SOLO PARA LO QUE EL TIN NO SOSTIENE ──────────────
-# `vecinos`: aqui el spline NO da la clase alta, y la rodilla de `"medir"` se
-# mide sobre la clase alta. En un predio real mide 64, y con 64 la exposicion saca
-# 3.52 ha SIN ORIENTACION que con 90 no aparecen: se declaro 90 con su ficha.
-p_spl = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos=VECINOS_SPLINE, medidos=p_tin)
-geo.tabla_procedencia(p_spl)
-assert not geo.sin_medir(p_spl), f"nadie eligio: {geo.sin_medir(p_spl)}"
-rec_s, sal_s = geo.cuadros_mde(predio, margen_salida=2 * float(p_spl["resolucion"]), parametros=p_spl)
-mde_s, tf_s = geo.interpolar_mde(geo.recortar(curvas, rec_s), campo, cuadro=sal_s, parametros=p_spl)
-mascara_s = geo.rasterizar(predio, mde_s.shape, tf_s, todo_tocado=True) == 1
-
-# ── 2. EXPOSICION, DEL SPLINE ──────────────────────────────────────
-orientacion = geo.calcular_orientacion(mde_s, tf_s) + 1  # +1: `poligonizar` ignora el 0
-expo = geo.poligonizar(orientacion, tf_s, predio.crs, mascara=mascara_s, campo="gridcode")
-
-# ── 3. RANGOS: CASCADA DE TRES SUPERFICIES ─────────────────────────
-# `pend` es la capa de clases del TIN: el `entregable` del paso 4 de
-# §"Cuando la CLASE MAS ALTA", hecho con el MDE del TIN.
-# Gana la clase alta del TIN; luego los rangos bajos del spline; lo que sobre
-# (el spline ve clase alta y el TIN no) toma la clase del TIN.
-cod_s, etq_s = geo.reclasificar_rangos(geo.calcular_pendiente(mde_s, tf_s), RANGOS)
-cls_s = geo.poligonizar(cod_s, tf_s, predio.crs, mascara=mascara_s & (cod_s > 0), campo="gridcode")
-cls_s["PENDIENTES"] = cls_s["gridcode"].map(etq_s)
-fuentes = [
-    ("TIN", geo.seleccionar_por_atributo(pend, f"PENDIENTES == '{CLASE_ALTA}'")),
-    ("SPLINE", geo.seleccionar_por_atributo(cls_s, f"PENDIENTES != '{CLASE_ALTA}'")),
-    ("TIN RESIDUO", pend),
-]
-rangos = geo.resolver_por_prioridad(
-    [geo.agregar_campo(geo.conservar_campos(g, ["gridcode", "PENDIENTES"]), "ORIGEN", o) for o, g in fuentes]
-)
-rangos = geo.calcular_superficie(geo.recortar(rangos, predio), campo="SUP")
-print(geo.estadisticas_de_resumen(rangos, por=["ORIGEN"], campos={"SUP": "sum"}))  # va a la memoria
-rangos = geo.disolver_por_grupo(rangos, campo="gridcode")
-rangos = geo.calcular_superficie(geo.conservar_campos(rangos, ["gridcode", "PENDIENTES"]), campo="SUP")
-geo.comprobar_particion([rangos], predio, tolerancia_ha=TOL)
-```
-
-**La salvedad va pegada a la tabla:** son dos superficies y a dos resoluciones. Si parte del predio no tiene curvas, el `SIN DATO` de `pend` entra por la fila `TIN RESIDUO` y la partición cierra igual (el `cls_s` de arriba lo deja fuera con `cod_s > 0`). En un predio real: clase alta del TIN 233.61 ha, rangos bajos del spline 4426.26 ha, residuo con clase del TIN 51.89 ha. El spline va sin sieve, y no porque `p_spl["min_pixeles"]` sea 1: a escala 1:25 000 la UMM es de 2500 m², o sea 7 píxeles a 20 m y 4 a 25 m. Es porque sievearlo arruina los cortes altos: medido contra la carta (`ancho_banda`) en cuatro predios reales, el corte `>=60` pasa de entre −2.6 y +0.8 % sin sieve a entre +16.7 y +45.3 % con él, y `>=45` y `>=35` empeoran igual. **No es culpa de a quién se reparte la mancha:** mandarla al vecino mayor (el sieve), al píxel sobreviviente más cercano o a la clase contigua da casi lo mismo (+11 a +42 % en `>=60`). Las manchas chicas son terraceo del spline, de pendiente baja junto a cada curva, y compensan que la superficie suave se empine a media ladera: quitarlas, de la forma que sea, deja solo lo empinado. Promediar la pendiente en una ventana del lado de la UMM antes del sieve es lo menos malo que se probó (+4 a +18 % en `>=45`), y aun así peor que no sievear. **El costo va como salvedad del entregable:** los rangos bajos quedan con piezas menores a la UMM (entre 4337 y 37 964 piezas según el predio; en uno, 27 117 piezas y 1749.78 ha). Donde el sieve no hace nada (`min_pixeles` 1, spline a 50 m), las cifras salen idénticas. El spline a su `h` no sostiene la clase alta (falla por ancho): por eso esa fila no sale de él, y no se cita el `>100` del spline.
-
-### Cuando el spline queda muy grueso: los rangos bajos de la malla
-
-La receta de arriba saca los rangos bajos del spline a SU `h`, y esa `h` la fija el piso antialias (λ/2), no el terreno. Si λ es grande, el spline queda muy por encima del techo de trazado del TIN, deriva la pendiente sobre una ventana de `2h` y aplana las laderas: los cortes altos se quedan cortos. La señal es el **factor `h del spline / techo de trazado`**: las dos cifras salen de la tabla de procedencia de `derivar_parametros` con el spline (`resolucion`, y el techo que imprime el origen de `resolucion_regla`).
-
-Medido en cinco predios reales, contra la carta (`ancho_banda`) en los cortes acumulados `>=60 / >=45 / >=35`, con la clase alta del TIN 5 m y los rangos bajos sin sieve:
-
-| Factor | Rangos bajos del spline | Rangos bajos de la malla 5 m |
-|---|---|---|
-| 4.0 (λ 37.9 m) | −1.1 / +1.5 / +4.0 % | +8.3 / +2.5 / +2.6 % |
-| 4.8 (λ 42.9 m) | −3.8 / +0.0 / +1.1 % | +7.4 / +3.4 / +2.5 % |
-| 9.7 (λ 74.9 m) | **−40.1 / −23.3 / −14.6 %** | **+7.2 / +10.1 / +6.3 %** |
-
-Otros dos predios dan factor 4.0 y el spline cierra a −2.6 y +0.8 % en `>=60`. **Regla escrita, con un solo predio de factor alto detrás:** con factor de 4 a 5 manda el spline; desde **9.5** (`geophis.parametros.FACTOR_MALLA`), la malla. El umbral sale del único predio de factor alto medido (9.7, con margen para que un techo apenas más ancho no lo deje fuera), no es un corte medido: entre 4.8 y 9.7 no hay datos, y ahí se comparan las dos cascadas contra `ancho_banda` antes de entregar. `derivar_parametros` con el spline trae el factor como `factor_techo`, y desde el umbral `tabla_procedencia` lo avisa.
-
-`metodo="malla"` es una placa delgada discretizada sobre la malla (el núcleo de ANUDEM, sin imposición de drenaje): un solo sistema disperso para todo el MDE, resuelto con gradiente conjugado y multimalla. No deja mesetas a cota de curva (0 ha contra el 5 al 12 % del extent del TIN), así que puede ir a la `h` del TIN. Su precio es estable: **sobreestima `>=60` de 7 a 8 %** en los tres predios, porque una superficie suave se empina a media ladera por encima de la pendiente media entre curvas, que es lo que mide la carta. No es cuestión de ajuste: el peso de la suavidad, barrido de 1e-3 a 1, solo lo baja a +6.5 %. Por eso **no es fuente de la clase alta**, que sigue saliendo del TIN.
-
-```python
-# ── 1. LA MALLA, A LA h DEL TIN ────────────────────────────────────
-# se deriva como el TIN: sin piso antialias y sin `vecinos`. Que la malla no
-# tenga piso es un SUPUESTO: su rizo medido queda entre el del TIN y el del spline
-p_malla = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, metodo="malla", medidos=p_tin)
-geo.tabla_procedencia(p_malla)
-rec_m, sal_m = geo.cuadros_mde(predio, margen_salida=2 * float(p_malla["resolucion"]), parametros=p_malla)
-mde_m, tf_m = geo.interpolar_mde(
-    geo.recortar(curvas, rec_m), campo, cuadro=sal_m, quiebres=cauces, parametros=p_malla
-)
-mascara_m = geo.rasterizar(predio, mde_m.shape, tf_m, todo_tocado=True) == 1
-
-# ── 2. RANGOS: LA MISMA CASCADA, CON LA MALLA EN LUGAR DEL SPLINE ──
-cod_m, etq_m = geo.reclasificar_rangos(geo.calcular_pendiente(mde_m, tf_m), RANGOS)
-cls_m = geo.poligonizar(cod_m, tf_m, predio.crs, mascara=mascara_m & (cod_m > 0), campo="gridcode")
-cls_m["PENDIENTES"] = cls_m["gridcode"].map(etq_m)
-fuentes = [
-    ("TIN", geo.seleccionar_por_atributo(pend, f"PENDIENTES == '{CLASE_ALTA}'")),
-    ("MALLA", geo.seleccionar_por_atributo(cls_m, f"PENDIENTES != '{CLASE_ALTA}'")),
-    ("TIN RESIDUO", pend),
-]
-# ... y sigue igual que en §"Cuando gana el TIN": resolver_por_prioridad, recortar,
-# disolver, SUP y comprobar_particion
-```
-
-**Lo que va con la cifra:**
-
-- **Costo:** un solo proceso. A 5 m, 1.9 M celdas en 73 s y unos 860 B por celda (1.6 GB); un predio de 5.4 M celdas pide del orden de 5 GB. Los barridos con `metodo="malla"` exigen `resoluciones`, como con el TIN.
-- **Juez:** `juzgar_clasificaciones` la acepta con el criterio del TIN (sin piso antialias). Es un supuesto, no una medición, y en la clase alta la malla sale más ancha que la banda de la carta: el veredicto de ese corte no la convierte en fuente de `>100`.
-- **Drenaje:** pide más relleno de sumideros que el TIN y tanto o más que el spline. Para hidrología, el TIN con quiebres.
-- **Sin sieve**, por la misma razón que el spline en la receta de arriba, y con la misma salvedad de piezas bajo la UMM.
-- `quiebres` entra como en el TIN; `vecinos` y `suavizado` se ignoran con aviso. Muestrea a `min(intervalo_muestreo, h/2)`: cada punto reparte su cota entre cuatro celdas, y con menos de dos por celda la superficie se escapa entre ellos.
-
-## Flujo de MDE (curvas -> raster)
-
-Extent fiel a la práctica de ANUDEM: recorta a un cuadro amplio, interpola sobre el predio (metido dentro de los datos), valida con los mismos parametros. Metodos: `"spline"`/`"tps"` (default), `"tin"`, `"malla"` (opcional, ver §"Cuando el spline queda muy grueso"), `"idw"`.
-
-**Rellenar va antes de quemar.** El interpolador deja NaN fuera de la envolvente convexa de las curvas. Si quemas primero, ahí `NaN - profundidad` sigue siendo NaN y el relleno posterior copia el vecino SIN quemar: el cauce se pierde en silencio.
-
-```python
-campo, e = geo.detectar_cota(curvas)
-p = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos="medir")
-geo.tabla_procedencia(p)
-assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
-cuadro_recorte, cuadro_salida = geo.cuadros_mde(
-    predio, margen_salida=2 * float(p["resolucion"]), parametros=p  # Horn deja NaN el borde
-)
-curvas = geo.recortar(curvas, cuadro_recorte)
-# `recortar` deja los cauces en su CRS de origen; quemar los necesita en el del raster
-cauces = geo.reproyectar(geo.recortar(cauces, cuadro_recorte), curvas.crs, "cauces")
-metricas, puntos = geo.validar_mde(curvas, campo, cuadro=cuadro_salida, parametros=p)
-mde, transform = geo.interpolar_mde(curvas, campo, cuadro=cuadro_salida, parametros=p)
-geo.guardar_raster(
-    mde, r"C:\SIG\proyecto\salidas\MDE_BASE.tif", transform, EPSG_UTM
-)  # el de pendientes: sin quemar, NaN intacto
-mde_h = geo.rellenar_nodata(mde)  # solo rama hidro, ANTES de quemar
-mde_final, n = geo.quemar_cauces(mde_h, geo.disolver(cauces), transform, profundidad=5)
-if n == 0:
-    raise ValueError("ningún píxel quemado: revisa el CRS de la hidrología")
-
-# pysheds lee del disco: se guarda el QUEMADO. El acondicionado NO se guarda: sale
-# en float64 y el .tif float32 borra su micro-pendiente (releído, miles de sumideros).
-geo.guardar_raster(mde_final, r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif", transform, EPSG_UTM)
-grid, dem = geo.acondicionar_mde(r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif")  # en la sesión del flujo
-```
-
-## Flujo hidrológico (MDE -> red de drenaje, orden y cuencas)
-
-Todo en `hidrologia.py`. El orden importa y tiene dos trampas, las dos silenciosas.
-
-**Trampa 1: rellena ANTES de quemar.** Una celda de cauce sobre NoData da `NaN - profundidad`, que sigue siendo NaN; el relleno posterior copia el vecino más cercano, que está SIN quemar, y el lecho SUBE ahí. Queda una presa dentro del cauce, con un MDE perfectamente válido y la red cortada. `quemar_cauces` avisa. **Si NO vas a quemar, no rellenes**: `acondicionar_mde` lo hace por su cuenta, y la rama de pendiente necesita el NaN intacto.
-
-**Trampa 2: el `umbral` está en CELDAS, no en superficie, y no es portable.** A `h` m/px, `k` celdas son `k·h²/10000` ha de cuenca aportadora. El mismo umbral sobre un MDE de 5 m da muchos más cauces que sobre uno de 20 m, porque hay dieciséis veces más celdas aportando. Un umbral heredado de otro MDE no significa lo mismo.
-
-```python
-mde, transform = geo.interpolar_mde(curvas, campo, cuadro=cuadro_salida, parametros=p)  # §"Flujo de MDE"
-h = transform.a  # lado de celda de ESTE MDE, del transform y no de una constante
-
-# 1. quemar (opcional). El relleno va ANTES, y solo por esto.
-# `recortar` mueve el SEGUNDO argumento, asi que los cauces siguen en su CRS de
-# origen; `quemar_cauces` recibe transform y no CRS, y no puede alinearlos.
-cauces = geo.reproyectar(cauces, curvas.crs, "cauces")  # el raster sale en el CRS de las curvas
-mde_h = geo.rellenar_nodata(mde)
-mde_h, n = geo.quemar_cauces(mde_h, geo.disolver(cauces), transform, profundidad=5)
-if n == 0:
-    raise ValueError("ningún píxel quemado: revisa el CRS de la hidrología")
-
-# 2. acondicionar. pysheds lee de disco, así que hay que pasar por un .tif.
-geo.guardar_raster(mde_h, r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif", transform, curvas.crs)
-grid, dem = geo.acondicionar_mde(r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif")  # reporta 0.00 ha: ya venía relleno
-
-# 3. flujo
-flujo = geo.acumulacion_flujo(grid, dem)  # Flujo(grid, fdir, acumulacion)
-
-# 4. los tres entregables. El umbral es UNA decisión y va igual en los tres.
-# Se DECLARA en superficie (eso lo decide el ingeniero) y se DERIVA a celdas
-# (eso es aritmética de la librería). El entero no se teclea: cambia con el píxel.
-AREA_APORTADORA_HA = 1.25  # declarado: lo que hace que una vaguada sea cauce
-UMBRAL = geo.umbral_celdas(AREA_APORTADORA_HA, h)
-red = geo.red_drenaje(flujo, UMBRAL)
-orden = geo.orden_cauces(flujo, UMBRAL)
-cuenca = geo.delimitar_cuenca(flujo, predio, UMBRAL)  # zona = "el desague de esto"
-
-# Un predio que drena por VARIOS sitios: `delimitar_cuenca` da la del desague
-# mayor y avisa. Las piezas enteras son esto, y parten el predio exacto.
-micro = geo.microcuencas(flujo, predio, UMBRAL)
-# `campo="SUP"`: el default `superficie_ha` son 13 caracteres y un .shp corta a 10.
-# `microcuencas` eligio TODAS sus columnas <=10 justo para que no la renombraran.
-micro = geo.calcular_superficie(micro, campo="SUP")  # al final: ya no se mueve
-
-# La tolerancia se DERIVA del contorno, no se teclea. Y NO recortes contra el
-# predio para "mejorar" el cierre: lo empeora (medido, 0.04 -> 1.30 ha).
-TOL = geo.tolerancia_rasterizacion_ha(geo.longitud_total_m(predio), h)
-falta, solape = geo.comprobar_particion([micro], predio, tolerancia_ha=TOL)
-
-geo.guardar(red, r"C:\SIG\proyecto\salidas\RED_DRENAJE.shp")
-geo.guardar_raster(orden, r"C:\SIG\proyecto\salidas\ORDEN.tif", transform, curvas.crs)
-```
-
-Qué mirar en las líneas que imprime:
-
-- `acondicionar_mde: N ha sin dato parcheadas` — si no es 0 (y no vienes de quemar), eso es superficie **sin dato de origen** y la red que salga de ahí es geometría inventada. La respuesta es dar más curvas, no aceptar el relleno.
-- `Aviso: N celda(s) INTERIOR(es) sin salida de flujo` — el flujo MUERE dentro del ráster y todo lo que drena hacia ahí desaparece de la red. Mira la fracción, que es lo que decide: medido en un predio real, 55 celdas y **el 21 % del ráster** en la mayor. Si además dice que el sumidero mayor es interior, la red no llega al borde y las cuencas que salgan son de media finca. **`acondicionar_mde` no los repara**: son residuos de milímetros del priority-flood de pysheds, y ni el orden de `fill_pits` ni el `eps` de `resolve_flats` los quitan (sólo reparten). La reparación es `rellenar_sumideros`, que se pide aparte después de leer el aviso y cuyo `informe` viaja con la cifra. `microcuencas` lo cuenta por pieza en `ES_SUMIDER`.
-- `orden_cauces: ... N celdas numeradas de M en la mascara` — si M es mucho mayor que N, el umbral está marcando ladera baja en vez de cauce. El 0 de `orden_cauces` significa dos cosas: fuera de la máscara, y dentro de la máscara sin tramo trazado.
-- `delimitar_cuenca: ... desague movido X m al cauce` — la cifra clave. Si avisa de que el punto no caía sobre cauce, o la coordenada está mal o el umbral deja fuera el cauce que buscas.
-
-`etiquetar_laderas` es otra cosa y no está en esta cadena: cuenta laderas separadas por el cauce, no cuencas de drenaje.
-
-## Flujo de clasificación de superficies (capas que se pisan)
-
-Dos maneras de resolver un solape. Con jerarquía clara manda el orden; sin jerarquía gana el núcleo más cercano. El polígono general entra al final como categoría de relleno, así la suma cuadra con el predio por construcción.
-
-**Primero resta, luego reparte:** a las capas sin jerarquía quítales antes lo que se llevan las de mayor prioridad, y hasta entonces reparte por cercanía. Al revés, las hectáreas que reporta el reparto no son las que acaban en el shapefile. Con este orden aparecen dos casos: una capa que queda vacía porque las superiores la cubren entera (sáltala) y un solape roto en esquirlas dispersas (ver el tope de malla de `repartir_por_cercania`).
-
-```python
-# 1. quitar a las capas sin jerarquía lo que se llevan las superiores
-superiores = geo.disolver(geo.fusionar([caminos, hidrologia, mayor100]))
-# `repartir_por_cercania` exige UNA entidad por capa: disolver, y de paso etiquetar
-produccion = geo.disolver(geo.borrar(produccion, superiores), campo="CLASS_SUP", valor="PRODUCCION")
-restauracion = geo.disolver(geo.borrar(restauracion, superiores), campo="CLASS_SUP", valor="RESTAURACION")
-
-# 2. y hasta entonces, reparto por cercanía ANTES de la cascada
-produccion, restauracion, conflicto = geo.repartir_por_cercania(
-    produccion, restauracion, nombres=("PRODUCCION", "RESTAURACION")
-)
-geo.guardar(conflicto, RUTA_CONFLICTOS)  # revisar el reparto a ojo
-
-conservacion = geo.disolver(predio, campo="CLASS_SUP", valor="CONSERVACION")
-combinado = geo.resolver_por_prioridad(CAPAS + [conservacion])  # orden = prioridad
-combinado = geo.recortar(combinado, predio)  # recorte de seguridad
-gdf = geo.disolver_por_grupo(combinado, campo="CLASS_SUP")
-gdf = geo.calcular_superficie(gdf, campo="SUP", unidad="ha")  # área al final
-falta, solape = geo.comprobar_particion([gdf], predio, tolerancia_ha=TOL)  # TOL declarada, con su razón
-```
-
-## Del predio a la imagen: Sentinel-2
-
-El polígono del predio, en cualquier CRS, basta para bajar la imagen. No hace falta tesela, cuenta ni descarga manual. Sale en reflectancia, en el UTM del predio y recortada a él. Corre igual en un predio real de una tesela (EPSG:4326 de origen) y en otro que cae en la esquina de cuatro (EPSG:32613): medido en 12 s y 69 s.
-
-```python
-# ── CONFIG ─────────────────────────────────────────────────────────
-RUTA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
-FECHAS = ("2026-02-01", "2026-05-31")  # secas en la region: NDVI comparable. Decision de campo
-NOMBRES = ["azul", "verde", "rojo", "nir", "swir1", "swir2"]  # orden del .tif; el nombre viaja con la banda
-
-# ── 1. CARGAR EL PREDIO ────────────────────────────────────────────
-predio = geo.cargar(RUTA_PREDIO)
-
-# ── 2. LA IMAGEN, Y EL INFORME ANTES QUE LA IMAGEN ─────────────────
-bandas, tf, crs, res, informe, origen = geo.imagen_sentinel2(predio, fechas=FECHAS)
-print(informe.to_string(index=False))
-print(f"predio sin dato limpio: {100 - informe['aporta_pct'].sum():.2f} %")
-
-# ── 3. GUARDAR, CON NOMBRES Y CON LA CITA ──────────────────────────
-geo.guardar_raster([bandas[n] for n in NOMBRES], r"C:\SIG\proyecto\salidas\S2_BANDAS.tif", tf, crs, nombres=NOMBRES)
-geo.guardar_raster(origen, r"C:\SIG\proyecto\salidas\S2_ORIGEN.tif", tf, crs)  # fila del informe por pixel
-CITA = geo.cita_sentinel2(informe)  # la licencia la exige
-
-# ── 4. MIRAR ANTES DE CREER ────────────────────────────────────────
-ndvi = geo.indice_vegetacion("ndvi", **bandas)
-geo.guardar_raster(ndvi, r"C:\SIG\proyecto\salidas\NDVI.tif", tf, crs)
-print(geo.resumen_raster(ndvi, tf))  # vegetacion densa por encima de ~0.6
-geo.vista_previa((ndvi, geo.reproyectar(predio, crs)), "NDVI.png", transform=tf)
-
-# ── 5. LA LAMINA DE REVISION (no es el mapa final) ─────────────────
-p_rgb = geo.panel_rgb(bandas, tf, crs, "Color natural · " + geo.rotulo_escenas(informe), contorno=predio)
-p_ndvi = geo.panel_continuo(ndvi, tf, crs, "NDVI", paleta="vegetacion", unidad="NDVI", contorno=predio)
-geo.lamina([p_rgb, p_ndvi], r"C:\SIG\proyecto\salidas\LAMINA.png", titulo="Predio · NDVI", cita=CITA)
-```
-
-**Cómo se lee el `informe`.** Hay una fila por fecha REVISADA, no por cada fecha que devolvió la búsqueda: la función va de menos a más nubes y para en la primera que basta.
-
-- `limpio_pct`: el % del predio que esa fecha tiene limpio en `scl`. Es la cifra que decide. La nubosidad de `buscar_sentinel2` NO es esto: se mide sobre la tesela entera, y una tesela al 60 % puede traer el predio despejado.
-- `aporta_pct`: el % del predio cuyo píxel sale de esa fecha. La suma es el % del predio con dato, y `100 - suma` es lo que quedó sin dato (nube o falta de tesela). Se avisa, no se falla.
-- `usada`: la fecha aportó píxeles. **Con más de una usada, la imagen mezcla fechas, y eso se declara en el entregable** junto con `S2_ORIGEN.tif`, que dice de qué fila salió cada píxel. Rellenar con otra fecha puede TAPAR un desmonte o una quema ocurridos entre las dos. El NBR es el índice más expuesto a esto; por eso el relleno toma la fecha más cercana (`dias`) y no pasa de `max_dias`.
-
-**Antes y después de un evento.** La ventana del "antes" acaba el día del evento, y la principal tiene que salir de ella: si se estira `fechas` hacia atrás para tapar nubes, la fecha más limpia de fuera pasa a ser la principal y el "antes" queda un mes lejos del evento. Para rellenar con fechas de fuera sin que ninguna sea la principal, se pasan aparte:
-
-```python
-antes = geo.buscar_sentinel2(predio, ("2026-09-01", "2026-09-25"))
-fuera = geo.buscar_sentinel2(predio, ("2026-08-15", "2026-08-31"))
-bandas, tf, crs, res, informe, origen = geo.imagen_sentinel2(
-    predio, escenas=antes, escenas_relleno=fuera,
-    max_fechas=len(antes) + len(fuera),  # el relleno entra DESPUES de todas las propias: con el 3 por defecto, las de septiembre lo agotan
-    max_dias=41,  # 2026-09-25 menos 2026-08-15: la principal puede caer al final de `antes`; con el 30 por defecto, la primera quincena de agosto queda fuera
-)
-```
-
-Los dos topes salen de las fechas, no se tantean. Si el relleno de fuera no aparece en el `informe` como `usada`, es uno de los dos. El relleno de otra temporada se declara igual que cualquier otra mezcla de fechas.
-
-**La lámina del antes y el después.** Dos imágenes, una alineada a la otra, el cambio de NDVI y una lámina de tres paneles. La alineación no es opcional: `lamina` falla si los paneles no comparten malla, y restar dos índices en mallas distintas resta píxeles que no son el mismo sitio.
-
-```python
-# ── 1. LAS DOS IMAGENES, EN EL MISMO CRS ───────────────────────────
-b_a, tf, crs, res, inf_a, origen_a = geo.imagen_sentinel2(predio, fechas=("2026-09-01", "2026-09-25"))
-b_d, tf_d, _, _, inf_d, origen_d = geo.imagen_sentinel2(predio, fechas=("2026-09-27", "2026-10-10"), crs=crs)
-
-# ── 2. EL DESPUES, EN LA MALLA DEL ANTES ───────────────────────────
-b_d = dict(zip(b_d, geo.alinear_rasters((b_a["rojo"], tf, crs), *[(v, tf_d, crs) for v in b_d.values()])))
-
-# ── 3. EL CAMBIO: DESPUES MENOS ANTES (perdida en negativo) ────────
-dndvi = geo.indice_vegetacion("ndvi", **b_d) - geo.indice_vegetacion("ndvi", **b_a)
-geo.guardar_raster(dndvi, r"C:\SIG\proyecto\salidas\DNDVI.tif", tf, crs)  # el dato va en .tif; la lamina solo lo muestra
-
-# ── 4. LA LAMINA ───────────────────────────────────────────────────
-contorno = geo.reproyectar(predio, crs)
-p_antes = geo.panel_rgb(b_a, tf, crs, "ANTES · " + geo.rotulo_escenas(inf_a), contorno=contorno)
-p_desp = geo.panel_rgb(b_d, tf, crs, "DESPUÉS · " + geo.rotulo_escenas(inf_d), contorno=contorno)
-p_cambio = geo.panel_continuo(dndvi, tf, crs, "Cambio de NDVI", paleta="divergente", unidad="dNDVI", contorno=contorno)
-info = geo.lamina([p_antes, p_desp, p_cambio], r"C:\SIG\proyecto\salidas\LAMINA.png",
-                  titulo="Predio · antes y después del evento", cita=geo.cita_sentinel2(inf_a, inf_d))
-```
-
-`cita_sentinel2` recibe los dos informes, así la cita lleva los años de las dos imágenes. Los dos paneles RGB salen con el mismo estirado sin pedirlo, y el rango de cada panel se imprime: va en la salida de consola que se pide al usuario.
-
-Medido en secas 2026 (feb a may): un predio real, una fecha, `2026-04-16`, 4 teselas, 100 % limpio según `scl`; otro, una fecha, `2026-04-26`, 100 % limpio según `scl`. "Limpio según `scl`" no es limpio a ojo: un "antes" al 100 % traía una nube y su sombra visibles (ver `scl` en §"Lo que NO es"). De 43 fechas en secas, 30 salieron 100 % limpias. Lo normal en secas es una sola fila `usada`.
-
-**La cita es obligatoria.** Todo entregable que use la imagen, o algo derivado de ella (índices, clases, polígonos), lleva `Contains modified Copernicus Sentinel data AAAA` con el año de la imagen. `imagen_sentinel2` la imprime, pero el script la guarda para ponerla en el entregable.
-
-**Qué temporada pedir.** Es decisión de campo y la librería no la toma: `fechas` no tiene default. Para NDVI comparable conviene secas, de noviembre a mayo en la región, porque hay pocas nubes y la vegetación que queda verde es la perenne. En lluvias lo normal es que quede predio sin dato y que la imagen salga de varias fechas. Se piden lluvias solo aceptando el relleno y declarándolo.
-
-**Lo que NO es:**
-
-- **No es ortofoto.** El píxel es de 10 m (0.01 ha), y `swir1`/`swir2` son de 20 m reales, llevados a 10 m con nearest: no se inventan valores, pero el detalle sigue siendo de 20 m. Un camino de 5 m o un lindero no se ven.
-- **`scl` es una máscara de nubes pobre**: confunde suelo muy brillante con nube, lo que deja huecos NaN sobre caminos y suelo desnudo, y deja pasar sombras, que salen con índice bajo. Hay que mirar la `vista_previa` antes de creer el mapa.
-- **No es mediana de temporada.** Usa la mejor fecha y rellena píxel a píxel. La mediana se agregará solo si una fecha no basta.
-
-La cadena que sigue, del índice a los polígonos, es la de `indice_vegetacion`: `zonificar` (reclasificar, sieve, poligonizar, recortar, una fila por pieza) → `eliminar_menores` → `calcular_superficie` → `comprobar_particion` → `guardar`. Sin `cerrar_microhuecos` (tras `poligonizar` los vecinos comparten arista y no hay rendijas) y con `comprobar_particion` al final: la cadena con `cerrar_microhuecos` y `simplificar` por polígono metía 303.74 ha de doble conteo en un predio real sin avisar. **Sin `simplificar` hasta shapely 2.2 final** (comentario en `simplificar`): la salida de `poligonizar` no es cobertura noded y `simplificar` la rechaza con `ValueError`. La escalera de píxel queda en la capa.
-
-**Lo que la librería NO resuelve, y hay que saberlo antes de un entregable:** el código era la parte fácil, el problema es la clasificación. Sombra de arbolado y pasto seco entran como suelo desnudo; el umbral se mueve con fecha, hora y tipo de suelo, y por eso `indice_vegetacion` no lo elige por ti; sin NIR la separación es notoriamente peor; y Sentinel-2 a 10 m/px queda grueso para un predio chico. La salida es un **primer borrador** que el técnico corrige (ahí está el ahorro de digitalización), no una salida final sin revisar.
-
-## Síntoma, causa, arreglo
-
-Cada fila es un fallo que ya pasó. La columna del medio es lo que de verdad lo causaba, que casi nunca es lo que el síntoma sugiere.
-
-| Síntoma | Causa | Arreglo |
-|---|---|---|
-| `lamina` falla con "no comparte malla" | dos `imagen_sentinel2` (antes y después) salen en mallas distintas | segunda llamada con `crs=` de la primera y `alinear_rasters` de sus bandas, §"La lámina del antes y el después" |
-| el relleno de `escenas_relleno` no aparece como `usada` en el `informe` | `max_fechas` (3) se agota con escenas propias, que van antes que el relleno aunque aporten poco; o `max_dias` (30, contado desde la principal) deja fuera las fechas de relleno | sube `max_fechas` a `len(escenas) + len(escenas_relleno)` y `max_dias` a la distancia entre el final de `escenas` y el inicio del relleno, §"Antes y después de un evento" |
-| `quemar_cauces` devuelve `n_pixeles = 0` | los cauces están en otro CRS (`recortar` mueve el SEGUNDO argumento, no el primero) o en otro predio | `reproyectar(cauces, crs_del_raster)` antes; mira los dos extents que imprime |
-| `interpolar_mde: sin dato: N ha` | el extent de salida se sale de la envolvente de las curvas | sube `margen_borde_celdas` y recorta del shapefile COMPLETO, o encoge `cuadro_salida` |
-| `Aviso: N celda(s) INTERIOR(es) sin salida de flujo` | sumideros del priority-flood; lo que drena ahí desaparece de la red | mira la fracción y `ES_SUMIDER` de `microcuencas`; si son de una celda y milímetros, `rellenar_sumideros` y su `informe` con la cifra |
-| la cuenca sale de media finca | el predio drena por dos sitios y `delimitar_cuenca` devuelve la mayor | usa `microcuencas`, que sí parte la zona |
-| `delimitar_cuenca: desague movido X m` con X grande | coordenada mala, o `umbral` tan alto que el cauce no está en la máscara | corrige la coordenada o baja el umbral |
-| el rango >100 % se dispara | rizo del spline: `h` cerca de λ/4 | mide `amplitud_rizo` y vuelve a derivar; sube `intervalo_muestreo` o `vecinos` |
-| mucha superficie "SIN ORIENTACION", o el rango más bajo inflado | mesetas falsas a la cota exacta de una curva: en TIN, triángulos con los tres vértices en la misma curva (los quiebres solo lo quitan en vaguadas); en spline, `vecinos` todos en una curva | el aviso de `interpolar_mde` da las ha; `planos_de_curva` la máscara. TIN: exposición y rangos bajos del spline, §"Cuando gana el TIN". Spline: acerca `intervalo_muestreo` a la separación o sube `vecinos` |
-| la clase alta se encoge sin explicación | `vecinos` en el default 48 (terraceo), o la clase sieveada como mancha | `barrer_vecinos` o `vecinos="medir"`, y `limpiar_moteado(..., exentos=[cod_alta])` |
-| `unir_campo` falla o el mapa sale en blanco | el tipo de la clave, no los datos (`'007'` no es `7`) | convierte del lado que CONSERVA el dato: entero a texto |
-| una columna se renombró sola al guardar `.shp` | corte a 10 caracteres, o colisión | `comprobar_nombres_shp(gdf)` ANTES de la corrida larga; elige un nombre corto con sentido (`SUP`) |
-| la capa cierra con menos superficie que el polígono | `rasterizar(todo_tocado=False)` y después recorte vectorial | `todo_tocado=True` cuando la máscara se recorta en vector |
-| un barrido imprime `OJO: BrokenProcessPool con N procesos, sigo en serie` (o `MemoryError`) | una malla por proceso no cabe en memoria, o el pool no arrancó | nada que corregir: las filas salen iguales en serie. Para no pagar el intento, `geo.NUCLEOS = 1` al principio del script |
-| `repartir_por_cercania` falla por el tope de 20 M píxeles | el tope mide el RECTÁNGULO envolvente del conflicto | sube `resolucion` a 2 o 5 antes de sospechar del solape |
-
-## Lo que la librería no hace
-
-No hace teledetección clasificada, ni geocodificación, ni se conecta con SIG de escritorio. No se conecta a servicios externos, con una excepción: `satelite.py` baja Sentinel-2 de Earth Search. Tampoco baja OpenStreetMap: el .osm o .pbf se baja a mano y se lee con `cargar(ruta, capa="lines")`. No aplica simbología por entidad ni dibuja mapas finales: arma láminas PNG de revisión (`lamina`, con color, leyenda, escala y cita, sin georreferencia ni mapa base) y `vista_previa` es un PNG en grises para mirar. Produce capas, rásters y números con procedencia; la cartografía final se arma en el SIG.
+| Muestrear puntos sobre las curvas (búsqueda binaria en vez de recorrer la línea por cada punto) | 131.5 s | 0.6 s |
+| Máscara de la envolvente sin crear un punto por celda (5.4 M celdas) | 20.3 s | 2.4 s |
+| Barridos de resolución en paralelo, un proceso por `h` | 823 s | 293 s |
+| Reusar lo medido entre llamadas a `derivar_parametros` | 145 a 192 s | 0.7 s |
+| Barrido de vecinos con 3 procesos, sin volver a medir la separación (20 s) y con solo `n` tareas en vuelo (antes esperaba a las `n` grandes al converger) | 82 s | 15 s |
+| El mismo barrido en serie cuando la malla es chica: arrancar procesos costaba más que las filas | 15 s | 3.9 s |
+
+Los procesos del barrido corren con prioridad baja y dejan un núcleo libre, para que el equipo siga respondiendo. Se lanzan solo los que caben en el 80 % de la memoria libre (medido: el spline ocupa unos 2 KB por celda, la malla 860 B, el TIN 130 B, y cada proceso arranca con 300 MB). Un script no necesita la guarda `if __name__ == "__main__":` porque mientras arrancan los procesos se le esconde al script su ruta.
+
+Con hilos en vez de procesos el spline iba más lento (0.77x): scipy recorre cada vecindario en un bucle de Python que retiene el intérprete.
+
+## 11. Lo que se probó y se descartó
+
+| Idea | Por qué no |
+|---|---|
+| Elegir el tamaño de píxel como lo hacen los programas de escritorio (lado del recuadro entre 250) | No mira el terreno: un predio de 3 km sale a 12 m y uno de 10 km a 40 m con cualquier equidistancia |
+| Interpolar con todos los puntos (IDW global) | Memoria de puntos por celdas, inviable; y el IDW aplana cimas y fondos |
+| TIN como método por defecto | Mesetas falsas del 5 al 19 % del extent |
+| TIN sobre los vértices tal cual, sin remuestrear | Solo serviría para cotejar con otro programa; el muestreo a intervalo fijo evita el sesgo de densidad |
+| Triangulación con aristas forzadas | Con las curvas densificadas, las aristas que saltan una curva son 0.35 % a 40 m de muestreo y 0.04 % a 5 m; y forzarlas no quita las mesetas |
+| Reproducir el método completo de Hutchinson (con drenaje impuesto) | Código cerrado, impone el drenaje modificando el terreno y su salida depende de detalles internos; sí se reprodujo su núcleo (la malla) |
+| Subir el peso de la suavidad de la malla para quitarle el sesgo | De +7.4 a +6.5 % como mucho: el sesgo es estructural |
+| Superficie de "pendiente media entre curvas" (equidistancia entre la suma de distancias a las dos curvas) | Sobreestima de 8 a 11 % en cinco predios, y la carta usa la misma definición, así que no es un juez independiente |
+| Cumplir la UMM en los rangos bajos de la cascada (filtro, vecino cercano, clase contigua, promedio previo) | Todas alejan el corte ≥ 60 % de la carta más que no filtrar |
+| El spline en paralelo con hilos | 0.77x: más lento |
+| Resolver la malla por teselas con factorización directa | Costuras de hasta 1.9 m |
+| Que `acondicionar_mde` repare solo los sumideros | Taparía endorreicas reales; la reparación se pide aparte, después de leer el aviso |
+| Una sola cuenca por desagüe para partir un predio | Deja el 63 % sin cubrir y solapa |
+| Un "PLANO" en la exposición | El plano exacto del TIN es artefacto; se llama "SIN ORIENTACIÓN" y un plano con umbral sale de la pendiente |
