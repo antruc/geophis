@@ -78,8 +78,7 @@ FUENTES = ("declarado", "medido", "derivado", "convencion", "default")
 VECINOS_DEFAULT = 48
 
 # Factor `h del spline / techo de trazado` a partir del cual los rangos bajos
-# salen de `metodo="malla"` y no del spline (docs/GEOPHIS.md, "Cuando el spline
-# queda muy grueso"). OJO: sale de UN SOLO predio real, el unico de factor alto
+# salen de `metodo="malla"` y no del spline (docs/GEOPHIS.md, receta P3). OJO: sale de UN SOLO predio real, el unico de factor alto
 # medido (9.7: spline -40 % en >=60, malla +7 %). Con 4.0 a 4.8 gano el spline
 # en cuatro predios; entre 4.8 y 9.7 no hay medicion. 9.5 y no 9.7: ese
 # predio dio 9.71, y un techo de trazado 0.3 % mas ancho lo dejaba fuera.
@@ -756,8 +755,8 @@ def tabla_procedencia(params: dict[str, Any]) -> str:
             "para los rangos bajos."
         )
         lineas.append(
-            '   Sacalos de `metodo="malla"` a la `h` del TIN (GEOPHIS.md, "Cuando el '
-            'spline queda muy grueso"). Umbral de un solo predio: compara contra la carta.'
+            '   Sacalos de `metodo="malla"` a la `h` del TIN (GEOPHIS.md, receta P3). '
+            'Umbral de un solo predio: compara contra la carta.'
         )
     esp = params.get("pendiente_espuria_pct")
     if esp is not None:

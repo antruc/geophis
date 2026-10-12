@@ -1234,7 +1234,7 @@ _AVISO_PLANOS = {
    meseta horizontal aunque el terreno sea ladera. Los `quiebres` solo los
    quitan en las vaguadas: en cimas, lomos y a media ladera siguen. Si el rango
    bajo o la exposicion se citan, sacalos de un MDE spline y deja el TIN para
-   la clase alta (docs/GEOPHIS.md, "Cuando gana el TIN").""",
+   la clase alta (docs/GEOPHIS.md, receta P3).""",
     "rbf": """   Los `vecinos` de esas celdas cayeron TODOS en la misma curva, y un ajuste
    local sobre puntos de igual cota devuelve un plano. Pasa cuando el muestreo
    sobre las curvas es mucho mas fino que la separacion entre ellas (nube
@@ -1527,7 +1527,7 @@ def interpolar_mde(
         'malla' es OPCIONAL y tiene un solo uso medido: dar los rangos bajos y
         medios a la `h` del TIN cuando el spline queda forzado muy grueso (el
         factor `h del spline / techo de trazado` de `derivar_parametros` pasa
-        de ~5). Ver docs/GEOPHIS.md, "Cuando el spline queda muy grueso". No da
+        de ~5). Ver docs/GEOPHIS.md, receta P3. No da
         mesetas a cota de curva, pero sobreestima el corte >=60 % de 7 a 8 %
         (superficie suave contra pendiente media entre curvas), así que no es
         fuente de la clase alta. Muestrea a `min(intervalo_muestreo, h/2)`,

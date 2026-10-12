@@ -54,7 +54,7 @@ def zonificar(
       absorbidas.
     - `exentos`: ETIQUETAS de `rangos` que el sieve no toca. Una clase que es
       una cinta (el escarpe de la pendiente alta) se borra si se le aplica la
-      UMM por superficie; ver docs/GEOPHIS.md, "Cuando la CLASE MAS ALTA...".
+      UMM por superficie; ver docs/GEOPHIS.md, receta P1.
     - `por_clase`: False da una fila por pieza (para medir, filtrar o
       `eliminar_menores`); True, una multiparte por clase (la tabla).
     - `sin_dato`: etiqueta de las celdas NaN de `arr` dentro de la zona (no

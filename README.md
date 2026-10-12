@@ -95,6 +95,7 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 | Archivo | Para qué |
 |---|---|
 | [`docs/GEOPHIS.md`](docs/GEOPHIS.md) | La documentación completa: todas las funciones de `__all__` con su firma y sus trampas, los flujos de MDE, pendientes e hidrología, y las instrucciones de trabajo. Es también el único archivo que hay que cargar en un Proyecto de Claude |
+| [`docs/DECISIONES.md`](docs/DECISIONES.md) | Para personas: las mediciones que justifican cada regla y las alternativas descartadas. No se sube al Proyecto |
 | [`docs/API.md`](docs/API.md) | Índice compacto para buscar una función por nombre |
 | [`ejemplos/`](ejemplos/) | Scripts completos: `caminos.py` (buffer jerárquico), `hidrologia.py` (buffer por condición), `mde.py` (curvas a MDE) |
 
@@ -128,4 +129,4 @@ ruff format .             # formato (line-length 90, configurado en pyproject)
 - `recortar`, `intersecar`, `borrar` y `union_espacial` alinean el CRS solos, reproyectando el segundo argumento. `fusionar` no lo hace, a propósito
 - Avisos y reportes por consola con `print`; los errores con `raise ValueError` de mensaje claro
 
-El detalle de cada convención, con la medición que la justifica, está en `docs/GEOPHIS.md`
+El detalle de cada convención, con la medición que la justifica, está en `docs/DECISIONES.md`

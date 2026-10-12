@@ -130,7 +130,7 @@ def _ruta(nombre: str) -> Path:
 
 
 def test_la_cadena_de_pendientes_documentada_corre_entera():
-    """El ejemplo de `docs/GEOPHIS.md` §"cuando la CLASE MAS ALTA es la cifra".
+    """La receta P1 de `docs/GEOPHIS.md`, armada paso a paso.
 
     Los tests de firma comprueban que los NOMBRES cuadran; este comprueba que la
     cadena entera se puede ejecutar: que la salida de cada paso entra en el
@@ -283,7 +283,7 @@ def test_firmas_documentadas_cuadran(doc):
 
 
 def test_la_receta_de_elegir_metodo_corre_entera():
-    """`docs/GEOPHIS.md` §"Elegir el metodo de interpolacion", en una ladera.
+    """La receta P2 de `docs/GEOPHIS.md` (el juez entre metodos), en una ladera.
 
     Misma ladera que la cadena de pendientes (curvas cada 12 m, 167 %) con un
     cauce que las cruza todas. Comprueba que la receta existe y encadena:
