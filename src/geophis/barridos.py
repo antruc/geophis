@@ -94,9 +94,51 @@ def _prioridad_baja() -> None:
         pass
 
 
-def _mapear(fn: Callable[[Any], Any], tareas: Iterable[Any], nucleos: int | None) -> Iterator[Any]:
+# Memoria de una fila de barrido, medida en un predio real (pico privado del
+# proceso): el spline ~2 KB por celda del extent, el TIN ~130 B. Cada proceso
+# hijo arranca ademas con ~300 MB de librerias. Se usan para no lanzar mas
+# procesos de los que caben en la RAM libre.
+# ponytail: constantes de una medicion, re-medir si cambia el interpolador.
+_BYTES_CELDA = {"spline": 2048, "tin": 256}
+_BYTES_PROCESO = 300 * 2**20
+
+
+def _memoria_libre() -> float:
+    """RAM fisica libre en bytes; `inf` si el sistema no la dice."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            class _Estado(ctypes.Structure):
+                _fields_ = [("largo", ctypes.c_ulong), ("carga", ctypes.c_ulong)] + [
+                    (n, ctypes.c_ulonglong)
+                    for n in ("total", "libre", "pag_total", "pag_libre", "virt_total", "virt_libre", "ext")
+                ]
+
+            e = _Estado()
+            e.largo = ctypes.sizeof(e)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(e)):
+                return float(e.libre)
+            return math.inf
+        return float(os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE"))
+    except (AttributeError, ValueError, OSError):  # macOS no tiene SC_AVPHYS_PAGES
+        return math.inf
+
+
+def _bytes_tarea(celdas: float, metodo: str | None) -> float:
+    """Memoria estimada de UNA interpolacion de `celdas` celdas en su proceso."""
+    return _BYTES_PROCESO + celdas * _BYTES_CELDA.get(metodo or "spline", _BYTES_CELDA["spline"])
+
+
+def _mapear(
+    fn: Callable[[Any], Any],
+    tareas: Iterable[Any],
+    nucleos: int | None,
+    bytes_por_tarea: float = 0.0,
+) -> Iterator[Any]:
     """`map(fn, tareas)` en orden; con `nucleos > 1`, cada tarea en su proceso.
-    `nucleos` None = `geo.NUCLEOS`.
+    `nucleos` None = `geo.NUCLEOS`. Con `bytes_por_tarea`, no lanza mas
+    procesos de los que caben en el 80 % de la RAM libre (avisa si recorta).
 
     Cortar la iteracion (un `break` del barrido) cancela las tareas que no
     arrancaron. Si el pool se rompe o se queda sin memoria, avisa y sigue en
@@ -106,6 +148,15 @@ def _mapear(fn: Callable[[Any], Any], tareas: Iterable[Any], nucleos: int | None
         nucleos = getattr(sys.modules.get("geophis"), "NUCLEOS", 1)
     tareas = list(tareas)
     hechas = 0
+    if nucleos > 1 and len(tareas) > 1 and bytes_por_tarea > 0:
+        libre = _memoria_libre()
+        caben = max(1, int(0.8 * libre // bytes_por_tarea)) if math.isfinite(libre) else nucleos
+        if caben < min(nucleos, len(tareas)):
+            print(
+                f"   OJO: caben {caben} procesos en la RAM libre "
+                f"(~{bytes_por_tarea / 2**30:.1f} GB cada uno), no {nucleos}."
+            )
+            nucleos = caben
     if nucleos > 1 and len(tareas) > 1:
         try:
             pool = ProcessPoolExecutor(min(nucleos, len(tareas)), initializer=_prioridad_baja)
@@ -395,7 +446,10 @@ def barrer_resolucion(
         (default) = `geo.NUCLEOS`, los núcleos de la máquina menos uno; 1 = en
         serie. Las filas salen iguales; solo cambia el tiempo. El script no
         necesita `if __name__ == "__main__":`. Cada proceso carga su propia
-        malla: la memoria sube por ese factor, y sin memoria sigue en serie.
+        malla: la memoria sube por ese factor. Antes de arrancar se recorta a
+        los procesos que caben en el 80 % de la RAM libre, estimados con el
+        `h` más fino (aviso `OJO: caben N procesos`); si aun así falta, sigue
+        en serie.
 
     Devuelve una lista de dicts (uno por `h`, de fino a grueso) con `h`,
     `lambda_m`, `n_celdas`, `min_pixeles`, `area_alta_ha`, `pct_predio`,
@@ -485,7 +539,9 @@ def barrer_resolucion(
         min_pixeles=min_pixeles, quiebres=quiebres, paso_quiebre=paso_quiebre,
         exentos=exentos, sup_predio=sup_predio,
     )
-    for fila in _mapear(una_fila, resoluciones, nucleos):
+    x0, y0, x1, y1 = _bounds_cuadro(curvas, cuadro)
+    celdas = (x1 - x0) * (y1 - y0) / resoluciones[0] ** 2  # la mas fina manda
+    for fila in _mapear(una_fila, resoluciones, nucleos, _bytes_tarea(celdas, metodo)):
         h, min_px, area = fila["h"], fila["min_pixeles"], fila["area_alta_ha"]
         s_c, p_c = fila["s_sostenida"], fila["p_sostenida"]
         # contra el h anterior de la tabla, que es el inmediatamente MÁS
@@ -732,7 +788,8 @@ def barrer_vecinos(
     nucleos : cuántos `n` se corren a la vez, como en `barrer_resolucion`
         (None = `geo.NUCLEOS`). Se adelantan los `n` siguientes y al converger
         se tiran los que ya corrían: la rodilla y las filas salen iguales, el
-        costo extra es de hasta `nucleos - 1` corridas.
+        costo extra es de hasta `nucleos - 1` corridas. Se recorta a los
+        procesos que caben en la RAM libre, como en `barrer_resolucion`.
 
     Devuelve `(filas, n_rodilla)`. Cada fila trae `vecinos`,
     `margen_borde_celdas`, `n_celdas`, `alta_ha`, `delta_pct` (de `alta_ha`
@@ -786,7 +843,9 @@ def barrer_vecinos(
     )
     # con `nucleos > 1` se adelantan los `n` siguientes; los que no arrancaron
     # se cancelan al converger, los que ya corrian se tiran.
-    for fila in _mapear(una_fila, enes, nucleos):
+    x0, y0, x1, y1 = _bounds_cuadro(curvas, cuadro_salida)
+    celdas = (x1 - x0) * (y1 - y0) / resolucion**2
+    for fila in _mapear(una_fila, enes, nucleos, _bytes_tarea(celdas, "spline")):
         n, margen, alta, meseta = (
             fila["vecinos"], fila["margen_borde_celdas"], fila["alta_ha"], fila["meseta_ha"]
         )

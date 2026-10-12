@@ -340,7 +340,8 @@ MOSTRAR = True
 # cuando no se les pasa `nucleos`: todos los nucleos menos uno, para que la
 # maquina siga respondiendo durante un barrido de minutos u horas.
 # `geo.NUCLEOS = 1` los deja en serie. `process_cpu_count` (3.13) respeta la
-# afinidad del proceso; antes, `cpu_count`.
+# afinidad del proceso; antes, `cpu_count`. Ademas cada barrido recorta a los
+# procesos que caben en la RAM libre (`barridos._bytes_tarea`).
 NUCLEOS = max(1, (getattr(os, "process_cpu_count", os.cpu_count)() or 1) - 1)
 
 __version__ = "1.3.0"

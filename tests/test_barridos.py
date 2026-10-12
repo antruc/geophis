@@ -651,3 +651,42 @@ def test_los_procesos_del_barrido_van_a_prioridad_baja():
     from geophis.barridos import _mapear
 
     assert set(_mapear(_clase_de_prioridad, range(2), 2)) == {0x4000}  # BELOW_NORMAL
+
+
+def test_mapear_no_lanza_mas_procesos_de_los_que_caben(monkeypatch, capsys):
+    """Con poca RAM libre recorta `nucleos` y avisa; sin dato de RAM no recorta.
+    Mismo resultado en los dos casos."""
+    from geophis import barridos
+
+    lanzados = []
+
+    class _Pool:  # sin procesos de verdad: solo registra cuantos pidio
+        def __init__(self, n, initializer=None):
+            lanzados.append(n)
+
+        def map(self, fn, tareas):
+            return map(fn, tareas)
+
+        def shutdown(self, cancel_futures=False):
+            pass
+
+    monkeypatch.setattr(barridos, "ProcessPoolExecutor", _Pool)
+    gb = 2**30
+
+    monkeypatch.setattr(barridos, "_memoria_libre", lambda: 10 * gb)
+    assert list(barridos._mapear(abs, [-1, -2, -3, -4], 4, bytes_por_tarea=3 * gb)) == [1, 2, 3, 4]
+    assert lanzados == [2] and "caben 2 procesos" in capsys.readouterr().out
+
+    monkeypatch.setattr(barridos, "_memoria_libre", lambda: 1 * gb)
+    assert list(barridos._mapear(abs, [-1, -2], 4, bytes_por_tarea=3 * gb)) == [1, 2]
+    assert lanzados == [2]  # cabe uno: en serie, sin pool
+
+    monkeypatch.setattr(barridos, "_memoria_libre", lambda: float("inf"))
+    assert list(barridos._mapear(abs, [-1, -2, -3], 4, bytes_por_tarea=3 * gb)) == [1, 2, 3]
+    assert lanzados == [2, 3]
+
+
+def test_memoria_libre_es_un_numero_positivo():
+    from geophis import barridos
+
+    assert barridos._memoria_libre() > 0
