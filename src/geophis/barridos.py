@@ -95,11 +95,11 @@ def _prioridad_baja() -> None:
 
 
 # Memoria de una fila de barrido, medida en un predio real (pico privado del
-# proceso): el spline ~2 KB por celda del extent, el TIN ~130 B. Cada proceso
-# hijo arranca ademas con ~300 MB de librerias. Se usan para no lanzar mas
-# procesos de los que caben en la RAM libre.
+# proceso): el spline ~2 KB por celda del extent, la malla ~860 B, el TIN
+# ~130 B. Cada proceso hijo arranca ademas con ~300 MB de librerias. Se usan
+# para no lanzar mas procesos de los que caben en la RAM libre.
 # ponytail: constantes de una medicion, re-medir si cambia el interpolador.
-_BYTES_CELDA = {"spline": 2048, "tin": 256}
+_BYTES_CELDA = {"spline": 2048, "tin": 256, "malla": 1024}
 _BYTES_PROCESO = 300 * 2**20
 
 
@@ -495,10 +495,10 @@ def barrer_resolucion(
         raise ValueError(
             f"`exentos` {sorted(map(str, _desconocidas))} no estan en `rangos`"
         )
-    if resoluciones is None and metodo == "tin":
+    if resoluciones is None and metodo in ("tin", "malla"):
         raise ValueError(
-            "con metodo='tin' pasa `resoluciones`: la escalera de lambda es del spline y en "
-            "un TIN queda toda por encima del h de trazado (w/3)"
+            f"con metodo='{metodo}' pasa `resoluciones`: la escalera de lambda es del spline y "
+            "queda toda por encima del h de trazado (w/3)"
         )
     if resoluciones is None:
         if not math.isfinite(lambda_m):
@@ -512,8 +512,8 @@ def barrer_resolucion(
     if _mostrar():
         piso = f"{lambda_m / 2:.1f}" if math.isfinite(lambda_m) else "?"
         cola = (
-            "metodo tin: sin piso antialias"
-            if metodo == "tin"
+            f"metodo {metodo}: sin piso antialias"
+            if metodo in ("tin", "malla")
             else f"piso antialias lambda/2 = {piso} m (lambda medida sobre el extent)"
         )
         print(
@@ -1228,7 +1228,7 @@ def _veredicto(fila: dict[str, Any], h: float, metodo: str) -> tuple[str, str]:
         return "NO", "sin curvas dentro: rizo puro"
     if h > s:
         return "NO", f"ancho: h {h:g} > s_sostenida {s:.2f}"
-    if metodo != "tin" and h < fila["piso_local"]:
+    if metodo not in ("tin", "malla") and h < fila["piso_local"]:
         return "CONDICIONAL", f"alias: h {h:g} < piso_local {fila['piso_local']:.2f}"
     return "SI", ""
 
@@ -1249,7 +1249,8 @@ def juzgar_clasificaciones(
     (`zonificar(..., campo=...)`).
 
     `candidatas` = `{nombre: (clases, metodo, h)}`, con `metodo` en `"tin"` /
-    `"spline"` y `h` la resolucion de SU MDE. Todo se mide contra la
+    `"spline"` / `"malla"` y `h` la resolucion de SU MDE. La malla se juzga con
+    el criterio del TIN (sin piso antialias): es un SUPUESTO, no una medicion. Todo se mide contra la
     CARTOGRAFIA, no contra el MDE: juzgar pendientes con un sombreado del mismo
     raster es circular.
 
@@ -1293,8 +1294,8 @@ def juzgar_clasificaciones(
     if not candidatas:
         raise ValueError("sin candidatas")
     for nombre, (_, metodo, h) in candidatas.items():
-        if metodo not in ("tin", "spline", "tps"):
-            raise ValueError(f"{nombre}: metodo '{metodo}', usa 'tin' o 'spline'")
+        if metodo not in ("tin", "spline", "tps", "malla"):
+            raise ValueError(f"{nombre}: metodo '{metodo}', usa 'tin', 'spline' o 'malla'")
         if not h > 0:
             raise ValueError(f"{nombre}: h {h} tiene que ser > 0")
     alta = max(rangos, key=lambda r: r[1])

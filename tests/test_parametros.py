@@ -557,6 +557,10 @@ def test_metodo_tin_sin_piso_sin_vecinos_y_margen_del_vacio():
     assert int(tin["margen_borde_celdas"]) == 400 // 5 + 2  # ceil(s_vacio/h)+2
     with pytest.raises(ValueError, match="RBF"):
         _referencia(metodo="tin")  # un predio real trae vecinos=90
+    # la malla se deriva como el TIN: es como se midio, a su `h` de trazado
+    malla = _referencia(lambda_m=20.0, vecinos=None, resolucion=None, metodo="malla")
+    assert malla["metodo"] == "malla" and float(malla["resolucion"]) == pytest.approx(5.0)
+    assert "vecinos" not in malla and np.isnan(float(malla["resolucion_piso"]))
 
 
 def test_parametros_rellena_solo_lo_que_queda_en_none():

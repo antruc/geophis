@@ -309,7 +309,10 @@ def derivar_parametros(
     medir_ancho : apaga la medición de `w`. Apagarla deja el
         techo de trazado en el ancho GEOMETRICO y eso se marca `default`.
     metodo : el interpolador para el que se derivan los parametros, `"spline"`
-        (default) o `"tin"`. NO es cosmetico, cambia tres cosas:
+        (default), `"tin"` o `"malla"`. NO es cosmetico: con `"tin"` y con
+        `"malla"` cambian tres cosas (la malla se deriva como el TIN: es como se
+        midio, a su `h` de trazado; que no tenga piso antialias es un SUPUESTO,
+        su rizo medido queda entre el del TIN y el del spline):
 
         - **el piso antialias no aplica al TIN** : sale de que el
           spline ondula con lambda, y un TIN es lineal a trozos. Con `"tin"`,
@@ -339,9 +342,9 @@ def derivar_parametros(
     """
     if escala <= 0:
         raise ValueError(f"escala {escala} debe ser > 0")
-    if metodo not in ("spline", "tps", "tin"):
-        raise ValueError(f"metodo '{metodo}': usa 'spline'/'tps' o 'tin'")
-    es_tin = metodo == "tin"
+    if metodo not in ("spline", "tps", "tin", "malla"):
+        raise ValueError(f"metodo '{metodo}': usa 'spline'/'tps', 'tin' o 'malla'")
+    es_tin = metodo in ("tin", "malla")  # sin RBF: ni piso antialias ni `vecinos`
     # "medir" o una rejilla de `n`: se barre aqui. Un int (o `ValorEntero`) no.
     medir_vecinos = isinstance(vecinos, str) or (
         vecinos is not None and not isinstance(vecinos, (int, float, np.number))
@@ -520,7 +523,7 @@ def derivar_parametros(
     p["resolucion_piso"] = _v(
         techos.get("antialias", float("nan")),
         "derivado",
-        "no aplica: un TIN no ondula"
+        f"no aplica: {metodo} no es la RBF del spline"
         if es_tin
         else "lambda/2, piso antialias",
     )

@@ -52,7 +52,9 @@ from scipy.ndimage import (
 )
 from scipy.interpolate import LinearNDInterpolator, RBFInterpolator
 from scipy.spatial import cKDTree, QhullError
+from scipy import sparse
 from scipy.sparse import csr_array
+from scipy.sparse.linalg import splu
 from scipy.sparse.csgraph import dijkstra
 from skimage.graph import MCP_Geometric
 from numpy.linalg import LinAlgError
@@ -857,6 +859,125 @@ def _separacion_media(curvas: gpd.GeoDataFrame) -> float | None:
     return area / largo
 
 
+# ---- malla: placa delgada discretizada (el nucleo de ANUDEM, sin drenaje) ----
+
+# Peso de la suavidad contra el ajuste a los puntos. 1e-3 = ajuste casi exacto
+# (0.03 m RMS sobre las curvas). Barrido de 1e-3 a 1 en un predio real: el
+# sesgo en >=60 % solo baja de +7.4 a +6.5 % y los cortes bajos empeoran. No es
+# perilla del sesgo, que es estructural (superficie suave contra pendiente
+# media entre curvas); por eso no sale en la firma.
+_LAM_MALLA = 1e-3
+# celdas extra por lado: los puntos de fuera del extent tambien sostienen el
+# borde, como el margen de 20 celdas de ANUDEM
+_MARGEN_MALLA = 20
+
+
+def _prolongacion_1d(nf: int) -> Any:
+    """Interpolacion lineal de ceil(nf/2) nodos gruesos a nf finos (par copia, impar media)."""
+    nc = (nf + 1) // 2
+    i = np.arange(nf)
+    par, imp = i[::2], i[1::2]
+    filas = np.concatenate([par, imp, imp])
+    cols = np.concatenate([par // 2, imp // 2, np.minimum(imp // 2 + 1, nc - 1)])
+    val = np.concatenate([np.ones(par.size), np.full(2 * imp.size, 0.5)])
+    return sparse.csr_matrix((val, (filas, cols)), shape=(nf, nc))
+
+
+class _Multimalla:
+    """Gradiente conjugado precondicionado con un ciclo V de multimalla
+    geometrica: prolongacion bilineal, operadores gruesos de Galerkin
+    (`P.T @ M @ P`), Jacobi ponderado y LU en el nivel grueso. Para el sistema
+    SPD de la placa. Escala casi lineal: ~1 M nodos en ~40 s con un nucleo,
+    donde un LU directo sobre 40 000 nodos ya tardaba 79 s."""
+
+    def __init__(self, M: Any, alto: int, ancho: int, minimo: int = 48,
+                 omega: float = 0.6, barridos: int = 3) -> None:
+        self.M, self.omega, self.barridos = M, omega, barridos
+        self.niveles: list[tuple[Any, FloatArray, Any]] = []  # (M, 1/diag, P)
+        while min(alto, ancho) > minimo:
+            P = sparse.kron(_prolongacion_1d(alto), _prolongacion_1d(ancho)).tocsr()
+            self.niveles.append((M, 1.0 / M.diagonal(), P))
+            M = (P.T @ M @ P).tocsr()
+            alto, ancho = (alto + 1) // 2, (ancho + 1) // 2
+        self.grueso = splu(M.tocsc())
+
+    def _ciclo(self, k: int, b: FloatArray) -> FloatArray:
+        if k == len(self.niveles):
+            return self.grueso.solve(b)
+        M, dinv, P = self.niveles[k]
+        x = self.omega * dinv * b
+        for _ in range(self.barridos - 1):
+            x += self.omega * dinv * (b - M @ x)
+        x += P @ self._ciclo(k + 1, P.T @ (b - M @ x))
+        for _ in range(self.barridos):
+            x += self.omega * dinv * (b - M @ x)
+        return x
+
+    def resolver(self, b: FloatArray, tol: float, max_iter: int) -> tuple[FloatArray, int]:
+        """PCG, `tol` relativa sobre el residuo. Devuelve (x, iteraciones)."""
+        x = np.zeros_like(b)
+        r = b.copy()
+        z = self._ciclo(0, r)
+        p, rz, nb = z.copy(), r @ z, np.linalg.norm(b)
+        for it in range(1, max_iter + 1):
+            Mp = self.M @ p
+            a = rz / (p @ Mp)
+            x += a * p
+            r -= a * Mp
+            if np.linalg.norm(r) <= tol * nb:
+                return x, it
+            z = self._ciclo(0, r)
+            rz, rz_viejo = r @ z, rz
+            p = z + (rz / rz_viejo) * p
+        return x, max_iter
+
+
+def _interp_placa(
+    pts: FloatArray, zs: FloatArray, x0: float, y0: float, h: float, ancho: int, alto: int
+) -> FloatArray:
+    """Placa delgada discretizada sobre la malla, `metodo='malla'`.
+
+    Minimiza `||A z - d||^2 + lam*sum(zxx^2 + 2 zxy^2 + zyy^2)` sobre los
+    centros de celda: UN sistema disperso para todo el MDE, en lugar de uno
+    denso por celda como el spline. `A` es bilineal: cada punto reparte su cota
+    entre las cuatro celdas que lo rodean. No promedia los puntos por celda
+    como ANUDEM, y asi no aplana la superficie en cada curva.
+
+    `(x0, y0)` es el centro de la celda (0, 0). Devuelve el array plano
+    (alto*ancho), como los otros interpoladores.
+    """
+    m = _MARGEN_MALLA
+    nx, ny = ancho + 2 * m, alto + 2 * m
+    c = (pts[:, 0] - x0) / h + m
+    f = (y0 - pts[:, 1]) / h + m
+    ok = (c >= 0) & (c < nx - 1) & (f >= 0) & (f < ny - 1)
+    c, f, d = c[ok], f[ok], zs[ok]
+    if c.size < 3:
+        return np.full(alto * ancho, np.nan)
+    c0, f0 = np.floor(c).astype(np.int64), np.floor(f).astype(np.int64)
+    tc, tf = c - c0, f - f0
+    nodo = f0 * nx + c0
+    pesos = np.column_stack([(1 - tc) * (1 - tf), tc * (1 - tf), (1 - tc) * tf, tc * tf]).ravel()
+    filas = np.repeat(np.arange(c.size), 4)
+    cols = np.column_stack([nodo, nodo + 1, nodo + nx, nodo + nx + 1]).ravel()
+    A = sparse.csr_matrix((pesos, (filas, cols)), shape=(c.size, nx * ny))
+
+    def d2(n: int) -> Any:
+        return sparse.diags([1.0, -2.0, 1.0], [0, 1, 2], shape=(n - 2, n))
+
+    def d1(n: int) -> Any:
+        return sparse.diags([-1.0, 1.0], [0, 1], shape=(n - 1, n))
+
+    Ix, Iy = sparse.identity(nx), sparse.identity(ny)
+    Dxx, Dyy, Dxy = sparse.kron(Iy, d2(nx)), sparse.kron(d2(ny), Ix), sparse.kron(d1(ny), d1(nx))
+    M = (A.T @ A + _LAM_MALLA * (Dxx.T @ Dxx + 2 * Dxy.T @ Dxy + Dyy.T @ Dyy)).tocsr()
+    # tol 1e-10: ~1 mm contra el LU directo, nada para la pendiente
+    z, it = _Multimalla(M, ny, nx).resolver(A.T @ d, tol=1e-10, max_iter=1000)
+    if it == 1000:
+        print("Aviso: la malla no convergio en 1000 iteraciones; la superficie puede quedar cruda")
+    return z.reshape(ny, nx)[m:m + alto, m:m + ancho].ravel()
+
+
 def _resolver_parametros(
     curvas: gpd.GeoDataFrame,
     campo_elevacion: str,
@@ -1000,7 +1121,7 @@ def _interpolar_malla(
     suavizado: float = 0.0,
     vecinos: int | None = None,
 ) -> tuple[FloatArray, Affine]:
-    """Interpola puntos (x, y, z) sobre una malla regular. TIN, spline o IDW, sin extrapolar.
+    """Interpola puntos (x, y, z) sobre una malla regular. TIN, spline, malla o IDW, sin extrapolar.
 
     `vecinos` None = el default de cada método (48 para spline, 8 para IDW):
     son escalas distintas y un solo número no sirve para los dos.
@@ -1041,9 +1162,13 @@ def _interpolar_malla(
         if suavizado:
             print("Aviso: 'idw' ignora suavizado (no es un parámetro suyo)")
         z = _interp_idw(pts, zs, malla, **kw)
+    elif metodo == "malla":
+        if suavizado or vecinos is not None:
+            print("Aviso: 'malla' ignora suavizado y vecinos (no son parámetros suyos)")
+        z = _interp_placa(pts, zs, gx[0], gy[0], resolucion, ancho, alto)
     else:
         raise ValueError(
-            f"metodo '{metodo}' no válido (usa 'tin', 'spline'/'tps' o 'idw')"
+            f"metodo '{metodo}' no válido (usa 'tin', 'spline'/'tps', 'malla' o 'idw')"
         )
 
     # IDW y spline extrapolan (y el TIN cae a IDW si falla): ninguno sale de la envolvente
@@ -1300,9 +1425,9 @@ def _preparar_mde(
     # `intervalo_muestreo` dados a mano nada mide, y en grados salia una
     # pendiente de millones de % sin reventar
     _exigir_proyectado(curvas, "curvas")
-    if quiebres is not None and metodo != "tin":
+    if quiebres is not None and metodo not in ("tin", "malla"):
         raise ValueError(
-            f"quiebres solo con metodo='tin', no '{metodo}': el spline sobre una "
+            f"quiebres solo con metodo='tin' o 'malla', no '{metodo}': el spline sobre una "
             f"nube densa a lo largo del cauce ondula, que es justo lo que los "
             f"quiebres vienen a quitar"
         )
@@ -1320,6 +1445,11 @@ def _preparar_mde(
         amplitud_rizo,
     )
 
+    if metodo == "malla":
+        # cada punto reparte su cota en sus 4 celdas: con menos de dos puntos
+        # por celda a lo largo de la curva, la superficie se escapa entre ellos.
+        # La malla no tiene la anisotropia de la RBF: muestrear fino no la ondula.
+        intervalo_muestreo = min(intervalo_muestreo, resolucion / 2)
     xs, ys, zs, origen = _muestrear_curvas(curvas, campo, intervalo_muestreo)
     if xs.size == 0:
         raise ValueError("las curvas no produjeron puntos; revisa las geometrías")
@@ -1391,7 +1521,17 @@ def interpolar_mde(
     cuadro : GeoDataFrame o geometría que fija el extent. Si None, el bounding
         box de las curvas.
     metodo : 'spline'/'tps' (thin-plate, default si None), 'tin'
-        (triangulación) o 'idw' (respaldo).
+        (triangulación), 'malla' (placa delgada discretizada sobre la malla, el
+        núcleo de ANUDEM sin imposición de drenaje) o 'idw' (respaldo).
+
+        'malla' es OPCIONAL y tiene un solo uso medido: dar los rangos bajos y
+        medios a la `h` del TIN cuando el spline queda forzado muy grueso (el
+        factor `h del spline / techo de trazado` de `derivar_parametros` pasa
+        de ~5). Ver docs/GEOPHIS.md, "Cuando el spline queda muy grueso". No da
+        mesetas a cota de curva, pero sobreestima el corte >=60 % de 7 a 8 %
+        (superficie suave contra pendiente media entre curvas), así que no es
+        fuente de la clase alta. Muestrea a `min(intervalo_muestreo, h/2)`,
+        ignora `vecinos` y `suavizado`, y acepta `quiebres`.
 
         El TIN sobre curvas solas da pendientes falsas: un triángulo con sus
         tres vértices sobre la misma curva sale plano. No solo en cimas, lomos
@@ -1450,9 +1590,9 @@ def interpolar_mde(
         (`cotas_por_cruce`) y sus puntos se suman a los de las curvas antes de
         triangular. Quita los triángulos horizontales del fondo de las
         vaguadas, que es donde el TIN sobre curvas solas se rompe, y deja el
-        drenaje entregable con `rellenar_sumideros`. Solo `metodo='tin'`:
-        el spline con una nube densa a lo largo del cauce es la anisotropía
-        que lo hace ondular. Mismo CRS que `curvas`.
+        drenaje entregable con `rellenar_sumideros`. Solo `metodo='tin'` o
+        `'malla'`: el spline con una nube densa a lo largo del cauce es la
+        anisotropía que lo hace ondular. Mismo CRS que `curvas`.
 
         TECHO CONOCIDO: DENSIFICA la línea, no la impone. Una Delaunay con
         restricciones garantiza que la arista exista; aquí las aristas siguen

@@ -1343,6 +1343,46 @@ def test_quiebres_imponen_el_talweg_que_el_tin_pelado_aplana():
         geo.interpolar_mde(curvas, "ELEV", resolucion=2, quiebres=cauce)
 
 
+
+def test_malla_reproduce_un_plano_y_acepta_quiebres():
+    """`metodo='malla'`: la placa delgada tiene curvatura cero en un plano, asi
+    que lo reproduce exacto (salvo la tolerancia del solver), sin mesetas a
+    cota de curva. Curvas cada 40 m sobre `z = 0.5 x` y una malla de 10 m:
+    la grilla tiene mas de 48 nodos por lado, asi que pasa por la multimalla."""
+    crs = "EPSG:32613"
+    xs = range(0, 1001, 40)
+    curvas = gpd.GeoDataFrame(
+        {"ELEV": [0.5 * x for x in xs]},
+        geometry=[LineString([(x, 0), (x, 800)]) for x in xs],
+        crs=crs,
+    )
+    mde, tf = geo.interpolar_mde(curvas, "ELEV", resolucion=10, metodo="malla")
+    gx = tf.c + (np.arange(mde.shape[1]) + 0.5) * tf.a
+    assert np.nanmax(np.abs(mde - 0.5 * gx[None, :])) < 1e-3
+    assert not geo.planos_de_curva(mde, tf, curvas, "ELEV").any()
+
+    # los quiebres entran como en el TIN (paralelos a la pendiente: no la mueven)
+    cauce = gpd.GeoDataFrame(geometry=[LineString([(10, 400), (990, 400)])], crs=crs)
+    con, _ = geo.interpolar_mde(curvas, "ELEV", resolucion=10, metodo="malla", quiebres=cauce)
+    assert np.nanmax(np.abs(con - 0.5 * gx[None, :])) < 1e-3
+
+
+def test_multimalla_resuelve_igual_que_el_lu():
+    """El solver de la malla contra `spsolve` en un sistema SPD de la misma
+    forma (Laplaciano 2D + identidad sobre una grilla de 100 x 120)."""
+    from scipy import sparse
+    from scipy.sparse.linalg import spsolve
+    from geophis.raster import _Multimalla
+
+    alto, ancho = 100, 120
+    lap = lambda n: sparse.diags([-1.0, 2.0, -1.0], [-1, 0, 1], shape=(n, n))  # noqa: E731
+    M = (sparse.kron(lap(alto), sparse.identity(ancho)) + sparse.kron(sparse.identity(alto), lap(ancho))
+         + 0.01 * sparse.identity(alto * ancho)).tocsr()
+    b = np.random.default_rng(0).normal(size=alto * ancho)
+    x, it = _Multimalla(M, alto, ancho).resolver(b, tol=1e-10, max_iter=1000)
+    assert it < 1000
+    assert np.allclose(x, spsolve(M.tocsc(), b), atol=1e-6)
+
 # ---- raster de QA ----------------------------------------------------------
 
 
