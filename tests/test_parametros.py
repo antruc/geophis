@@ -561,6 +561,19 @@ def test_metodo_tin_sin_piso_sin_vecinos_y_margen_del_vacio():
     malla = _referencia(lambda_m=20.0, vecinos=None, resolucion=None, metodo="malla")
     assert malla["metodo"] == "malla" and float(malla["resolucion"]) == pytest.approx(5.0)
     assert "vecinos" not in malla and np.isnan(float(malla["resolucion_piso"]))
+    assert "factor_techo" not in malla and "factor_techo" not in tin
+
+
+def test_factor_techo_manda_los_rangos_bajos_a_la_malla_desde_el_umbral():
+    """`factor_techo` = h del spline / techo de trazado. Desde `FACTOR_MALLA`
+    (umbral de un solo predio) la tabla de procedencia lo avisa; debajo, no."""
+    from geophis.parametros import FACTOR_MALLA
+
+    bajo = _referencia(lambda_m=20.0, vecinos=None, resolucion=None)  # piso 10 / techo 5
+    alto = _referencia(lambda_m=120.0, vecinos=None, resolucion=None)  # piso 60 / techo 5.17
+    assert float(bajo["factor_techo"]) < FACTOR_MALLA <= float(alto["factor_techo"])
+    assert "FACTOR" not in geo.tabla_procedencia(bajo)
+    assert 'metodo="malla"' in geo.tabla_procedencia(alto)
 
 
 def test_parametros_rellena_solo_lo_que_queda_en_none():

@@ -77,6 +77,14 @@ FUENTES = ("declarado", "medido", "derivado", "convencion", "default")
 # importar la funcion que lo aplica.
 VECINOS_DEFAULT = 48
 
+# Factor `h del spline / techo de trazado` a partir del cual los rangos bajos
+# salen de `metodo="malla"` y no del spline (docs/GEOPHIS.md, "Cuando el spline
+# queda muy grueso"). OJO: sale de UN SOLO predio real, el unico de factor alto
+# medido (9.7: spline -40 % en >=60, malla +7 %). Con 4.0 a 4.8 gano el spline
+# en cuatro predios; entre 4.8 y 9.7 no hay medicion. Bajarlo cuando un predio
+# de ese tramo diga donde cambia.
+FACTOR_MALLA = 9.7
+
 
 class Valor(float):
     """Un float que recuerda de dónde salió.
@@ -334,7 +342,9 @@ def derivar_parametros(
     `ancho_w`, `blanco_carta_ha` (solo si `w` se midió), `resolucion`,
     `resolucion_regla`, `resolucion_piso`, `factible`, `s_vacio`,
     `intervalo_muestreo_terreno`, `intervalo_muestreo`, `vecinos`,
-    `margen_borde_celdas`, `min_pixeles`, `pendiente_espuria_pct` (solo con `A`).
+    `margen_borde_celdas`, `min_pixeles`, `pendiente_espuria_pct` (solo con `A`),
+    `factor_techo` (solo spline: `h / techo de trazado`; desde `FACTOR_MALLA` la
+    tabla manda los rangos bajos a la malla).
 
     NO decide nada. Ni se niega a correr por un `default`, ni corrige `h` cuando
     cae bajo el piso. Devuelve los números y la lista de `sin_medir`; quien
@@ -529,6 +539,13 @@ def derivar_parametros(
     )
     p["factible"] = factible
     p["techos"] = techos
+    if not es_tin:
+        p["factor_techo"] = _v(
+            h_uso / techos[nombre_techo],
+            "derivado",
+            f"h / techo '{nombre_techo}'; >= {FACTOR_MALLA:g}: rangos bajos de la malla "
+            "(umbral de un solo predio)",
+        )
 
     # 5. `s_vacio`, ya con `h`: las hectáreas de esta malla comparan con las del
     # MDE solo si las dos se leen a la misma resolución.
@@ -703,6 +720,17 @@ def tabla_procedencia(params: dict[str, Any]) -> str:
         lineas.append(
             "   La cartografía no sostiene la clase alta a esa UMM. Decláralo en "
             "vez de taparlo."
+        )
+    factor = params.get("factor_techo")
+    if factor is not None and float(factor) >= FACTOR_MALLA:
+        lineas.append("")
+        lineas.append(
+            f"   FACTOR {float(factor):.1f} >= {FACTOR_MALLA:g}: el spline queda muy grueso "
+            "para los rangos bajos."
+        )
+        lineas.append(
+            '   Sacalos de `metodo="malla"` a la `h` del TIN (GEOPHIS.md, "Cuando el '
+            'spline queda muy grueso"). Umbral de un solo predio: compara contra la carta.'
         )
     esp = params.get("pendiente_espuria_pct")
     if esp is not None:
