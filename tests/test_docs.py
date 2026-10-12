@@ -308,7 +308,12 @@ def test_la_receta_de_elegir_metodo_corre_entera():
     campo, e = geo.detectar_cota(curvas)
     p_tin = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, metodo="tin")
     assert not geo.sin_medir(p_tin), geo.sin_medir(p_tin)
-    p_spl = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos=20)
+    p_spl = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos=20, medidos=p_tin)
+    # `medidos` reusa las mediciones, con su procedencia, y no las de otra capa
+    assert p_spl["lambda_m"] is p_tin["lambda_m"] and p_spl["ancho_w"] is p_tin["ancho_w"]
+    assert p_spl["blanco_carta_ha"] is p_tin["blanco_carta_ha"]
+    with pytest.raises(ValueError, match="otra capa de curvas"):
+        geo.derivar_parametros(curvas.iloc[1:], campo, predio, RANGOS, ESCALA, metodo="tin", medidos=p_tin)
 
     def clases(mde, tf, p):
         codigos, etiquetas = geo.reclasificar_rangos(

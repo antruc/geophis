@@ -226,6 +226,7 @@ def derivar_parametros(
     cuadro: gpd.GeoDataFrame | None = None,
     medir_ancho: bool = True,
     metodo: str = "spline",
+    medidos: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Encadena las mediciones y las reglas, y devuelve todo con su procedencia.
 
@@ -315,6 +316,13 @@ def derivar_parametros(
         `CUANTIL_VACIO` = 90, en `metrologia`) no son parámetros: son la misma
         cifra en todos los predios. Salen en la tabla marcadas `convencion`,
         pero NO en `sin_medir`: no hay medición que las sustituya.
+    medidos : el dict de OTRA llamada sobre las MISMAS `curvas` y `zona` (y el
+        mismo `cuadro`), típicamente la del otro método. Toma de ahí
+        `equidistancia`, `lambda_m`, `zigzag`, `ancho_w` y `blanco_carta_ha`, con
+        su procedencia, en vez de volver a medirlos: son el 99 % del costo
+        (medido en un predio real: 192 s contra 0.7 s). Lo que no depende del
+        método ni de `h`. Lo pasado a mano manda sobre `medidos`. Falla si la
+        huella de las capas (entidades, CRS, bbox) no es la misma.
     medir_ancho : apaga la medición de `w`. Apagarla deja el
         techo de trazado en el ancho GEOMETRICO y eso se marca `default`.
     metodo : el interpolador para el que se derivan los parametros, `"spline"`
@@ -353,6 +361,21 @@ def derivar_parametros(
     """
     if escala <= 0:
         raise ValueError(f"escala {escala} debe ser > 0")
+    if medidos is not None:
+        # la ruta no cuenta (`attrs` no sobrevive a toda operacion); la huella si
+        for capa, gdf in (("curvas", curvas), ("zona", zona)):
+            antes = {k: v for k, v in medidos.get("insumos", {}).get(capa, {}).items() if k != "ruta"}
+            ahora = {k: v for k, v in _huella(gdf, "").items() if k not in ("ruta", "medida")}
+            antes.pop("medida", None)
+            if antes != ahora:
+                raise ValueError(
+                    f"`medidos` se midio sobre otra capa de {capa}: {antes} contra {ahora}"
+                )
+        equidistancia = medidos["equidistancia"] if equidistancia is None else equidistancia
+        lambda_m = medidos["lambda_m"] if lambda_m is None else lambda_m
+        zigzag = medidos["zigzag"] if zigzag is None else zigzag
+        if ancho_medido is None and medir_ancho:
+            ancho_medido = medidos["ancho_w"]
     if metodo not in ("spline", "tps", "tin", "malla"):
         raise ValueError(f"metodo '{metodo}': usa 'spline'/'tps', 'tin' o 'malla'")
     es_tin = metodo in ("tin", "malla")  # sin RBF: ni piso antialias ni `vecinos`
@@ -474,6 +497,8 @@ def derivar_parametros(
     if ancho_medido is not None:
         w = float(ancho_medido)
         p["ancho_w"] = _de_fuera(ancho_medido, "dado a mano (medido aparte)")
+        if medidos is not None and ancho_medido is medidos.get("ancho_w") and "blanco_carta_ha" in medidos:
+            p["blanco_carta_ha"] = medidos["blanco_carta_ha"]
     elif medir_ancho:
         _exigir_capas("el ancho `w` de la clase alta")
         try:
