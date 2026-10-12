@@ -570,7 +570,7 @@ def test_factor_techo_manda_los_rangos_bajos_a_la_malla_desde_el_umbral():
     from geophis.parametros import FACTOR_MALLA
 
     bajo = _referencia(lambda_m=20.0, vecinos=None, resolucion=None)  # piso 10 / techo 5
-    alto = _referencia(lambda_m=120.0, vecinos=None, resolucion=None)  # piso 60 / techo 5.17
+    alto = _referencia(lambda_m=100.0, vecinos=None, resolucion=None)  # 50 / 5.17 = 9.68
     assert float(bajo["factor_techo"]) < FACTOR_MALLA <= float(alto["factor_techo"])
     assert "FACTOR" not in geo.tabla_procedencia(bajo)
     assert 'metodo="malla"' in geo.tabla_procedencia(alto)
