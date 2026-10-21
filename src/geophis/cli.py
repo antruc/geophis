@@ -30,7 +30,8 @@ ejemplos:
 
 opciones avanzadas (normalmente no hacen falta):
   --capa NOMBRE             capa a leer si el archivo trae varias (GPX/GeoPackage)
-  --gpx-como {track,route}  como escribir lineas al exportar a GPX (def: track)
+  --gpx-como {track,route}  como escribir lineas al exportar a GPX (def: track;
+                            los puntos siempre van a waypoints)
   --si                      sobrescribe salidas existentes sin preguntar
   -h, --ayuda               muestra esta ayuda
 """
@@ -54,7 +55,7 @@ def _build() -> _Parser:
     p.add_argument("tipo")
     p.add_argument("--capa")
     p.add_argument(
-        "--gpx-como", dest="gpx_como", choices=("track", "route"), default="track"
+        "--gpx-como", dest="gpx_como", choices=("track", "route"), default=None
     )
     p.add_argument("--si", action="store_true")  # sobrescribir sin preguntar
     return p

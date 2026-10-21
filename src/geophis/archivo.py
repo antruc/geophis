@@ -6,7 +6,7 @@ import shutil
 import tempfile
 import warnings
 from collections.abc import Iterator
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from os import PathLike
 from typing import Any
 
@@ -104,20 +104,6 @@ def _traducir_avisos() -> Iterator[None]:
                 print(f"Aviso: {es}" + (f": {detalle}" if detalle else ""))
             else:
                 warnings.warn(a.message, a.category)
-
-
-@contextmanager
-def _env(var: str, valor: str) -> Iterator[None]:
-    """Fija una variable de entorno solo durante el bloque y luego la restaura."""
-    previo = os.environ.get(var)
-    os.environ[var] = valor
-    try:
-        yield
-    finally:
-        if previo is None:
-            del os.environ[var]
-        else:
-            os.environ[var] = previo
 
 
 def cargar(
@@ -544,7 +530,7 @@ def _validar_anchos(
 def guardar(
     gdf: gpd.GeoDataFrame,
     ruta: str | PathLike[str],
-    gpx_como: str = "track",
+    gpx_como: str | None = None,
     anchos: dict[str, Any] | None = None,
 ) -> str | PathLike[str]:
     """Guarda un GeoDataFrame en disco.
@@ -559,11 +545,11 @@ def guardar(
 
     Parámetros
     ----------
-    gpx_como : "track" | "route"
-        Solo aplica a GPX y a geometrías de línea. El driver GPX decide por
-        tipo de geometría: MultiLineString -> track, LineString -> route. Con
-        "track" (por defecto, que es como trabaja el GPS aquí) se envuelven
-        las líneas como MultiLineString. Los puntos siempre van a waypoints.
+    gpx_como : None | "track" | "route"
+        Normalmente no se pasa: el tipo GPX lo decide la geometría. Puntos ->
+        waypoints, líneas -> track, polígonos -> su contorno como track.
+        "route" escribe las líneas como rutas; úsalo solo si se piden rutas.
+        Pasarlo con una capa sin líneas no hace nada y avisa.
     anchos : dict, solo .shp
         Ancho fijo por campo: `{"CLASE": 50}` para texto o entero,
         `{"SUP": (12, 4)}` para decimal (ancho total con el punto, y
@@ -603,17 +589,26 @@ def guardar(
 
     if ext in _DRIVERS_GEO:
         gdf = _a_geografico(gdf, ext)
-        ctx = nullcontext()
+        opciones = {}
         if ext == ".gpx":
-            # extensiones ON para no perder atributos al escribir GPX.
-            ctx = _env("GPX_USE_EXTENSIONS", "YES")
+            # Opción del ARCHIVO, no variable de entorno: sin ella GDAL rechaza
+            # todo campo fuera del esquema GPX ('NAME', 'CLAVE'...). Con ella
+            # 'NAME' cae en <name> y el resto en <extensions>.
+            opciones = {"GPX_USE_EXTENSIONS": "YES"}
             # GPX reserva 'fid'; un SHP sin atributos trae esa columna y revienta.
             gdf = gdf.drop(columns=[c for c in gdf.columns if c.lower() == "fid"])
             gdf = _poligono_a_borde(gdf)
-            if gpx_como == "track":
+            gdf = _multipunto_a_puntos(gdf)
+            hay_lineas = gdf.geom_type.isin(["LineString", "MultiLineString"]).any()
+            if gpx_como is not None and not hay_lineas:
+                print(
+                    "Aviso: gpx_como no aplica: la capa no tiene líneas "
+                    "(los puntos van a waypoints)"
+                )
+            if gpx_como in (None, "track"):
                 gdf = _lineas_a_track(gdf)
-        with _traducir_avisos(), ctx:
-            gdf.to_file(ruta, driver=_DRIVERS_GEO[ext])
+        with _traducir_avisos():
+            gdf.to_file(ruta, driver=_DRIVERS_GEO[ext], **opciones)
     else:
         with _traducir_avisos():
             gdf.to_file(ruta)
@@ -686,7 +681,7 @@ def convertir(
     entrada: str | PathLike[str],
     salida: str | PathLike[str],
     capa: str | None = None,
-    gpx_como: str = "track",
+    gpx_como: str | None = None,
 ) -> str | PathLike[str]:
     """Convierte un archivo vectorial de un formato a otro (cargar + guardar).
 
@@ -696,7 +691,8 @@ def convertir(
 
     Si la entrada es GPX y no se indica `capa`, elige automáticamente la que
     trae datos: un GPX de solo tracks leído "a secas" sale vacío porque la
-    capa por defecto es waypoints. `gpx_como` aplica solo a la salida GPX.
+    capa por defecto es waypoints. `gpx_como`: ver `guardar` (normalmente no
+    se pasa; la geometría decide waypoints o track).
     """
     if str(entrada).lower().endswith(".gpx"):
         gdf = _cargar_gpx_limpio(entrada, capa)
@@ -758,6 +754,14 @@ def _poligono_a_borde(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         # por nombre real: con el literal y la columna activa llamada distinto, se
         # añadiría una columna "geometry" y se exportaría el polígono original
         gdf[gdf.geometry.name] = gdf.boundary
+    return gdf
+
+
+def _multipunto_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """GPX no admite MultiPoint; lo separa en un waypoint por punto."""
+    if (gdf.geom_type == "MultiPoint").any():
+        print("GPX no admite multipuntos; exporto un waypoint por punto")
+        gdf = gdf.explode(index_parts=False).reset_index(drop=True)
     return gdf
 
 

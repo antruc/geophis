@@ -8,7 +8,7 @@ tu build de GDAL no trae el driver LIBKML: sirve de verificación.
 import os
 
 import geopandas as gpd
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, MultiPoint, Point
 
 import geophis as geo
 
@@ -67,6 +67,27 @@ def test_convertir_gpx_solo_tracks_autodetecta_capa(tmp_path, gdf):
     shp = str(tmp_path / "de_track.shp")
     geo.convertir(gpx, shp)
     assert len(geo.cargar(shp)) >= 1
+
+
+def test_puntos_con_atributos_ida_y_vuelta(tmp_path, capsys):
+    # Antes revento con "Error adding field 'NAME'": GPX_USE_EXTENSIONS no
+    # llegaba a GDAL. Es justo el SHP que sale de convertir un GPX de waypoints.
+    g = gpd.GeoDataFrame(
+        {"NAME": ["P1", "P2"], "ELEVATION": [5.0, 6.0], "CLAVE": ["a", "b"]},
+        geometry=[_PUNTO_UTM, MultiPoint([(300050, 2600050), (300060, 2600060)])],
+        crs=32613,
+    )
+    gpx = str(tmp_path / "pts.gpx")
+    geo.guardar(g, gpx, gpx_como="track")  # SHP no mezcla Point y MultiPoint
+    assert "gpx_como no aplica" in capsys.readouterr().out
+
+    w = gpd.read_file(gpx, layer="waypoints")
+    assert list(w["name"]) == ["P1", "P2", "P2"]  # el multipunto se separa
+    assert list(w["ogr_CLAVE"]) == ["a", "b", "b"]
+    # GPX -> SHP (NAME, LAYER, ELEVATION...) -> GPX, sin tocar campos
+    geo.convertir(gpx, str(tmp_path / "vuelta.shp"))
+    geo.convertir(str(tmp_path / "vuelta.shp"), str(tmp_path / "vuelta.gpx"))
+    assert len(gpd.read_file(str(tmp_path / "vuelta.gpx"), layer="waypoints")) == 3
 
 
 def test_convertir_gpx_solo_punto(tmp_path, gdf):
