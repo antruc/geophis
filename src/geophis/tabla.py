@@ -734,6 +734,46 @@ def reemplazar_valores(
     return salida
 
 
+def calcular_fecha_hora(
+    gdf: gpd.GeoDataFrame,
+    campo: str = "time",
+    utc_offset: int = -6,
+) -> gpd.GeoDataFrame:
+    """Añade `FECHA` y `HORA_LOCAL` desde un campo de tiempo en UTC. Devuelve copia.
+
+        capa = geo.calcular_fecha_hora(geo.cargar("waypoints.shp"))
+        capa = geo.ordenar_filas(capa, ["FECHA", "HORA_LOCAL"])
+
+    El GPS guarda la hora en UTC (`2026-09-24T16:09:47Z`): leída tal cual, un
+    punto de las 19:00 en campo sale con fecha del día siguiente. `utc_offset`
+    como en `cargar_tracks` (-6 = centro de México, sin horario de verano desde
+    2022). Un tiempo sin zona se toma como UTC.
+
+    `FECHA` es fecha (en .xlsx, `exportar_tabla` la escribe DD/MM/AAAA);
+    `HORA_LOCAL` es texto HH:MM:SS, que ordena bien como texto.
+
+    FALLA si un valor no nulo no se lee como fecha: quedaría nulo y el punto
+    caería al final del orden sin que nadie lo viera.
+    """
+    _exigir_campos(gdf, [campo])
+    original = gdf[campo]
+    utc = pd.to_datetime(original, utc=True, errors="coerce", format="mixed")
+    perdidos = original.notna() & utc.isna()
+    if perdidos.any():
+        muestra = list(original[perdidos].unique()[:5])
+        raise ValueError(
+            f"'{campo}': {int(perdidos.sum())} valor(es) no se leen como fecha, "
+            f"p. ej. {muestra}"
+        )
+    local = (utc + pd.Timedelta(hours=utc_offset)).dt.tz_localize(None)
+    salida = gdf.copy()
+    salida["FECHA"] = local.dt.normalize()
+    salida["HORA_LOCAL"] = local.dt.strftime("%H:%M:%S")
+    if _mostrar():
+        print(f"calcular_fecha_hora: '{campo}' UTC{utc_offset:+d} -> FECHA, HORA_LOCAL")
+    return salida
+
+
 def ordenar_filas(
     gdf: gpd.GeoDataFrame,
     por: str | list[str],

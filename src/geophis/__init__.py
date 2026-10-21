@@ -52,6 +52,7 @@ from .tabla import (
     ordenar_campos,
     cambiar_tipo,
     reemplazar_valores,
+    calcular_fecha_hora,
     ordenar_filas,
     crear_capa,
 )
@@ -209,6 +210,7 @@ __all__ = [
     "ordenar_campos",
     "cambiar_tipo",
     "reemplazar_valores",
+    "calcular_fecha_hora",
     "ordenar_filas",
     "crear_capa",
     # proyeccion

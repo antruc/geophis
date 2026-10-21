@@ -405,3 +405,17 @@ def test_guardar_con_anchos_fija_el_dbf_y_no_corta_texto(capa, tmp_path):
     assert not (tmp_path / "y.shp").exists()  # nada a medias en la ruta
     with pytest.raises(ValueError, match="solo aplica a .shp"):
         geo.guardar(capa, tmp_path / "x.gpkg", anchos={"CLASE": 3})
+
+
+def test_calcular_fecha_hora_pasa_de_utc_a_local(gdf, cuadrado):
+    # 03:00 UTC del 25 son las 21:00 del 24 en UTC-6: cambia la fecha
+    g = gdf(cuadrado(), cuadrado(), time=["2026-09-25T03:00:00Z", None])
+    r = geo.calcular_fecha_hora(g)
+    assert r["FECHA"].iloc[0] == pd.Timestamp("2026-09-24")
+    assert r["HORA_LOCAL"].iloc[0] == "21:00:00"
+    assert pd.isna(r["FECHA"].iloc[1])
+
+
+def test_calcular_fecha_hora_falla_con_texto_que_no_es_fecha(gdf, cuadrado):
+    with pytest.raises(ValueError, match="no se leen como fecha"):
+        geo.calcular_fecha_hora(gdf(cuadrado(), time=["ayer"]))

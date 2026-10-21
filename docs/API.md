@@ -17,7 +17,7 @@ import geophis as geo
 | [`convertir`](GEOPHIS.md#archivopy-es-de-capas) | `cargar`+`guardar` en una línea |
 | [`guardar`](GEOPHIS.md#archivopy-es-de-capas) | Formato por extensión. .gpx/.kml/.kmz reproyecta a EPSG:4326 automáticamente; `anchos=` fija el ancho de campo en .shp |
 | [`comprobar_nombres_shp`](GEOPHIS.md#archivopy-es-de-capas) | Devuelve dict `{columna: motivo}` con las columnas que NO sobreviven a un `.shp`; vacío = todas pasan |
-| [`exportar_tabla`](GEOPHIS.md#archivopy-es-de-capas) | Tabla de atributos sin geometría a `.csv`/`.xlsx` |
+| [`exportar_tabla`](GEOPHIS.md#archivopy-es-de-capas) | Tabla de atributos sin geometría a `.csv`/`.xlsx`; en .xlsx con `hoja=`, encabezado fijo, anchos y fechas DD/MM/AAAA |
 | [`cargar_waypoints`](GEOPHIS.md#archivopy-es-de-capas) | Waypoints GPX con tabla limpia (NAME, LAYER, ELEVATION, time ISO UTC, sym) |
 | [`cargar_tracks`](GEOPHIS.md#archivopy-es-de-capas) | Tracks GPX, una línea por `<trkseg>` (NAME, LAYER, gpxx_DisplayColor, START_TIME, END_TIME en hora local) |
 | [`detectar_utm`](GEOPHIS.md#archivopy-es-de-capas) | EPSG del huso UTM (WGS84) del centroide de `gdf` |
@@ -45,6 +45,7 @@ import geophis as geo
 | [`ordenar_campos`](GEOPHIS.md#tablapy-la-tabla-de-atributos) | Pone los campos listados primero |
 | [`cambiar_tipo`](GEOPHIS.md#tablapy-la-tabla-de-atributos) | A texto, entero, decimal o fecha; falla si un valor no convierte |
 | [`reemplazar_valores`](GEOPHIS.md#tablapy-la-tabla-de-atributos) | `{viejo: nuevo}`; lo no listado queda igual |
+| [`calcular_fecha_hora`](GEOPHIS.md#tablapy-la-tabla-de-atributos) | `FECHA` y `HORA_LOCAL` desde el tiempo UTC del GPS (`utc_offset=-6`) |
 | [`ordenar_filas`](GEOPHIS.md#tablapy-la-tabla-de-atributos) | *Sort* por uno o más campos |
 | [`crear_capa`](GEOPHIS.md#tablapy-la-tabla-de-atributos) | Capa desde cero: geometrías, CRS obligatorio y atributos |
 

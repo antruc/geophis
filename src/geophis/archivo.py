@@ -626,6 +626,7 @@ def guardar(
 def exportar_tabla(
     gdf: gpd.GeoDataFrame | pd.DataFrame,
     ruta: str | PathLike[str],
+    hoja: str = "Hoja1",
 ) -> str | PathLike[str]:
     """Guarda la tabla de atributos (sin geometría) en .csv o .xlsx.
 
@@ -633,6 +634,10 @@ def exportar_tabla(
 
     Avisa igual que `guardar` si una columna de área quedó obsoleta. Acepta
     también un DataFrame sin geometría (`gdf[cols]`, `resumir`), sin ese aviso.
+
+    En .xlsx la deja lista para leer: `hoja` es el nombre de la pestaña, el
+    encabezado queda fijo, cada columna toma el ancho de su texto más largo y
+    las fechas salen DD/MM/AAAA (con hora si alguna la trae).
     """
     ext = os.path.splitext(str(ruta))[1].lower()
     if ext not in _EXT_TABLA:
@@ -649,10 +654,32 @@ def exportar_tabla(
         # con BOM: sin el, Excel en Windows lee cp1252 y `°` sale `Â°`
         tabla.to_csv(ruta, index=False, encoding="utf-8-sig")
     else:
-        tabla.to_excel(ruta, index=False)  # openpyxl ya es dependencia
+        _escribir_xlsx(tabla, ruta, hoja)
     if _mostrar():
         print(f"Guardado '{ruta}': {len(tabla)} filas, {len(tabla.columns)} campos")
     return ruta
+
+
+def _escribir_xlsx(tabla: pd.DataFrame, ruta: str | PathLike[str], hoja: str) -> None:
+    """`tabla` a .xlsx con encabezado fijo, anchos por contenido y fechas DD/MM/AAAA."""
+    from openpyxl.utils import get_column_letter  # openpyxl ya es dependencia
+
+    with pd.ExcelWriter(ruta, engine="openpyxl") as libro:
+        tabla.to_excel(libro, index=False, sheet_name=hoja, freeze_panes=(1, 0))
+        ws = libro.sheets[hoja]
+        for i, col in enumerate(tabla.columns, start=1):
+            serie = tabla[col]
+            if pd.api.types.is_datetime64_any_dtype(serie):
+                con_hora = (serie.dropna() != serie.dropna().dt.normalize()).any()
+                formato = "DD/MM/YYYY HH:MM:SS" if con_hora else "DD/MM/YYYY"
+                for (celda,) in ws.iter_rows(min_row=2, min_col=i, max_col=i):
+                    celda.number_format = formato
+                largo = len(formato)
+            else:
+                largo = serie.astype(str).str.len().max() if len(serie) else 0
+            # ponytail: tope de 60 para que un campo de notas no tape la hoja
+            ancho = min(max(len(str(col)), int(largo)) + 2, 60)
+            ws.column_dimensions[get_column_letter(i)].width = ancho
 
 
 def convertir(

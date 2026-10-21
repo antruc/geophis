@@ -44,6 +44,19 @@ def test_exportar_tabla_csv_con_bom_para_excel(tmp_path, gdf, cuadrado):
     assert pd.read_csv(ruta)["LAT_GMS"].iloc[0] == "20°32'29.44\" N"
 
 
+def test_exportar_tabla_xlsx_con_formato(tmp_path, gdf, cuadrado):
+    from openpyxl import load_workbook
+    import pandas as pd
+
+    g = gdf(cuadrado(), FECHA=[pd.Timestamp("2026-09-24")], NOTA=["x" * 30])
+    ruta = tmp_path / "t.xlsx"
+    geo.exportar_tabla(g, ruta, hoja="PUNTOS")
+    hoja = load_workbook(ruta)["PUNTOS"]
+    assert hoja.freeze_panes == "A2"
+    assert hoja["A2"].number_format == "DD/MM/YYYY"
+    assert hoja.column_dimensions["B"].width == 32
+
+
 def test_exportar_tabla_extension_invalida(tmp_path, gdf, cuadrado):
     with pytest.raises(ValueError, match="no es de tabla"):
         geo.exportar_tabla(gdf(cuadrado()), tmp_path / "t.shp")

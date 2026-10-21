@@ -512,7 +512,7 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 - `convertir(entrada, salida, capa=None, gpx_como="track")`: `cargar` + `guardar` en una línea; autodetecta la capa GPX con datos.
 - `guardar(gdf, ruta, gpx_como="track", anchos=None)`: formato por extensión; .gpx/.kml/.kmz reproyectan a EPSG:4326. GPX no admite polígonos (exporta el contorno). `anchos` (solo .shp) fija el ancho del campo en el .dbf: `{"CLASE": 50}`, `{"SUP": (12, 4)}`. AVISA si una columna de área o longitud ya no cuadra con la geometría (R2). FALLA si un valor no cabe en `anchos` (el texto cuenta BYTES: una letra acentuada ocupa 2).
 - `comprobar_nombres_shp(gdf)` → dict `{columna: motivo}` de las que no sobreviven a un .shp (corte a 10 caracteres o colisión); vacío = pasan. Aviso anticipado, no renombra: elige tú un nombre corto con sentido.
-- `exportar_tabla(gdf, ruta)`: tabla sin geometría a .csv (UTF-8 con BOM) o .xlsx. AVISA de área obsoleta como `guardar`.
+- `exportar_tabla(gdf, ruta, hoja="Hoja1")`: tabla sin geometría a .csv (UTF-8 con BOM) o .xlsx. En .xlsx: pestaña `hoja`, encabezado fijo, ancho por contenido, fechas DD/MM/AAAA. AVISA de área obsoleta como `guardar`.
 - `cargar_waypoints(ruta)`: waypoints GPX con tabla limpia (NAME, LAYER, ELEVATION, time ISO UTC, sym).
 - `cargar_tracks(ruta, utc_offset=-6)`: tracks GPX, una línea por `<trkseg>` (START_TIME y END_TIME en hora local).
 - `detectar_utm(gdf)` → EPSG del huso UTM (WGS84) del centroide. FALLA si la capa cruza dos husos.
@@ -541,6 +541,7 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 - `ordenar_campos(gdf, campos)`: esos primero, el resto detrás.
 - `cambiar_tipo(gdf, campo, tipo, forzar=False)`: FALLA si un valor no convierte (lo muestra); `forzar=True` lo deja nulo y AVISA. A entero no trunca.
 - `reemplazar_valores(gdf, campo, reemplazos)`: `{viejo: nuevo}`; lo no listado queda igual. FALLA si ninguna clave aparece (casi siempre `1` contra `'1'`).
+- `calcular_fecha_hora(gdf, campo="time", utc_offset=-6)`: añade `FECHA` (fecha) y `HORA_LOCAL` (texto HH:MM:SS) desde un tiempo UTC del GPS. **TRAMPA** leído sin convertir, un punto de la tarde sale con fecha del día siguiente. FALLA si un valor no se lee como fecha.
 - `ordenar_filas(gdf, por, descendente=False)`: nulos al final, índice renumerado.
 - `crear_capa(geometrias, crs, atributos=None, tipos=None)`: capa desde cero; `crs` obligatorio; `tipos` necesario en una capa vacía.
 
