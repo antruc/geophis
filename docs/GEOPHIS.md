@@ -395,7 +395,7 @@ restauracion = geo.disolver(geo.borrar(restauracion, superiores), campo="CLASS_S
 produccion, restauracion, conflicto = geo.repartir_por_cercania(
     produccion, restauracion, nombres=("PRODUCCION", "RESTAURACION")
 )
-geo.guardar(conflicto, RUTA_CONFLICTOS)  # revisar el reparto a ojo
+geo.guardar(conflicto, SALIDA_CONFLICTOS)  # revisar el reparto a ojo
 
 conservacion = geo.disolver(predio, campo="CLASS_SUP", valor="CONSERVACION")
 combinado = geo.resolver_por_prioridad(CAPAS + [conservacion])  # orden = prioridad

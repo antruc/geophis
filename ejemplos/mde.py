@@ -30,9 +30,9 @@ import geophis as geo
 CURVAS_SHP = r"C:\SIG\proyecto\datos\curvas_nivel.shp"
 CAUCES_SHP = r"C:\SIG\proyecto\datos\hidrologia.shp"
 PREDIO_SHP = r"C:\SIG\proyecto\datos\predio.shp"
-MDE_BASE = r"C:\SIG\proyecto\salidas\MDE_BASE.tif"  # terreno sin deformar, para pendientes
-MDE_HIDRO = r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif"  # relleno + quemado, entrada de acondicionar_mde
-PROCEDENCIA = r"C:\SIG\proyecto\salidas\PROCEDENCIA.txt"  # tabla para la memoria técnica
+SALIDA_MDE_BASE = r"C:\SIG\proyecto\salidas\MDE_BASE.tif"  # terreno sin deformar, para pendientes
+SALIDA_MDE_HIDRO = r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif"  # relleno + quemado, entrada de acondicionar_mde
+SALIDA_PROCEDENCIA = r"C:\SIG\proyecto\salidas\PROCEDENCIA.txt"  # tabla para la memoria técnica
 
 EPSG_UTM = 32613  # UTM 13N
 ESCALA = 25_000  # compromiso de entrega; la UMM y la resolución son consecuencia
@@ -74,7 +74,7 @@ campo, e = geo.detectar_cota(curvas)  # una vez, sobre el dominio declarado
 # `vecinos="medir"` cuesta una interpolación por cada n; sin él entra el
 # default 48, que nadie eligió, y el assert de abajo lo para.
 p = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos="medir")
-open(PROCEDENCIA, "w", encoding="utf-8").write(geo.tabla_procedencia(p))
+open(SALIDA_PROCEDENCIA, "w", encoding="utf-8").write(geo.tabla_procedencia(p))
 assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
 h = p["resolucion"]  # float con procedencia; se pasa tal cual
 
@@ -112,7 +112,7 @@ mde, transform = geo.interpolar_mde(curvas, campo, cuadro=cuadro_salida, paramet
 # medir pendiente sobre el quemado llena el rango >100% de líneas de cauce que
 # no existen, y guardar DESPUÉS de rellenar esconde el NoData real bajo
 # mesetas planas de relleno.
-geo.guardar_raster(mde, MDE_BASE, transform, EPSG_UTM)
+geo.guardar_raster(mde, SALIDA_MDE_BASE, transform, EPSG_UTM)
 
 # ── 8. RELLENAR NoData ANTES DE QUEMAR ─────────────────────
 # el interpolador devuelve NaN fuera de la envolvente convexa de las curvas.
@@ -136,14 +136,14 @@ if n_px == 0:
 # pysheds lee del disco. Se guarda el quemado, NO el acondicionado: ese es
 # float64 y el .tif float32 le borra la micro-pendiente. Para flujo, en la
 # sesión que lo calcule:
-#     grid, dem = geo.acondicionar_mde(MDE_HIDRO)
+#     grid, dem = geo.acondicionar_mde(SALIDA_MDE_HIDRO)
 #     flujo = geo.acumulacion_flujo(grid, dem)
-geo.guardar_raster(mde_quemado, MDE_HIDRO, transform, EPSG_UTM)
+geo.guardar_raster(mde_quemado, SALIDA_MDE_HIDRO, transform, EPSG_UTM)
 
 print(f"\nPíxeles de cauce quemados: {n_px:,}")
 if VALIDAR:
     print(
         f"RMS del hold-out: {metricas['rms']:.2f} m ({metricas['n_puntos_prueba']} pts)"
     )
-print(f"-> {MDE_BASE} (terreno, insumo de pendientes)")
-print(f"-> {MDE_HIDRO} (quemado; acondicionar_mde en la sesión del flujo)")
+print(f"-> {SALIDA_MDE_BASE} (terreno, insumo de pendientes)")
+print(f"-> {SALIDA_MDE_HIDRO} (quemado; acondicionar_mde en la sesión del flujo)")
