@@ -119,3 +119,25 @@ def test_linea_a_poligono(gdf):
     poly = geo.linea_a_poligono(capa)
     assert poly.geom_type.iloc[0] == "Polygon"
     assert round(poly.geometry.iloc[0].area) == 10000
+
+
+def test_vertices_a_puntos_huecos_multipartes_y_atributos():
+    from shapely.geometry import MultiPolygon, Polygon
+
+    cuadro = [(0, 0), (100, 0), (100, 100), (0, 100)]
+    hueco = [(40, 40), (60, 40), (60, 60)]
+    otro = [(200, 0), (210, 0), (210, 10)]
+    capa = gpd.GeoDataFrame(
+        {"NOMBRE": ["a", "b"]},
+        geometry=[MultiPolygon([Polygon(cuadro, [hueco]), Polygon(otro)]), LineString(otro)],
+        crs=UTM,
+    )
+    pts = geo.vertices_a_puntos(capa)
+    # a: 4 exterior + 3 hueco + 3 segunda parte, sin cierres repetidos; b: 3 de la línea
+    assert len(pts) == 13 and (pts.geom_type == "Point").all()
+    assert list(pts["NOMBRE"]) == ["a"] * 10 + ["b"] * 3
+    assert list(pts["ANILLO"][:7]) == [0] * 4 + [1] * 3
+    assert list(pts["PARTE"][:10]) == [1] * 7 + [2] * 3
+    assert list(pts["VERTICE"][:4]) == [1, 2, 3, 4]
+    assert (pts.geometry.iloc[4].x, pts.geometry.iloc[4].y) == (40, 40)
+    assert pts.crs == capa.crs

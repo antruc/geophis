@@ -1596,6 +1596,42 @@ def entidad_a_punto(gdf: gpd.GeoDataFrame, dentro: bool = True) -> gpd.GeoDataFr
     return salida
 
 
+def vertices_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """De vértices a puntos: un punto por vértice, con los atributos de su entidad.
+
+    Columnas nuevas: `PARTE` (1, 2... en multipartes), `ANILLO` (0 = exterior
+    o línea, 1+ = huecos) y `VERTICE` (1, 2... en el orden del anillo). En un
+    anillo cerrado el último vértice repite al primero y no sale dos veces.
+    No hace falta `separar_multipartes` antes. Las geometrías vacías no dan
+    puntos. Para un punto por ENTIDAD, `entidad_a_punto`.
+    """
+    _exigir_crs(gdf, "gdf")
+    filas, xy, partes, anillos, vertices = [], [], [], [], []
+    for pos, g in enumerate(gdf.geometry):
+        if g is None or g.is_empty:
+            continue
+        for p, parte in enumerate(getattr(g, "geoms", [g]), start=1):
+            if parte.geom_type == "Polygon":
+                lineas = [parte.exterior, *parte.interiors]
+            else:
+                lineas = [parte]
+            for a, linea in enumerate(lineas):
+                coords = shapely.get_coordinates(linea)
+                if len(coords) > 1 and linea.is_closed:
+                    coords = coords[:-1]
+                n = len(coords)
+                filas += [pos] * n
+                xy.append(coords)
+                partes += [p] * n
+                anillos += [a] * n
+                vertices += range(1, n + 1)
+    atributos = gdf.drop(columns=gdf.geometry.name).iloc[filas].reset_index(drop=True)
+    for campo, valores in (("PARTE", partes), ("ANILLO", anillos), ("VERTICE", vertices)):
+        atributos[nombre_campo_libre(atributos, campo)] = valores
+    puntos = shapely.points(np.vstack(xy)) if xy else []
+    return gpd.GeoDataFrame(atributos, geometry=puntos, crs=gdf.crs)
+
+
 def cercano(
     gdf: gpd.GeoDataFrame,
     otro: gpd.GeoDataFrame,

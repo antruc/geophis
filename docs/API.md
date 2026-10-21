@@ -90,6 +90,7 @@ import geophis as geo
 | [`intersecar`](GEOPHIS.md#geometriapy-vector) | *Intersecar* (Intersect): `overlay` de intersección; una parte por cada par de entidades que se pisan |
 | [`union_espacial`](GEOPHIS.md#geometriapy-vector) | *Unión espacial*, sin cortar geometrías |
 | [`entidad_a_punto`](GEOPHIS.md#geometriapy-vector) | *De entidad a punto*: un punto por entidad con atributos; por defecto siempre dentro, que NO es el centroide |
+| [`vertices_a_puntos`](GEOPHIS.md#geometriapy-vector) | *De vértices a puntos*: un punto por vértice, con `PARTE`, `ANILLO` y `VERTICE`; incluye los huecos |
 | [`cercano`](GEOPHIS.md#geometriapy-vector) | *Near*: `DIST_M` e `ID_CERCA` de la entidad más próxima; una fila por entidad aunque haya empate |
 | [`puntos_sobre_linea`](GEOPHIS.md#geometriapy-vector) | Cadenamiento: puntos cada `intervalo` con `CADENA_M`, incluido el final |
 | [`identidad`](GEOPHIS.md#geometriapy-vector) | *Identity*: `gdf` partida donde la pisa `otro`, con atributos de las dos |
