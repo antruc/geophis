@@ -70,6 +70,7 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 
 - Docstring corto al inicio: qué, y por qué si no es obvio.
 - Bloque `CONFIG` en mayúsculas arriba (rutas, EPSG, distancias, campos), cada valor declarado con su razón al lado.
+- Toda ruta de salida es una constante del `CONFIG` con `SALIDA` en el nombre: `SALIDA_BUFFER` para un archivo, `SALIDAS` para la carpeta (`SALIDAS + r"\PENDIENTES.shp"`). Nunca una ruta escrita dentro de `guardar`: el usuario distingue de un vistazo qué lee y qué escribe.
 - Pasos numerados `# ── N. VERBO EN MAYÚSCULAS ──`, lineal, sin funciones propias, reasignando la misma variable (`gdf = geo.algo(gdf)`).
 - Tres o más casos parecidos → lista de tuplas y `for` (el orden puede codificar prioridad). Con dos, escribe los bloques directo.
 - `print()` como reporte. `geo.MOSTRAR = False` calla los reportes de la librería; los avisos de defecto salen igual.
@@ -81,6 +82,7 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 import geophis as geo
 
 EPSG_UTM = 32613
+SALIDA_BUFFER = r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER.shp"
 NIVELES = [  # el orden es la prioridad
     ("PRIMARIO", r"C:\SIG\proyecto\datos\camino_prim.shp", 5.0),
     ("SECUNDARIO", r"C:\SIG\proyecto\datos\camino_sec.shp", 3.0),
@@ -94,7 +96,7 @@ for nombre, ruta, dist in NIVELES:
     capas.append(geo.zona_de_influencia(gdf, dist))
 
 combinado = geo.resolver_por_prioridad(capas)
-geo.guardar(combinado, r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER.shp")
+geo.guardar(combinado, SALIDA_BUFFER)
 ```
 
 ## Pendiente: elegir la receta
@@ -411,6 +413,7 @@ El polígono del predio, en cualquier CRS, basta: sale en reflectancia 0 a 1, en
 ```python
 # ── CONFIG ─────────────────────────────────────────────────────────────
 RUTA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
+SALIDAS = r"C:\SIG\proyecto\salidas"
 FECHAS = ("2026-02-01", "2026-05-31")  # secas en la region: decision de campo, sin default
 NOMBRES = ["azul", "verde", "rojo", "nir", "swir1", "swir2"]  # el nombre viaja con la banda
 
@@ -421,20 +424,20 @@ print(informe.to_string(index=False))
 print(f"predio sin dato limpio: {100 - informe['aporta_pct'].sum():.2f} %")
 
 # ── 2. GUARDAR, CON NOMBRES Y CON LA CITA ──────────────────────────────
-geo.guardar_raster([bandas[n] for n in NOMBRES], r"C:\SIG\proyecto\salidas\S2_BANDAS.tif", tf, crs, nombres=NOMBRES)
-geo.guardar_raster(origen, r"C:\SIG\proyecto\salidas\S2_ORIGEN.tif", tf, crs)  # de que fecha salio cada pixel
+geo.guardar_raster([bandas[n] for n in NOMBRES], SALIDAS + r"\S2_BANDAS.tif", tf, crs, nombres=NOMBRES)
+geo.guardar_raster(origen, SALIDAS + r"\S2_ORIGEN.tif", tf, crs)  # de que fecha salio cada pixel
 CITA = geo.cita_sentinel2(informe)
 
 # ── 3. MIRAR ANTES DE CREER ────────────────────────────────────────────
 ndvi = geo.indice_vegetacion("ndvi", **bandas)
-geo.guardar_raster(ndvi, r"C:\SIG\proyecto\salidas\NDVI.tif", tf, crs)
+geo.guardar_raster(ndvi, SALIDAS + r"\NDVI.tif", tf, crs)
 print(geo.resumen_raster(ndvi, tf))
-geo.vista_previa((ndvi, geo.reproyectar(predio, crs)), "NDVI.png", transform=tf)
+geo.vista_previa((ndvi, geo.reproyectar(predio, crs)), SALIDAS + r"\NDVI.png", transform=tf)
 
 # ── 4. LAMINA DE REVISION (no es el mapa final) ────────────────────────
 p_rgb = geo.panel_rgb(bandas, tf, crs, "Color natural · " + geo.rotulo_escenas(informe), contorno=predio)
 p_ndvi = geo.panel_continuo(ndvi, tf, crs, "NDVI", paleta="vegetacion", unidad="NDVI", contorno=predio)
-geo.lamina([p_rgb, p_ndvi], r"C:\SIG\proyecto\salidas\LAMINA.png", titulo="Predio · NDVI", cita=CITA)
+geo.lamina([p_rgb, p_ndvi], SALIDAS + r"\LAMINA.png", titulo="Predio · NDVI", cita=CITA)
 ```
 
 **El `informe`**, una fila por fecha revisada: `limpio_pct` es lo que decide (la nubosidad de la búsqueda es de la tesela entera, no del predio); `aporta_pct` suma el % con dato; con más de una fila `usada` la imagen mezcla fechas y eso se declara con `S2_ORIGEN.tif` (rellenar con otra fecha puede tapar un desmonte o una quema).
@@ -460,12 +463,12 @@ b_a, tf, crs, res, inf_a, origen_a = geo.imagen_sentinel2(predio, fechas=("2026-
 b_d, tf_d, _, _, inf_d, origen_d = geo.imagen_sentinel2(predio, fechas=("2026-09-27", "2026-10-10"), crs=crs)
 b_d = dict(zip(b_d, geo.alinear_rasters((b_a["rojo"], tf, crs), *[(v, tf_d, crs) for v in b_d.values()])))
 dndvi = geo.indice_vegetacion("ndvi", **b_d) - geo.indice_vegetacion("ndvi", **b_a)  # perdida en negativo
-geo.guardar_raster(dndvi, r"C:\SIG\proyecto\salidas\DNDVI.tif", tf, crs)  # el dato va en .tif
+geo.guardar_raster(dndvi, SALIDAS + r"\DNDVI.tif", tf, crs)  # el dato va en .tif
 contorno = geo.reproyectar(predio, crs)
 p_antes = geo.panel_rgb(b_a, tf, crs, "ANTES · " + geo.rotulo_escenas(inf_a), contorno=contorno)
 p_desp = geo.panel_rgb(b_d, tf, crs, "DESPUÉS · " + geo.rotulo_escenas(inf_d), contorno=contorno)
 p_cambio = geo.panel_continuo(dndvi, tf, crs, "Cambio de NDVI", paleta="divergente", unidad="dNDVI", contorno=contorno)
-geo.lamina([p_antes, p_desp, p_cambio], r"C:\SIG\proyecto\salidas\LAMINA.png",
+geo.lamina([p_antes, p_desp, p_cambio], SALIDAS + r"\LAMINA.png",
            titulo="Predio · antes y después del evento", cita=geo.cita_sentinel2(inf_a, inf_d))
 ```
 
