@@ -66,6 +66,7 @@ from .metrologia import (
     _pendiente_espuria,
     _redondear_limpio,
 )
+from ._rutas import _exigir_archivo, _exigir_salida, _traducir_errores
 from .proyeccion import _a_crs, _exigir_crs, _exigir_proyectado
 from ._salida import _mostrar
 
@@ -114,6 +115,13 @@ def _a_valor(arr: FloatArray, src: Any, bandas: Iterable[int] = (1,)) -> FloatAr
     return arr * esc.reshape(forma) + off.reshape(forma)
 
 
+def _abrir_raster(ruta: str | PathLike[str]) -> Any:
+    """`rasterio.open(ruta)` con el archivo comprobado y los errores en español."""
+    _exigir_archivo(ruta)
+    with _traducir_errores(ruta):
+        return rasterio.open(ruta)
+
+
 def cargar_raster(ruta: str | PathLike[str]) -> tuple[FloatArray, Affine, CRS, float]:
     """Abre un raster de una banda.
 
@@ -122,7 +130,7 @@ def cargar_raster(ruta: str | PathLike[str]) -> tuple[FloatArray, Affine, CRS, f
     Aplica `scale`/`offset` del archivo si los declara (ver `_a_valor`).
     Devuelve (array 2D float, transform, crs, resolucion_m).
     """
-    with rasterio.open(ruta) as src:
+    with _abrir_raster(ruta) as src:
         arr = _a_valor(src.read(1).astype(float), src)
         tf = src.transform
         crs = src.crs
@@ -155,7 +163,7 @@ def cargar_bandas(
     bandas = tuple(bandas)
     if not bandas:
         raise ValueError("`bandas` no puede ir vacío")
-    with rasterio.open(ruta) as src:
+    with _abrir_raster(ruta) as src:
         malas = [b for b in bandas if not 1 <= b <= src.count]
         if malas:
             raise ValueError(
@@ -198,6 +206,7 @@ def guardar_raster(
     recomienda SIEMPRE en multibanda: el orden de bandas no es universal y el
     nombre es lo único que viaja con el archivo.
     """
+    _exigir_salida(ruta, {".tif", ".tiff"}, "raster")
     # ponytail: siempre float32, un categórico uint8 se guarda como float.
     # Agrega parámetro dtype si algún día pesa el tamaño de archivo.
     if isinstance(arr, (list, tuple)):
@@ -226,7 +235,7 @@ def guardar_raster(
         "width": arr.shape[2],
     }
     os.makedirs(os.path.dirname(os.path.abspath(ruta)), exist_ok=True)
-    with rasterio.open(ruta, "w", **perfil) as dst:
+    with _traducir_errores(ruta), rasterio.open(ruta, "w", **perfil) as dst:
         dst.write(arr.astype(np.float32))
         for i, nombre in enumerate(nombres or (), start=1):
             dst.set_band_description(i, nombre)
@@ -252,7 +261,7 @@ def recortar_raster(
     mensaje sin las dos cajas manda a revisar la proyección, que es justo lo que
     ya está bien. **El fallo no es no fallar, es no decir por qué.**
     """
-    with rasterio.open(ruta) as src:
+    with _abrir_raster(ruta) as src:
         m = _a_crs(mascara, src.crs, "mascara")
         geoms = [g.__geo_interface__ for g in m.geometry]
         try:
@@ -328,7 +337,9 @@ def mosaico(
         GDAL_HTTP_MAX_RETRY=3,
         GDAL_HTTP_RETRY_DELAY=1,
     ):
-        origenes = [rasterio.open(r) for r in rutas]
+        for r in rutas:  # todas antes de abrir ninguna: no quedan abiertas a medias
+            _exigir_archivo(r)
+        origenes = [_abrir_raster(r) for r in rutas]
         fuentes: list[Any] = []
         try:
             crs_sal = CRS.from_user_input(crs) if crs is not None else origenes[0].crs
@@ -1891,6 +1902,8 @@ def rasterizar(
         Déjalo en False cuando la máscara ES el resultado (p. ej. quemar
         cauces), no un paso intermedio.
     """
+    if isinstance(valor, bool) or not isinstance(valor, (int, np.integer)):
+        raise TypeError(f"valor debe ser un entero de 0 a 255, no {valor!r}: rasterizar quema un solo valor")
     if not 0 <= valor <= 255:
         raise ValueError(f"valor {valor} no cabe en uint8 (0 a 255)")
     return _rasterize(
@@ -2054,6 +2067,8 @@ def _derivadas_horn(
     """
     if z_factor <= 0:
         raise ValueError(f"z_factor {z_factor} debe ser > 0")
+    if np.ndim(mde) != 2:
+        raise ValueError(f"el MDE debe ser un array 2D; llegó {np.ndim(mde)}D")
     if isinstance(res, Affine):
         # el transform ES la fuente de verdad del tamaño de celda; sacarlo aquí
         # evita el `abs(transform[0])` de cada script, que ademas tira la celda
@@ -2790,8 +2805,7 @@ def vista_previa(
     """
     if ancho_px < 2:
         raise ValueError(f"ancho_px {ancho_px} debe ser >= 2")
-    if os.path.splitext(os.fspath(ruta))[1].lower() != ".png":
-        raise ValueError(f"la ruta debe terminar en .png: {ruta}")
+    _exigir_salida(ruta, {".png"}, "vista")
 
     arr, capa = None, None
     if isinstance(capa_o_array, gpd.GeoDataFrame):

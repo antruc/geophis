@@ -36,6 +36,7 @@ from rasterio import Affine
 from rasterio.enums import Resampling
 
 from ._salida import _mostrar
+from ._rutas import _exigir_salida
 from .proyeccion import _a_crs
 from .raster import rasterizar, remuestrear
 
@@ -333,8 +334,7 @@ def lamina(
     """
     if not paneles:
         raise ValueError("`paneles` vacio: no hay nada que dibujar")
-    if os.path.splitext(os.fspath(ruta))[1].lower() != ".png":
-        raise ValueError(f"la ruta debe terminar en .png: {ruta}")
+    _exigir_salida(ruta, {".png"}, "lamina")
     columnas = columnas or min(len(paneles), 3)
     if columnas < 1:
         raise ValueError(f"columnas {columnas} debe ser >= 1")

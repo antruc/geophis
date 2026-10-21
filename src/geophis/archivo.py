@@ -18,11 +18,16 @@ from shapely.geometry.base import BaseGeometry
 
 from .metrologia import _paso_escalera
 from .proyeccion import _UNIDADES_AREA, _UNIDADES_LONGITUD, _exigir_crs
+from ._rutas import _exigir_archivo, _exigir_salida, _traducir_errores
 from ._salida import _callado, _mostrar
 
 # Formatos que exigen WGS84 lon/lat (EPSG:4326) y driver propio de GDAL.
 # GPX y KML/KMZ solo hablan geográficas; hay que reproyectar al exportar.
 _DRIVERS_GEO = {".gpx": "GPX", ".kml": "LIBKML", ".kmz": "LIBKML"}
+
+# Lo que `guardar` sabe escribir. Otra extensión no falla en GDAL: crea una
+# CARPETA con ese nombre y un .shp dentro, así que se corta antes.
+_EXT_VECTOR = {".shp", ".gpkg", ".geojson", ".json", ".fgb", ".gml", ".dxf", ".tab", ".csv"}
 
 # Formatos de tabla: solo atributos, sin geometría.
 _EXT_TABLA = {".csv", ".xlsx"}
@@ -160,9 +165,13 @@ def cargar(
     --------
     GeoDataFrame
     """
-    if not os.path.exists(ruta):
-        raise FileNotFoundError(f"no existe la ruta '{ruta}'")
-    with _traducir_avisos():
+    _exigir_archivo(ruta, carpeta_ok=True)
+    if capa is not None:
+        with _traducir_errores(ruta):
+            capas = [str(n) for n in gpd.list_layers(ruta)["name"]]
+        if capa not in capas:
+            raise ValueError(f"'{ruta}' no tiene la capa '{capa}'; capas: {capas}")
+    with _traducir_avisos(), _traducir_errores(ruta):
         gdf = gpd.read_file(ruta, layer=capa, bbox=bbox)
     # De donde salio la capa, para que `derivar_parametros` pueda reportarlo sin
     # que nadie lo teclee. Es BEST EFFORT: `.attrs` de pandas no sobrevive a
@@ -224,8 +233,7 @@ def cargar_puntos(
     --------
     GeoDataFrame de puntos con todas las columnas del archivo como atributos.
     """
-    if not os.path.exists(ruta):
-        raise FileNotFoundError(f"no existe la ruta '{ruta}'")
+    _exigir_archivo(ruta)
     ext = os.path.splitext(str(ruta))[1].lower()
     leer = pd.read_excel if ext in (".xlsx", ".xls") else pd.read_csv
     df = leer(ruta)
@@ -565,10 +573,14 @@ def guardar(
     no cuadra con la geometría: pista de que se calculó antes de recortar o
     reproyectar y quedó obsoleta.
     """
+    if not isinstance(gdf, gpd.GeoDataFrame):
+        raise TypeError(
+            f"guardar(capa, ruta): el primero es la capa y llegó {type(gdf).__name__}"
+        )
+    ext = _exigir_salida(ruta, _EXT_VECTOR | set(_DRIVERS_GEO), "capa")
     if len(gdf) == 0:
         print(f"Aviso: guardando capa vacía en '{ruta}'")
     _avisar_medida_obsoleta(gdf)
-    ext = os.path.splitext(str(ruta))[1].lower()
     carpeta = os.path.dirname(os.path.abspath(ruta))
     os.makedirs(carpeta, exist_ok=True)
 
@@ -578,7 +590,7 @@ def guardar(
         # no queda con un .shp a medias ni con los anchos por defecto
         with tempfile.TemporaryDirectory() as tmp:
             base = os.path.splitext(os.path.basename(str(ruta)))[0]
-            with _traducir_avisos():
+            with _traducir_avisos(), _traducir_errores(ruta):
                 gdf.to_file(os.path.join(tmp, base + ".shp"))
             _fijar_anchos_dbf(os.path.join(tmp, base + ".dbf"), posiciones)
             for nombre in os.listdir(tmp):
@@ -607,10 +619,10 @@ def guardar(
                 )
             if gpx_como in (None, "track"):
                 gdf = _lineas_a_track(gdf)
-        with _traducir_avisos():
+        with _traducir_avisos(), _traducir_errores(ruta):
             gdf.to_file(ruta, driver=_DRIVERS_GEO[ext], **opciones)
     else:
-        with _traducir_avisos():
+        with _traducir_avisos(), _traducir_errores(ruta):
             gdf.to_file(ruta)
 
     if _mostrar():
@@ -634,9 +646,7 @@ def exportar_tabla(
     encabezado queda fijo, cada columna toma el ancho de su texto más largo y
     las fechas salen DD/MM/AAAA (con hora si alguna la trae).
     """
-    ext = os.path.splitext(str(ruta))[1].lower()
-    if ext not in _EXT_TABLA:
-        raise ValueError(f"Extensión '{ext}' no es de tabla: usa .csv o .xlsx")
+    ext = _exigir_salida(ruta, _EXT_TABLA, "tabla")
     os.makedirs(os.path.dirname(os.path.abspath(ruta)), exist_ok=True)
     # Sin geometría (`gdf[cols]` sin ella, o la salida de `resumir`) ya es
     # tabla: no hay nada contra qué comprobar el área ni qué quitar.
@@ -779,7 +789,8 @@ def cargar_waypoints(ruta: str | PathLike[str]) -> gpd.GeoDataFrame:
     (ISO UTC tal cual, p.ej. 2026-02-21T16:09:47Z), sym. Descarta las ~18
     columnas vacías del esquema fijo de GPX (magvar, hdop, link*, cmt...).
     """
-    with _traducir_avisos():
+    _exigir_archivo(ruta)
+    with _traducir_avisos(), _traducir_errores(ruta):
         gdf = gpd.read_file(ruta, layer="waypoints")
     # ele/time pueden faltar en GPX de otras fuentes; None en vez de reventar
     ele = gdf.get("ele")
@@ -811,7 +822,8 @@ def cargar_tracks(
     convertidos a hora local (`utc_offset`, por defecto -6 = UTC-6) y con
     formato español.
     """
-    with _traducir_avisos():
+    _exigir_archivo(ruta)
+    with _traducir_avisos(), _traducir_errores(ruta):
         try:
             meta = gpd.read_file(ruta, layer="tracks")
         except Exception as e:
@@ -1111,9 +1123,8 @@ def listar_capas(ruta: str | PathLike[str]) -> list[str]:
     geometria de cada una, que es lo que distingue la capa que buscas de sus
     hermanas vacias.
     """
-    if not os.path.exists(ruta):
-        raise FileNotFoundError(f"no existe la ruta '{ruta}'")
-    with _traducir_avisos():
+    _exigir_archivo(ruta, carpeta_ok=True)
+    with _traducir_avisos(), _traducir_errores(ruta):
         info = gpd.list_layers(ruta)
     nombres = [str(n) for n in info["name"]]
     if _mostrar():

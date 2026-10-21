@@ -166,7 +166,10 @@ def separar_multipartes(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
 def _avisar_geografico(gdf: gpd.GeoDataFrame, que: str) -> None:
     """Aviso (no error) para funciones que documentan "unidades del CRS"."""
-    if gdf.crs is not None and gdf.crs.is_geographic:
+    if gdf.crs is None:
+        print("Aviso: la capa no tiene CRS: la medida va en unidades desconocidas. "
+              "Asígnalo al cargar, p. ej. cargar(ruta, crs=32613)")
+    elif gdf.crs.is_geographic:
         print(f"Aviso: CRS geográfico (grados); {que}. Usa UTM.")
 
 
@@ -176,6 +179,8 @@ def zona_de_influencia(gdf: gpd.GeoDataFrame, distancia: float) -> gpd.GeoDataFr
     La distancia va en las unidades del CRS (metros si es UTM).
     Devuelve una copia; no modifica la capa original.
     """
+    if isinstance(distancia, str):
+        raise TypeError(f"distancia debe ser un número, no el texto {distancia!r}")
     _avisar_geografico(gdf, "la distancia se aplicará en grados")
     salida = gdf.copy()
     # `salida.geometry.name` y no el literal "geometry": una capa cuya columna
@@ -433,6 +438,10 @@ def puntos_a_linea(gdf: gpd.GeoDataFrame, campo: str | None = None) -> gpd.GeoDa
     el de las filas: si necesitas otro, ordénalo al cargar con `cargar_puntos(..., orden=...)`.
     Requiere al menos 2 puntos por línea.
     """
+
+    _exigir_puntos(gdf, "gdf", None)
+    if campo is not None and campo not in gdf.columns:
+        raise ValueError(f"la capa no tiene el campo '{campo}'; columnas: {list(gdf.columns)}")
 
     def _linea(sub: gpd.GeoDataFrame) -> LineString:
         coords = [(p.x, p.y) for p in sub.geometry]
@@ -2084,6 +2093,8 @@ def simplificar(
     Por debajo del escalón no hace nada; con `tolerancia` = tamaño de píxel
     quita la escalera y el borde se mueve menos que el píxel.
     """
+    if not tolerancia >= 0:
+        raise ValueError(f"tolerancia {tolerancia} debe ser >= 0")
     salida = gdf.copy()
     if len(salida) == 0:
         return salida

@@ -20,7 +20,12 @@ _UNIDADES_LONGITUD = {"m": 1.0, "km": 1e3}
 
 
 def _exigir_crs(gdf: gpd.GeoDataFrame, nombre: str = "capa") -> None:
-    """Falla claro si la capa no tiene CRS; to_crs sobre None da error feo."""
+    """Falla claro si no es una capa o no tiene CRS; to_crs sobre None da error feo."""
+    if not hasattr(gdf, "crs"):
+        pista = f": ¿falta geo.cargar({gdf!r})?" if isinstance(gdf, str) else ""
+        raise TypeError(
+            f"{nombre} debe ser una capa (GeoDataFrame); llegó {type(gdf).__name__}{pista}"
+        )
     if gdf.crs is None:
         raise ValueError(
             f"{nombre} no tiene CRS definido; asigna uno antes de reproyectar"
@@ -67,6 +72,13 @@ def _exigir_destino(destino: Any) -> None:
             "destino de reproyección es None; si viene de crs.to_epsg(), ese "
             "CRS no tiene código EPSG registrado: pasa otra_capa.crs directo"
         )
+    try:
+        CRS.from_user_input(destino)
+    except Exception as e:  # CRSError de pyproj, en inglés
+        raise ValueError(
+            f"destino {destino!r} no es un CRS válido: usa un código EPSG (p. ej. "
+            "32613 para UTM 13N, 4326 para lon/lat) o el .crs de otra capa"
+        ) from e
 
 
 def _avisar_datum(gdf: gpd.GeoDataFrame, destino: Any, nombre: str) -> None:

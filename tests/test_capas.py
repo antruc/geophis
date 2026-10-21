@@ -23,6 +23,7 @@ CAPAS = {
     "proyeccion": 0,  # CRS. No depende de nada.
     "metrologia": 0,  # las REGLAS: aritmetica pura, sin rasters ni geometrias.
     "_salida": 0,  # el interruptor de reportes (`geo.MOSTRAR`). No importa nada.
+    "_rutas": 0,  # comprobar rutas y traducir errores de GDAL. Lo usan archivo y raster.
     "archivo": 1,  # E/S vectorial. Solo necesita proyeccion.
     "raster": 1,  # E/S raster, MDE, pendiente. Usa metrologia y proyeccion.
     "geometria": 2,  # vector. Usa raster (rasterizar / poligonizar).

@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .archivo import _anchos_dbf, _avisar_medida_obsoleta
+from ._rutas import _exigir_archivo, _traducir_errores
 from .proyeccion import _a_crs, _exigir_crs, _exigir_proyectado
 from ._salida import _callado, _mostrar
 
@@ -247,8 +248,7 @@ def unir_campo(
     `_tabla` para no pisar las de la capa.
     """
     if isinstance(tabla, (str, PathLike)):
-        if not os.path.exists(tabla):
-            raise FileNotFoundError(f"no existe la ruta '{tabla}'")
+        _exigir_archivo(tabla)
         ext = os.path.splitext(str(tabla))[1].lower()
         if ext in (".xlsx", ".xls"):
             tabla = pd.read_excel(tabla)
@@ -464,9 +464,9 @@ def listar_campos(capa: Any) -> pd.DataFrame:
     ruta = None
     if isinstance(capa, (str, PathLike)):
         ruta = str(capa)
-        if not os.path.exists(ruta):
-            raise FileNotFoundError(f"no existe la ruta '{ruta}'")
-        capa = gpd.read_file(ruta)
+        _exigir_archivo(ruta, carpeta_ok=True)
+        with _traducir_errores(ruta):
+            capa = gpd.read_file(ruta)
     filas = []
     for c in _atributos(capa):
         con_dato = capa[c].dropna()
