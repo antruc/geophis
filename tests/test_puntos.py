@@ -93,10 +93,76 @@ def test_puntos_a_poligono_pocos_puntos_falla():
         geo.puntos_a_poligono(_pts().iloc[:2])
 
 
-def test_puntos_a_poligono_envolvente_ignora_orden():
+def test_puntos_a_poligono_convexa_ignora_orden():
     pts = _pts().iloc[[0, 2, 1, 3]]  # orden cruzado (bowtie)
-    poly = geo.puntos_a_poligono(pts, envolvente=True)
+    poly = geo.puntos_a_poligono(pts, forma="convexa")
     assert round(poly.geometry.iloc[0].area) == 10000
+
+
+def test_puntos_a_poligono_orden_en_mono_avisa_y_devuelve(capsys):
+    pts = _pts().iloc[[0, 2, 1, 3]]
+    poly = geo.puntos_a_poligono(pts)
+    assert not poly.geometry.iloc[0].is_valid
+    assert "no es válido" in capsys.readouterr().out
+
+
+def _dos_nubes():
+    """Dos cuadrados de 100 m (esquinas + centro) separados 400 m."""
+    xs, ys = [], []
+    for dx in (0, 500):
+        for x, y in [(0, 0), (100, 0), (100, 100), (0, 100), (50, 50)]:
+            xs.append(300000 + dx + x)
+            ys.append(2600000 + y)
+    return gpd.GeoDataFrame(geometry=gpd.points_from_xy(xs, ys), crs=UTM)
+
+
+def test_puntos_a_poligono_concava_es_una_pieza_con_todos_dentro(capsys):
+    pts = _dos_nubes()
+    suelto = gpd.GeoDataFrame(geometry=gpd.points_from_xy([300050], [2600900]), crs=UTM)
+    pts = gpd.GeoDataFrame(pd.concat([pts, suelto], ignore_index=True), crs=UTM)
+    convexa = geo.puntos_a_poligono(pts, forma="convexa").geometry.iloc[0]
+    for lado in (0, 150):
+        g = geo.puntos_a_poligono(pts, forma="concava", lado_max=lado).geometry.iloc[0]
+        assert g.geom_type == "Polygon" and not g.interiors
+        assert pts.geometry.intersects(g).all()
+        assert g.area < convexa.area
+    assert "umbral relativo" in capsys.readouterr().out
+
+
+def test_puntos_a_poligono_concava_lado_grande_es_la_convexa(capsys):
+    pts = _dos_nubes()
+    concava = geo.puntos_a_poligono(pts, forma="concava", lado_max=10000)
+    convexa = geo.puntos_a_poligono(pts, forma="convexa")
+    assert round(concava.geometry.iloc[0].area) == round(convexa.geometry.iloc[0].area)
+    assert "umbral relativo 1.000" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "kw, msg",
+    [
+        ({"forma": "concava", "lado_max": -1}, ">= 0"),
+        ({"forma": "convexa", "lado_max": 100}, "solo para forma='concava'"),
+        ({"lado_max": 100}, "solo para forma='concava'"),
+        ({"forma": "concavo"}, "forma 'concavo'"),
+    ],
+)
+def test_puntos_a_poligono_argumentos_invalidos_fallan(kw, msg):
+    with pytest.raises(ValueError, match=msg):
+        geo.puntos_a_poligono(_dos_nubes(), **kw)
+
+
+def test_puntos_a_poligono_concava_en_linea_falla():
+    pts = gpd.GeoDataFrame(geometry=gpd.points_from_xy([0, 10, 20], [0, 0, 0]), crs=UTM)
+    with pytest.raises(ValueError, match="no encierran"):
+        geo.puntos_a_poligono(pts, forma="concava")
+
+
+def test_puntos_a_poligono_concava_por_grupo():
+    pts = _dos_nubes()
+    pts["G"] = ["a"] * 5 + ["b"] * 5
+    poly = geo.puntos_a_poligono(pts, campo="G", forma="concava", lado_max=150)
+    assert list(poly["G"]) == ["a", "b"]
+    assert all(round(g.area) == 10000 for g in poly.geometry)
 
 
 def test_cargar_puntos_columna_faltante_falla(tmp_path):

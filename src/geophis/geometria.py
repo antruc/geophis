@@ -449,30 +449,85 @@ def puntos_a_linea(gdf: gpd.GeoDataFrame, campo: str | None = None) -> gpd.GeoDa
     return gpd.GeoDataFrame(datos, geometry=geoms, crs=gdf.crs)
 
 
+_FORMAS_POLIGONO = ("orden", "convexa", "concava")
+
+
 def puntos_a_poligono(
-    gdf: gpd.GeoDataFrame, campo: str | None = None, envolvente: bool = False
+    gdf: gpd.GeoDataFrame,
+    campo: str | None = None,
+    forma: str = "orden",
+    lado_max: float = 0.0,
 ) -> gpd.GeoDataFrame:
-    """Une los puntos en un polígono, usándolos como vértices en orden de filas.
+    """Une los puntos en un polígono. Con `campo`, uno por grupo. Requiere >=3 puntos.
 
-    Con `envolvente=True` usa la envolvente convexa (convex hull) en vez del
-    orden de los puntos: útil cuando los puntos no vienen ordenados por el
-    contorno. Con `campo` genera un polígono por grupo. Requiere >=3 puntos.
+    `forma`:
+        "orden" (default): los puntos son los vértices, en el orden de las
+            filas. Si no siguen el contorno (recorridos GPS de varios días),
+            el polígono se cruza en moño: AVISA con el motivo y el sitio, y
+            lo devuelve igual para revisarlo en el SIG.
+        "convexa": envolvente convexa, no depende del orden. Siempre válida y
+            de una pieza, pero cubre todo el vacío entre recorridos.
+        "concava": parte de los triángulos de Delaunay y quita, solo desde el
+            borde, los que tengan un lado mayor que `lado_max` (m). Siempre
+            sale UNA pieza, sin huecos, con todos los puntos dentro.
+    `lado_max`: solo con "concava". 0 (default) = lo más ajustado que sigue
+        siendo una pieza; igual o mayor que la arista más larga = la convexa.
+        Es un supuesto que se declara. Se imprime de referencia la rejilla
+        uniforme `sqrt(area convexa / n)` (de 2 a 4 veces da contornos
+        razonables) y el umbral relativo 0-1 equivalente, el que piden otros
+        programas: el mismo umbral son metros distintos en cada archivo.
+        Con un margen después (`zona_de_influencia(d)`), por encima de `2*d`
+        se rellenan vacíos que el margen no habría unido.
     """
+    if forma not in _FORMAS_POLIGONO:
+        raise ValueError(f"forma '{forma}': usa {', '.join(map(repr, _FORMAS_POLIGONO))}")
+    if lado_max < 0:
+        raise ValueError(f"lado_max {lado_max} debe ser >= 0 m")
+    if forma == "concava":
+        _exigir_proyectado(gdf, "gdf")
+    elif lado_max:
+        raise ValueError(f"lado_max es solo para forma='concava'; llegó con forma='{forma}'")
 
-    def _poligono(sub: gpd.GeoDataFrame) -> Polygon:
+    def _poligono(sub: gpd.GeoDataFrame, que: str) -> BaseGeometry:
         pts = list(sub.geometry)
         if len(pts) < 3:
-            raise ValueError("se necesitan al menos 3 puntos para un polígono")
-        if envolvente:
+            raise ValueError(f"{que}: se necesitan al menos 3 puntos para un polígono")
+        if forma == "convexa":
             return unary_union(pts).convex_hull
-        return Polygon([(p.x, p.y) for p in pts])
+        if forma == "orden":
+            pol = Polygon([(p.x, p.y) for p in pts])
+            if not pol.is_valid:
+                print(
+                    f"Aviso: {que}: el polígono por orden no es válido "
+                    f"({shapely.is_valid_reason(pol)}); los puntos no siguen el contorno. "
+                    "Revísalo en el SIG o usa forma='convexa' o 'concava'"
+                )
+            return pol
+        nube = shapely.multipoints(pts)
+        aristas = shapely.length(shapely.get_parts(shapely.delaunay_triangles(nube, only_edges=True)))
+        if len(aristas) == 0:
+            raise ValueError(f"{que}: los puntos están repetidos, no encierran área")
+        corta, larga = aristas.min(), aristas.max()
+        # el umbral relativo de GEOS es la fracción entre la arista más corta y la más larga
+        ratio = 1.0 if larga == corta else float(np.clip((lado_max - corta) / (larga - corta), 0, 1))
+        if _mostrar():
+            rejilla = np.sqrt(nube.convex_hull.area / len(pts))
+            print(
+                f"concava {que}: lado_max {lado_max:.0f} m = umbral relativo {ratio:.3f} "
+                f"| aristas {corta:.0f} a {larga:.0f} m | rejilla uniforme {rejilla:.0f} m "
+                f"(referencia: {2 * rejilla:.0f} a {4 * rejilla:.0f} m)"
+            )
+        pol = shapely.concave_hull(nube, ratio=ratio)
+        if pol.geom_type != "Polygon":
+            raise ValueError(f"{que}: los puntos están en línea o repetidos, no encierran área")
+        return pol
 
     if campo is None:
-        geoms = [_poligono(gdf)]
+        geoms = [_poligono(gdf, "la capa")]
         datos: dict[str, list[Any]] = {}
     else:
         grupos = list(gdf.groupby(campo, sort=False))
-        geoms = [_poligono(sub) for _, sub in grupos]
+        geoms = [_poligono(sub, f"{campo}={clave}") for clave, sub in grupos]
         datos = {campo: [clave for clave, _ in grupos]}
     return gpd.GeoDataFrame(datos, geometry=geoms, crs=gdf.crs)
 

@@ -68,7 +68,7 @@ import geophis as geo
 | [`repartir_por_cercania`](GEOPHIS.md#geometriapy-vector) | Dos capas que se solapan sin jerarquía entre sí (asignación euclidiana: cada pedazo a la más cercana) |
 | [`fusionar`](GEOPHIS.md#geometriapy-vector) | *Fusionar* (Merge): concatena lista de capas (CRS de la primera) |
 | [`puntos_a_linea`](GEOPHIS.md#geometriapy-vector) | Puntos→línea en orden de filas; `campo` = una línea por grupo. ≥2 puntos |
-| [`puntos_a_poligono`](GEOPHIS.md#geometriapy-vector) | Puntos→polígono (vértices en orden); `envolvente=True` usa convex hull. ≥3 puntos |
+| [`puntos_a_poligono`](GEOPHIS.md#geometriapy-vector) | Puntos→polígono: `forma="orden"` (avisa del moño), `"convexa"` o `"concava"` (una pieza, todos los puntos dentro; `lado_max` en m). ≥3 puntos |
 | [`linea_a_poligono`](GEOPHIS.md#geometriapy-vector) | Cierra cada línea en polígono |
 | [`crear_cuadro`](GEOPHIS.md#geometriapy-vector) | Bounding box ampliado `margen` |
 | [`cuadros_mde`](GEOPHIS.md#geometriapy-vector) | `(cuadro_recorte, cuadro_salida)`, el par de extents que pide `interpolar_mde` (práctica de ANUDEM) |
