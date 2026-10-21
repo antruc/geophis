@@ -24,8 +24,8 @@ SALIDA_DISUELTO = r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER_DISUELTO.shp"
 
 # ── 1. CARGAR, ASEGURAR CRS, DISOLVER Y BUFFER CADA NIVEL ────
 capas = []
-for nombre, ruta, dist in NIVELES:
-    gdf = geo.cargar(ruta)
+for nombre, entrada, dist in NIVELES:
+    gdf = geo.cargar(entrada)
     gdf = geo.reproyectar(gdf, EPSG_UTM, nombre)
     gdf = geo.disolver(gdf, campo=CAMPO_TIPO, valor=nombre)
     gdf = geo.zona_de_influencia(gdf, dist)

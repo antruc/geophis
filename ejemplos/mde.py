@@ -27,9 +27,9 @@ información a ambos lados.
 import geophis as geo
 
 # ── CONFIG ─────────────────────────────────────────────────
-CURVAS_SHP = r"C:\SIG\proyecto\datos\curvas_nivel.shp"
-CAUCES_SHP = r"C:\SIG\proyecto\datos\hidrologia.shp"
-PREDIO_SHP = r"C:\SIG\proyecto\datos\predio.shp"
+ENTRADA_CURVAS = r"C:\SIG\proyecto\datos\curvas_nivel.shp"
+ENTRADA_CAUCES = r"C:\SIG\proyecto\datos\hidrologia.shp"
+ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
 SALIDA_MDE_BASE = r"C:\SIG\proyecto\salidas\MDE_BASE.tif"  # terreno sin deformar, para pendientes
 SALIDA_MDE_HIDRO = r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif"  # relleno + quemado, entrada de acondicionar_mde
 SALIDA_PROCEDENCIA = r"C:\SIG\proyecto\salidas\PROCEDENCIA.txt"  # tabla para la memoria técnica
@@ -61,9 +61,9 @@ SEMILLA = 0  # fija el reparto del hold-out (reproducible)
 # carta de curvas cubre todo el estado: `bbox` lee solo lo que toca el dominio,
 # y se recorta en su CRS original (`recortar` mueve el cuadro, no las curvas)
 # antes de reproyectar.
-predio = geo.reproyectar(geo.cargar(PREDIO_SHP), EPSG_UTM, "predio")
+predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
 dominio = geo.crear_cuadro(predio, margen=DOMINIO_M)
-curvas = geo.cargar(CURVAS_SHP, bbox=dominio)
+curvas = geo.cargar(ENTRADA_CURVAS, bbox=dominio)
 curvas = geo.reproyectar(geo.recortar(curvas, dominio), EPSG_UTM, "curvas")
 campo, e = geo.detectar_cota(curvas)  # una vez, sobre el dominio declarado
 
@@ -93,7 +93,7 @@ curvas = geo.recortar(curvas, cuadro_recorte)
 # la hidrografía estatal no hace falta cargarla entera: `bbox` lee solo lo que
 # toca el cuadro (GDAL alinea el CRS de la ventana), y `recortar` mueve el
 # cuadro al CRS de los cauces, no los cauces al del cuadro.
-cauces = geo.cargar(CAUCES_SHP, bbox=cuadro_recorte)
+cauces = geo.cargar(ENTRADA_CAUCES, bbox=cuadro_recorte)
 cauces = geo.recortar(cauces, cuadro_recorte)
 cauces = geo.reproyectar(cauces, EPSG_UTM, "cauces")
 cauces = geo.disolver(cauces)
@@ -128,7 +128,7 @@ mde = geo.rellenar_nodata(mde)
 mde_quemado, n_px = geo.quemar_cauces(mde, cauces, transform, PROFUNDIDAD_QUEMA)
 if n_px == 0:
     raise ValueError(
-        f"ningún píxel quemado: '{CAUCES_SHP}' no toca el raster; revisa el CRS "
+        f"ningún píxel quemado: '{ENTRADA_CAUCES}' no toca el raster; revisa el CRS "
         f"de la hidrología o si de verdad cae fuera del predio"
     )
 

@@ -9,8 +9,8 @@ disolver → zona de influencia → resolver solapes → recortar → guardar.
 import geophis as geo
 
 # ── CONFIG ─────────────────────────────────────────────────
-RUTA_HIDRO = r"C:\SIG\proyecto\datos\hidrologia.shp"
-RUTA_EJIDO = r"C:\SIG\proyecto\datos\ejido.shp"
+ENTRADA_HIDRO = r"C:\SIG\proyecto\datos\hidrologia.shp"
+ENTRADA_EJIDO = r"C:\SIG\proyecto\datos\ejido.shp"
 
 EPSG_UTM = 32613
 BUFFER_PERENNE = 20  # declarado: franja ribereña de cauce perenne, criterio del programa de manejo
@@ -25,8 +25,8 @@ SALIDA_DISUELTO = r"C:\SIG\proyecto\salidas\HIDRO_BUFFER_DISUELTO.shp"
 # son cientos de miles de tramos y cientos de MB, y para recortar hay que haber
 # cargado. GDAL alinea el CRS de la ventana. Devuelve entidades ENTERAS, así
 # que el recorte al ejido sigue haciendo falta.
-ejido = geo.reproyectar(geo.cargar(RUTA_EJIDO), EPSG_UTM, "ejido")
-hidro = geo.cargar(RUTA_HIDRO, bbox=ejido)
+ejido = geo.reproyectar(geo.cargar(ENTRADA_EJIDO), EPSG_UTM, "ejido")
+hidro = geo.cargar(ENTRADA_HIDRO, bbox=ejido)
 # el vocabulario es legal y no cambia; el nombre de la columna sí, con cada
 # entrega. Se detecta una vez, sobre la ventana del ejido.
 condicion = geo.detectar_campo(hidro, {"PERENNE", "INTERMITENTE"})

@@ -70,7 +70,7 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 
 - Docstring corto al inicio: qué, y por qué si no es obvio.
 - Bloque `CONFIG` en mayúsculas arriba (rutas, EPSG, distancias, campos), cada valor declarado con su razón al lado.
-- Toda ruta de salida es una constante del `CONFIG` con `SALIDA` en el nombre: `SALIDA_BUFFER` para un archivo, `SALIDAS` para la carpeta (`SALIDAS + r"\PENDIENTES.shp"`). Nunca una ruta escrita dentro de `guardar`: el usuario distingue de un vistazo qué lee y qué escribe.
+- Toda ruta es una constante del `CONFIG` que dice si se lee o se escribe. Entrada: `ENTRADA` en el nombre (`ENTRADA_PREDIO`); en una lista de tuplas, la variable del `for` se llama `entrada`. Salida: `SALIDA` en el nombre, `SALIDA_BUFFER` para un archivo, `SALIDAS` para la carpeta (`SALIDAS + r"\PENDIENTES.shp"`). Nunca una ruta escrita dentro de `cargar` o `guardar`: el usuario distingue de un vistazo qué lee y qué escribe.
 - Pasos numerados `# ── N. VERBO EN MAYÚSCULAS ──`, lineal, sin funciones propias, reasignando la misma variable (`gdf = geo.algo(gdf)`).
 - Tres o más casos parecidos → lista de tuplas y `for` (el orden puede codificar prioridad). Con dos, escribe los bloques directo.
 - `print()` como reporte. `geo.MOSTRAR = False` calla los reportes de la librería; los avisos de defecto salen igual.
@@ -90,8 +90,8 @@ NIVELES = [  # el orden es la prioridad
 ]
 
 capas = []
-for nombre, ruta, dist in NIVELES:
-    gdf = geo.reproyectar(geo.cargar(ruta), EPSG_UTM, nombre)
+for nombre, entrada, dist in NIVELES:
+    gdf = geo.reproyectar(geo.cargar(entrada), EPSG_UTM, nombre)
     gdf = geo.disolver(gdf, campo="camino", valor=nombre)
     capas.append(geo.zona_de_influencia(gdf, dist))
 
@@ -134,8 +134,8 @@ Una interpolación, la clase alta exenta del sieve y una sola pasada (si se siev
 import geophis as geo
 
 # ── CONFIG ─────────────────────────────────────────────────────────────
-RUTA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
-RUTA_CURVAS = r"C:\SIG\proyecto\datos\curvas.shp"
+ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
+ENTRADA_CURVAS = r"C:\SIG\proyecto\datos\curvas.shp"
 SALIDAS = r"C:\SIG\proyecto\salidas"
 EPSG_UTM = 32613  # el huso del predio
 ESCALA = 25_000  # compromiso de entrega; la UMM es consecuencia
@@ -145,9 +145,9 @@ MARGEN_DOMINIO = 3000  # ventana de lectura; el paso 2 comprueba que contiene el
 TOL = 0.01  # el borde es el del predio: el residuo legitimo es reparacion de geometria
 
 # ── 1. CARGAR (R4) ─────────────────────────────────────────────────────
-predio = geo.reproyectar(geo.cargar(RUTA_PREDIO), EPSG_UTM, "predio")
+predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
 dominio = geo.crear_cuadro(predio, margen=MARGEN_DOMINIO)
-curvas = geo.reproyectar(geo.recortar(geo.cargar(RUTA_CURVAS, bbox=dominio), dominio), EPSG_UTM, "curvas")
+curvas = geo.reproyectar(geo.recortar(geo.cargar(ENTRADA_CURVAS, bbox=dominio), dominio), EPSG_UTM, "curvas")
 campo, e = geo.detectar_cota(curvas)
 
 # ── 2. PARAMETROS (R1) ─────────────────────────────────────────────────
@@ -199,9 +199,9 @@ El método no se elige por receta: el juez mide cada candidata contra la carta c
 import geophis as geo
 
 # ── CONFIG ─────────────────────────────────────────────────────────────
-RUTA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
-RUTA_CURVAS = r"C:\SIG\proyecto\datos\curvas.shp"
-RUTA_CAUCES = r"C:\SIG\proyecto\datos\cauces.shp"  # lineas SIN cota: los quiebres del TIN
+ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
+ENTRADA_CURVAS = r"C:\SIG\proyecto\datos\curvas.shp"
+ENTRADA_CAUCES = r"C:\SIG\proyecto\datos\cauces.shp"  # lineas SIN cota: los quiebres del TIN
 SALIDAS = r"C:\SIG\proyecto\salidas"
 EPSG_UTM = 32613  # el huso del predio
 ESCALA = 25_000  # compromiso de entrega; la UMM es consecuencia
@@ -211,10 +211,10 @@ MARGEN_DOMINIO = 3000  # ventana de lectura; los pasos 3 y 4 comprueban que cont
 TOL = 0.01  # el borde es el del predio: el residuo legitimo es reparacion de geometria
 
 # ── 1. CARGAR (R4) ─────────────────────────────────────────────────────
-predio = geo.reproyectar(geo.cargar(RUTA_PREDIO), EPSG_UTM, "predio")
+predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
 dominio = geo.crear_cuadro(predio, margen=MARGEN_DOMINIO)
-curvas = geo.reproyectar(geo.recortar(geo.cargar(RUTA_CURVAS, bbox=dominio), dominio), EPSG_UTM, "curvas")
-cauces = geo.recortar(geo.cargar(RUTA_CAUCES, bbox=dominio), dominio)
+curvas = geo.reproyectar(geo.recortar(geo.cargar(ENTRADA_CURVAS, bbox=dominio), dominio), EPSG_UTM, "curvas")
+cauces = geo.recortar(geo.cargar(ENTRADA_CAUCES, bbox=dominio), dominio)
 campo, e = geo.detectar_cota(curvas)
 
 # ── 2. PARAMETROS, UNO POR METODO ──────────────────────────────────────
@@ -412,13 +412,13 @@ El polígono del predio, en cualquier CRS, basta: sale en reflectancia 0 a 1, en
 
 ```python
 # ── CONFIG ─────────────────────────────────────────────────────────────
-RUTA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
+ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
 SALIDAS = r"C:\SIG\proyecto\salidas"
 FECHAS = ("2026-02-01", "2026-05-31")  # secas en la region: decision de campo, sin default
 NOMBRES = ["azul", "verde", "rojo", "nir", "swir1", "swir2"]  # el nombre viaja con la banda
 
 # ── 1. LA IMAGEN, Y EL INFORME ANTES QUE LA IMAGEN ─────────────────────
-predio = geo.cargar(RUTA_PREDIO)
+predio = geo.cargar(ENTRADA_PREDIO)
 bandas, tf, crs, res, informe, origen = geo.imagen_sentinel2(predio, fechas=FECHAS)
 print(informe.to_string(index=False))
 print(f"predio sin dato limpio: {100 - informe['aporta_pct'].sum():.2f} %")
