@@ -22,6 +22,7 @@ from shapely import voronoi_polygons
 from shapely.errors import GEOSException
 from shapely.ops import unary_union, split
 
+from .archivo import _COLS_AREA, _COLS_LONGITUD
 from .metrologia import _de_parametros
 from .proyeccion import (
     _UNIDADES_AREA,
@@ -1659,6 +1660,10 @@ def vertices_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     anillo cerrado el último vértice repite al primero y no sale dos veces.
     No hace falta `separar_multipartes` antes. Las geometrías vacías no dan
     puntos. Para un punto por ENTIDAD, `entidad_a_punto`.
+
+    Las columnas de área y longitud de la entidad (`SUP`, `AREA`,
+    `PERIMETRO`, `LONGITUD_M`...) NO se copian: repetidas en cada vértice, su
+    suma multiplica la superficie por el número de vértices.
     """
     _exigir_crs(gdf, "gdf")
     filas, xy, partes, anillos, vertices = [], [], [], [], []
@@ -1680,7 +1685,10 @@ def vertices_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
                 partes += [p] * n
                 anillos += [a] * n
                 vertices += range(1, n + 1)
-    atributos = gdf.drop(columns=gdf.geometry.name).iloc[filas].reset_index(drop=True)
+    medidas = [c for c in gdf.columns if str(c).upper() in _COLS_AREA | _COLS_LONGITUD]
+    if medidas and _mostrar():
+        print(f"vertices_a_puntos: sin {medidas}, son medidas de la entidad, no del vértice")
+    atributos = gdf.drop(columns=[gdf.geometry.name, *medidas]).iloc[filas].reset_index(drop=True)
     for campo, valores in (("PARTE", partes), ("ANILLO", anillos), ("VERTICE", vertices)):
         atributos[nombre_campo_libre(atributos, campo)] = valores
     puntos = shapely.points(np.vstack(xy)) if xy else []

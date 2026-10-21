@@ -582,7 +582,7 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 - `intersecar(gdf, otro)`: una parte por par que se pisa; atributos de `gdf` (para los de `otro`, `union_espacial`). Mueve la geometría.
 - `union_espacial(gdf, otro, como="left", predicado="intersects")`: join espacial sin cortar geometrías. TRAMPA: duplica la fila si dos entidades la tocan.
 - `entidad_a_punto(gdf, dentro=True)`: un punto por entidad. `dentro=True` usa `representative_point()` (siempre dentro). TRAMPA: el centroide de una U cae fuera y un join posterior le pega datos del vecino.
-- `vertices_a_puntos(gdf)`: un punto por vértice con los atributos de su entidad y `PARTE`, `ANILLO` (0 exterior, 1+ huecos) y `VERTICE`. Sin el vértice de cierre repetido. Acepta multipartes sin separar.
+- `vertices_a_puntos(gdf)`: un punto por vértice con los atributos de su entidad y `PARTE`, `ANILLO` (0 exterior, 1+ huecos) y `VERTICE`. Sin el vértice de cierre repetido. Acepta multipartes sin separar. NO copia las columnas de área ni de longitud (`SUP`, `AREA`, `PERIMETRO`...): repetidas por vértice, su suma multiplica la superficie. Para un punto por entidad, `entidad_a_punto`.
 - `cercano(gdf, otro, campo_id=None, max_distancia=None)`: añade `DIST_M` y `ID_CERCA`. Una fila por entidad aunque haya empates (AVISA cuántos). FALLA con CRS geográfico.
 - `puntos_sobre_linea(gdf, intervalo, incluir_final=True)`: cadenamiento con `CADENA_M` e `ID_LINEA`; `incluir_final` añade el extremo.
 - `identidad(gdf, otro)`: `gdf` entera partida donde la pisa `otro`, con columnas de las dos. Mueve la geometría (R2): una superficie heredada se copia a cada pedazo.

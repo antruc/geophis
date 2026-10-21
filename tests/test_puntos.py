@@ -194,7 +194,7 @@ def test_vertices_a_puntos_huecos_multipartes_y_atributos():
     hueco = [(40, 40), (60, 40), (60, 60)]
     otro = [(200, 0), (210, 0), (210, 10)]
     capa = gpd.GeoDataFrame(
-        {"NOMBRE": ["a", "b"]},
+        {"NOMBRE": ["a", "b"], "SUP": [1.0, 0.0], "perimetro": [400.0, 30.0]},
         geometry=[MultiPolygon([Polygon(cuadro, [hueco]), Polygon(otro)]), LineString(otro)],
         crs=UTM,
     )
@@ -202,6 +202,7 @@ def test_vertices_a_puntos_huecos_multipartes_y_atributos():
     # a: 4 exterior + 3 hueco + 3 segunda parte, sin cierres repetidos; b: 3 de la línea
     assert len(pts) == 13 and (pts.geom_type == "Point").all()
     assert list(pts["NOMBRE"]) == ["a"] * 10 + ["b"] * 3
+    assert "SUP" not in pts.columns and "perimetro" not in pts.columns
     assert list(pts["ANILLO"][:7]) == [0] * 4 + [1] * 3
     assert list(pts["PARTE"][:10]) == [1] * 7 + [2] * 3
     assert list(pts["VERTICE"][:4]) == [1, 2, 3, 4]
