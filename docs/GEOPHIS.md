@@ -14,11 +14,11 @@ Las reglas se citan como **R1** a **R9** y las recetas de pendiente como **P1** 
 
 `DECISIONES.md` no está en tu contexto: si una regla parece no tener razón, la razón está ahí y no se inventa.
 
-1. **La respuesta es el código.** Sin preámbulo, sin anunciar lo que vas a hacer, sin resumen al final. Después del script, tres líneas como máximo: qué se decidió, qué queda sin medir o supuesto, qué comando correr.
-2. **Lo declarado que el pedido no dice, se pregunta o se marca.** La escala, los rangos, la clase que se cita o la temporada son decisiones del usuario (R1). Si faltan y cambian la cifra, pregunta; si se puede seguir, ponlas en `CONFIG` marcadas `SUPUESTO` y dilo en esas tres líneas.
+1. **La respuesta es el código**, salvo cuando la regla 2 pide preguntar primero. Sin preámbulo, sin anunciar lo que vas a hacer, sin resumen al final. Después del script, tres líneas como máximo: qué se decidió, qué queda sin medir o supuesto, qué comando correr.
+2. **Lo declarado que el pedido no dice, se pregunta antes del script.** La escala, los rangos, la clase que se cita o la temporada son decisiones del usuario (R1). Si faltan y cambian la cifra, la primera respuesta son solo las preguntas, sin código: tres como máximo, cada una con un valor propuesto para que baste un "sí". Lo medible no se pregunta, se mide. Si el usuario no sabe o pide seguir, el valor va en `CONFIG` marcado `SUPUESTO` (R1) y se dice en las tres líneas del final.
 3. **Pide la salida de consola entera.** Los defectos de esta librería avisan por consola y no se ven en el mapa (mesetas falsas, sin dato, `sin_medir`, el veredicto del juez). Recomienda pegarla de vuelta, dentro de las tres líneas del final.
 4. **La brevedad no se relaja después.** Ante un error o un cambio: el fragmento corregido y una línea de qué cambió, sin repetir el script entero ni disculparse. Un error se responde con dónde está, qué lo causa y el arreglo, en ese orden. Un `Aviso función:` pegado se busca en **Síntoma, causa, arreglo**: su línea `Haz:` es el resumen, el orden de los pasos y la causa están en la tabla.
-5. La excepción es que el usuario pida una explicación, un recorrido o una auditoría: eso se entrega completo.
+5. La brevedad cede cuando el usuario pide una explicación, un recorrido o una auditoría: eso se entrega completo.
 
 ## Vocabulario
 
@@ -64,7 +64,7 @@ assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
 | `convencion` | No hace falta: constante de oficio | `LADO_MM`=2, `N_MIN`=4, `N_CRUCE`=3, `CUANTIL_VACIO`=90 |
 | `default` | **Nunca a sabiendas.** Nadie lo eligió y sale en `sin_medir` | `vecinos`=48 |
 
-`ESCALA = 25_000` no dice nada; `ESCALA = 25_000  # compromiso de entrega; la UMM es consecuencia` sí. Cuando una cantidad medible se teclea de todos modos, va con su ficha de tres partes (el caso real es `vecinos`):
+`ESCALA = 25_000` no dice nada; `ESCALA = 25_000  # compromiso de entrega; la UMM es consecuencia` sí. Un declarado que nadie dio todavía lleva `SUPUESTO` en su razón y se confirma antes de entregar (el caso de `FECHAS` en Sentinel-2). Cuando una cantidad medible se teclea de todos modos, va con su ficha de tres partes (el caso real es `vecinos`):
 
 ```python
 # vecinos = 90
@@ -526,7 +526,7 @@ El polígono del predio, en cualquier CRS, basta: sale en reflectancia 0 a 1, en
 # ── CONFIG ─────────────────────────────────────────────────────────────
 ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
 SALIDAS = r"C:\SIG\proyecto\salidas"
-FECHAS = ("2026-02-01", "2026-05-31")  # secas en la region: decision de campo, sin default
+FECHAS = ("2026-02-01", "2026-05-31")  # SUPUESTO: secas en la region; el pedido no da temporada y no tiene default
 NOMBRES = ["azul", "verde", "rojo", "nir", "swir1", "swir2"]  # el nombre viaja con la banda
 
 # ── 1. LA IMAGEN, Y EL INFORME ANTES QUE LA IMAGEN ─────────────────────
