@@ -100,7 +100,7 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 ## Estilo de script
 
 - Docstring corto al inicio: qué, y por qué si no es obvio.
-- Bloque `CONFIG` en mayúsculas arriba (rutas, EPSG, distancias, campos), cada valor declarado con su razón al lado.
+- Bloque `CONFIG` en mayúsculas arriba (rutas, distancias, campos), cada valor declarado con su razón al lado. El EPSG no va ahí: se mide con `detectar_utm(predio)` en el paso 1, salvo que la entrega pida otro CRS, que entonces se declara.
 - Toda ruta es una constante del `CONFIG` que dice si se lee o se escribe. Entrada: `ENTRADA` en el nombre (`ENTRADA_PREDIO`); en una lista de tuplas, la variable del `for` se llama `entrada`. Salida: `SALIDA` en el nombre, `SALIDA_BUFFER` para un archivo, `SALIDAS` para la carpeta (`SALIDAS + r"\PENDIENTES.shp"`). Nunca una ruta escrita dentro de `cargar` o `guardar`: quien lee el script distingue de un vistazo qué lee y qué escribe.
 - Pasos numerados `# ── N. VERBO EN MAYÚSCULAS ──`, lineal, sin funciones propias, reasignando la misma variable (`gdf = geo.algo(gdf)`).
 - Tres o más casos parecidos → lista de tuplas y `for` (el orden puede codificar prioridad). Con dos, escribe los bloques directo.
@@ -112,7 +112,6 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 """Buffer jerarquico de caminos."""
 import geophis as geo
 
-EPSG_UTM = 32613
 SALIDA_BUFFER = r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER.shp"
 NIVELES = [  # el orden es la prioridad
     ("PRIMARIO", r"C:\SIG\proyecto\datos\camino_prim.shp", 5.0),
@@ -120,6 +119,7 @@ NIVELES = [  # el orden es la prioridad
     ("SACA", r"C:\SIG\proyecto\datos\camino_saca.shp", 1.75),
 ]
 
+EPSG_UTM = geo.detectar_utm(geo.cargar(NIVELES[0][1]))  # el CRS que pida la entrega manda: si pide otro, declararlo aqui
 capas = []
 for nombre, entrada, dist in NIVELES:
     gdf = geo.reproyectar(geo.cargar(entrada), EPSG_UTM, nombre)
@@ -144,13 +144,14 @@ ENTRADA_RODALES = r"C:\SIG\proyecto\datos\rodales.shp"
 ENTRADA_INVENTARIO = r"C:\SIG\proyecto\datos\inventario.xlsx"  # una fila por rodal
 SALIDA_RODALES = r"C:\SIG\proyecto\salidas\RODALES.shp"
 SALIDA_TABLA = r"C:\SIG\proyecto\salidas\RODALES.xlsx"
-EPSG_UTM = 32613  # el huso del predio
 CLAVE = ("RODAL", "rodal")  # columna de la capa, columna de la tabla
 CAMPO_RESUMEN = "ESPECIE"  # de la tabla: por esto se suma la superficie
 TOL = 0.01  # los rodales parten el predio: el residuo legitimo es reparacion de geometria
 
 # ── 1. CARGAR Y REVISAR ANTES DE NADA ──────────────────────────────────
-predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
+predio = geo.cargar(ENTRADA_PREDIO)
+EPSG_UTM = geo.detectar_utm(predio)  # el CRS que pida la entrega manda: si pide otro, declararlo aqui
+predio = geo.reproyectar(predio, EPSG_UTM, "predio")
 rodales = geo.cargar(ENTRADA_RODALES)
 geo.describir(rodales)  # imprime CRS, vacias, invalidas
 rodales = geo.reparar_geometrias(geo.reproyectar(rodales, EPSG_UTM, "rodales"))
@@ -211,7 +212,6 @@ import geophis as geo
 ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
 ENTRADA_CURVAS = r"C:\SIG\proyecto\datos\curvas.shp"
 SALIDAS = r"C:\SIG\proyecto\salidas"
-EPSG_UTM = 32613  # el huso del predio
 ESCALA = 25_000  # compromiso de entrega; la UMM es consecuencia
 RANGOS = [("0-15", 0, 15), ("15-45", 15, 45), ("45-100", 45, 100), (">100", 100, float("inf"))]
 CLASE_ALTA = ">100"  # cinta de escarpe: exenta del sieve, la UMM va como ancho
@@ -219,7 +219,9 @@ MARGEN_DOMINIO = 3000  # ventana de lectura; el paso 2 comprueba que contiene el
 TOL = 0.01  # el borde es el del predio: el residuo legitimo es reparacion de geometria
 
 # ── 1. CARGAR (R4) ─────────────────────────────────────────────────────
-predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
+predio = geo.cargar(ENTRADA_PREDIO)
+EPSG_UTM = geo.detectar_utm(predio)  # el CRS que pida la entrega manda: si pide otro, declararlo aqui
+predio = geo.reproyectar(predio, EPSG_UTM, "predio")
 dominio = geo.crear_cuadro(predio, margen=MARGEN_DOMINIO)
 curvas = geo.reproyectar(geo.recortar(geo.cargar(ENTRADA_CURVAS, bbox=dominio), dominio), EPSG_UTM, "curvas")
 campo, e = geo.detectar_cota(curvas)
@@ -277,7 +279,6 @@ ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
 ENTRADA_CURVAS = r"C:\SIG\proyecto\datos\curvas.shp"
 ENTRADA_CAUCES = r"C:\SIG\proyecto\datos\cauces.shp"  # lineas SIN cota: los quiebres del TIN
 SALIDAS = r"C:\SIG\proyecto\salidas"
-EPSG_UTM = 32613  # el huso del predio
 ESCALA = 25_000  # compromiso de entrega; la UMM es consecuencia
 RANGOS = [("0-100", 0, 100), (">100", 100, float("inf"))]  # en P3, todos los rangos
 CLASE_ALTA = ">100"  # cinta de escarpe: exenta del sieve
@@ -285,7 +286,9 @@ MARGEN_DOMINIO = 3000  # ventana de lectura; los pasos 3 y 4 comprueban que cont
 TOL = 0.01  # el borde es el del predio: el residuo legitimo es reparacion de geometria
 
 # ── 1. CARGAR (R4) ─────────────────────────────────────────────────────
-predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
+predio = geo.cargar(ENTRADA_PREDIO)
+EPSG_UTM = geo.detectar_utm(predio)  # el CRS que pida la entrega manda: si pide otro, declararlo aqui
+predio = geo.reproyectar(predio, EPSG_UTM, "predio")
 dominio = geo.crear_cuadro(predio, margen=MARGEN_DOMINIO)
 curvas = geo.reproyectar(geo.recortar(geo.cargar(ENTRADA_CURVAS, bbox=dominio), dominio), EPSG_UTM, "curvas")
 cauces = geo.recortar(geo.cargar(ENTRADA_CAUCES, bbox=dominio), dominio)
@@ -479,12 +482,13 @@ SUPERIORES = [  # el orden es la prioridad: la primera gana donde se pisan
 ]
 SALIDA_CLASES = r"C:\SIG\proyecto\salidas\CLASIFICACION.shp"
 SALIDA_CONFLICTOS = r"C:\SIG\proyecto\salidas\CONFLICTOS.shp"
-EPSG_UTM = 32613  # el huso del predio
 RESOLUCION_REPARTO = 1.0  # el borde del reparto queda al metro; mas fino cuesta al cuadrado
 TOL = 0.01  # el borde es el del predio: el residuo legitimo es reparacion de geometria
 
 # ── 1. CARGAR: TODO AL MISMO CRS (fusionar no alinea, R3) ──────────────
-predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
+predio = geo.cargar(ENTRADA_PREDIO)
+EPSG_UTM = geo.detectar_utm(predio)  # el CRS que pida la entrega manda: si pide otro, declararlo aqui
+predio = geo.reproyectar(predio, EPSG_UTM, "predio")
 capas = []
 for clase, entrada in SUPERIORES:
     gdf = geo.recortar(geo.reproyectar(geo.cargar(entrada), EPSG_UTM, clase), predio)
