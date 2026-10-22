@@ -12,7 +12,6 @@ import geophis as geo
 ENTRADA_HIDRO = r"C:\SIG\proyecto\datos\hidrologia.shp"
 ENTRADA_EJIDO = r"C:\SIG\proyecto\datos\ejido.shp"
 
-EPSG_UTM = 32613
 BUFFER_PERENNE = 20  # declarado: franja ribereña de cauce perenne, criterio del programa de manejo
 BUFFER_INTERMITENTE = 10  # declarado: idem para intermitente
 CAMPO_AREA = "SUP"  # el SHP recorta los nombres de campo a 10 caracteres
@@ -25,7 +24,10 @@ SALIDA_DISUELTO = r"C:\SIG\proyecto\salidas\HIDRO_BUFFER_DISUELTO.shp"
 # son cientos de miles de tramos y cientos de MB, y para recortar hay que haber
 # cargado. GDAL alinea el CRS de la ventana. Devuelve entidades ENTERAS, así
 # que el recorte al ejido sigue haciendo falta.
-ejido = geo.reproyectar(geo.cargar(ENTRADA_EJIDO), EPSG_UTM, "ejido")
+ejido = geo.cargar(ENTRADA_EJIDO)
+# el CRS que pida la entrega manda: si pide otro, declararlo aqui
+EPSG_UTM = geo.detectar_utm(ejido)
+ejido = geo.reproyectar(ejido, EPSG_UTM, "ejido")
 hidro = geo.cargar(ENTRADA_HIDRO, bbox=ejido)
 # el vocabulario es legal y no cambia; el nombre de la columna sí, con cada
 # entrega. Se detecta una vez, sobre la ventana del ejido.

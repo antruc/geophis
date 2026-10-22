@@ -8,8 +8,6 @@ de geophis con un patrón repetido resuelto en un bucle.
 import geophis as geo
 
 # ── CONFIG ───────────────────────────────────────────────────
-EPSG_UTM = 32613
-
 # declarado: ancho de derecho de via por jerarquia, en metros. El orden es la
 # prioridad (mayor a menor).
 NIVELES = [
@@ -23,6 +21,8 @@ SALIDA_COMBINADO = r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER_COMBINADO.shp"
 SALIDA_DISUELTO = r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER_DISUELTO.shp"
 
 # ── 1. CARGAR, ASEGURAR CRS, DISOLVER Y BUFFER CADA NIVEL ────
+# el CRS que pida la entrega manda: si pide otro, declararlo aqui
+EPSG_UTM = geo.detectar_utm(geo.cargar(NIVELES[0][1]))
 capas = []
 for nombre, entrada, dist in NIVELES:
     gdf = geo.cargar(entrada)

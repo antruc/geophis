@@ -15,8 +15,8 @@ Produce dos rasters que no son intercambiables:
   en la misma sesión que calcula el flujo.
 
 Ningún parámetro de la malla se teclea: `derivar_parametros` los mide o los
-deriva, y cada corrida cierra con su tabla de procedencia (REGLA DE LOS
-NÚMEROS, docs/GEOPHIS.md).
+deriva, y cada corrida cierra con su tabla de procedencia (R1,
+docs/GEOPHIS.md).
 
 El manejo del extent replica la práctica de ANUDEM: curvas y cauces se
 recortan a un cuadro amplio y el MDE se interpola sobre el predio, que queda
@@ -34,7 +34,6 @@ SALIDA_MDE_BASE = r"C:\SIG\proyecto\salidas\MDE_BASE.tif"  # terreno sin deforma
 SALIDA_MDE_HIDRO = r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif"  # relleno + quemado, entrada de acondicionar_mde
 SALIDA_PROCEDENCIA = r"C:\SIG\proyecto\salidas\PROCEDENCIA.txt"  # tabla para la memoria técnica
 
-EPSG_UTM = 32613  # UTM 13N
 ESCALA = 25_000  # compromiso de entrega; la UMM y la resolución son consecuencia
 RANGOS = [
     ("0-5", 0, 5), ("5-10", 5, 10), ("10-15", 10, 15), ("15-25", 15, 25),
@@ -61,7 +60,10 @@ SEMILLA = 0  # fija el reparto del hold-out (reproducible)
 # carta de curvas cubre todo el estado: `bbox` lee solo lo que toca el dominio,
 # y se recorta en su CRS original (`recortar` mueve el cuadro, no las curvas)
 # antes de reproyectar.
-predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
+predio = geo.cargar(ENTRADA_PREDIO)
+# el CRS que pida la entrega manda: si pide otro, declararlo aqui
+EPSG_UTM = geo.detectar_utm(predio)
+predio = geo.reproyectar(predio, EPSG_UTM, "predio")
 dominio = geo.crear_cuadro(predio, margen=DOMINIO_M)
 curvas = geo.cargar(ENTRADA_CURVAS, bbox=dominio)
 curvas = geo.reproyectar(geo.recortar(curvas, dominio), EPSG_UTM, "curvas")
