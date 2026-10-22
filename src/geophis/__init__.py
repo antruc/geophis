@@ -348,4 +348,4 @@ MOSTRAR = True
 # procesos que caben en la RAM libre (`barridos._bytes_tarea`).
 NUCLEOS = max(1, (getattr(os, "process_cpu_count", os.cpu_count)() or 1) - 1)
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"

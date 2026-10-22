@@ -4,7 +4,7 @@ Funciones en español para tareas SIG forestales y territoriales: de shapefiles 
 
 ![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.png)
 
-**Versión:** 1.4.0 | **Python:** >= 3.11 (probado en 3.14) | **Licencia:** GPL-3.0-or-later
+**Versión:** 1.4.1 | **Python:** >= 3.11 (probado en 3.14) | **Licencia:** GPL-3.0-or-later
 
 ## Para qué sirve
 
