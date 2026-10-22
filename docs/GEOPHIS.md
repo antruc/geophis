@@ -2,7 +2,7 @@
 
 **Versión:** 1.3.0 | **Paquete:** `geophis` (Python >= 3.11)
 
-Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj (proyecciones), con scipy para el análisis espacial. Una función clara por operación SIG. Distancias en unidades del CRS (metros si es UTM). EPSG de trabajo típico: **32613** (UTM 13N).
+Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj (proyecciones), con scipy para el análisis espacial. Una función clara por operación SIG. Distancias en unidades del CRS (metros si es UTM).
 
 ```python
 import geophis as geo
