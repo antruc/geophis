@@ -12,10 +12,10 @@ Para el trabajo técnico forestal y territorial que termina en un entregable: sh
 
 **Tareas sueltas, en pocas líneas:**
 
-- Pasar un predio de shapefile a KMZ para abrirlo en el celular, o un GPX de campo a shapefile: `geophis predio.shp kmz`, sin abrir Python
 - La superficie en hectáreas de cada polígono y el total, con la zona UTM detectada sola
 - La tabla de atributos a un Excel listo para leer, con encabezado fijo y fechas DD/MM/AAAA
 - La imagen Sentinel-2 más limpia de una temporada sobre el predio, y su NDVI
+- Pasar un predio de shapefile a KMZ para abrirlo en el celular, o un GPX de campo a shapefile (también desde la consola, ver abajo)
 
 **Flujos completos, del dato crudo al entregable.** Las recetas de [`docs/GEOPHIS.md`](docs/GEOPHIS.md) encadenan todo en un script: curvas de nivel, MDE, pendiente, clases sin moteado y shapefile con la superficie de cada clase; o MDE, red de drenaje y cuencas. Cambiar un rango o una capa de entrada es cambiar una línea del bloque `CONFIG` y volver a correr
 
