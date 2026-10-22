@@ -838,10 +838,11 @@ def cargar_tracks(
     pts = pts.sort_values(["track_fid", "track_seg_id", "track_seg_point_id"])
     if "time" in pts.columns:
         t_local = pd.to_datetime(pts["time"], utc=True) + pd.Timedelta(hours=utc_offset)
+        t_local = t_local.dt.tz_localize(None)  # hora local, sin zona
     else:
         # GPX de otra fuente sin <time>: tiempos vacíos en vez de reventar
         t_local = pd.Series(pd.NaT, index=pts.index)
-    pts = pts.assign(_t=t_local.values)
+    pts = pts.assign(_t=t_local.to_numpy())
 
     filas = []
     for (fid, _seg), sub in pts.groupby(["track_fid", "track_seg_id"], sort=True):
