@@ -221,7 +221,8 @@ def unir_campo(
     .xlsx o .xls.
 
     `clave`: el nombre de la columna si se llama igual en las dos, o
-    `(columna_capa, columna_tabla)` si no.
+    `(columna_capa, columna_tabla)` si no. La salida lleva una sola clave, la de
+    la capa: la de la tabla se quita.
 
     `como`: 'left' (por defecto, conserva todas las entidades de la capa),
     'inner' (solo las que casan), 'right', 'outer'.
@@ -306,6 +307,13 @@ def unir_campo(
 
     casadas = int((salida["_union"] == "both").sum())
     salida = salida.drop(columns="_union")
+    if izq != der:
+        # con dos nombres, merge deja las dos claves y en un .shp pueden chocar
+        # ('RODAL' y 'rodal'). Las filas que solo vienen de la tabla ('right',
+        # 'outer') traen la clave solo del lado de la tabla: pasa antes de quitarla
+        der_salida = f"{der}_tabla" if der in gdf.columns else der
+        salida[izq] = salida[izq].fillna(salida[der_salida])
+        salida = salida.drop(columns=der_salida)
 
     if casadas == 0:
         raise _sin_coincidencias(

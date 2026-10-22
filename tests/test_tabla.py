@@ -125,6 +125,21 @@ def test_unir_tabla_pega_las_columnas_por_la_clave(capa):
     assert unida.crs == capa.crs
 
 
+@pytest.mark.parametrize("como", ["left", "outer"])
+def test_unir_tabla_con_dos_nombres_deja_una_sola_clave(capa, como):
+    """'RODAL' y 'rodal' juntas chocan al guardar .shp (corte a 10 caracteres).
+
+    Con 'outer' la fila que solo viene de la tabla conserva su clave en la
+    columna de la capa: quitar la de la tabla no puede borrarla.
+    """
+    tabla = pd.DataFrame({"id": [1, 2, 3, 9], "PROPIETARIO": ["x", "y", "z", "w"]})
+    unida = geo.unir_campo(capa, tabla, ("ID", "id"), como=como)
+    assert "id" not in unida.columns
+    assert list(unida["PROPIETARIO"])[:3] == ["x", "y", "z"]
+    if como == "outer":
+        assert 9 in set(unida["ID"])
+
+
 def test_unir_tabla_revienta_y_nombra_los_dos_tipos_si_no_casa_nada(capa):
     """El join silencioso es el defecto: devuelve la capa entera con nulos.
 

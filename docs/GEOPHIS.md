@@ -157,7 +157,6 @@ rodales = geo.recortar(rodales, predio)
 # ── 3. UNIR EL INVENTARIO ──────────────────────────────────────────────
 # si falla por tipo ('007' contra 7): cambiar_tipo del lado entero a 'texto'
 rodales = geo.unir_campo(rodales, ENTRADA_INVENTARIO, CLAVE)
-rodales = geo.eliminar_campos(rodales, [CLAVE[1]])  # la clave de la tabla repite la de la capa
 
 # ── 4. SUPERFICIE AL FINAL (R2) Y GUARDAS SOBRE LA SALIDA (R9) ─────────
 rodales = geo.calcular_superficie(rodales, campo="SUP")
@@ -637,7 +636,7 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 - `seleccionar_por_atributo(gdf, consulta)`: sintaxis de `DataFrame.query` (`"CLASE == 'A' and SUP > 5"`; nombres con espacios entre acentos graves). Devuelve una vista. AVISA si sale vacía.
 - `seleccionar_por_ubicacion(gdf, otro, predicado="intersects", distancia=0)`: cada entidad de `gdf` una vez, sin columnas nuevas. Se lee `gdf <predicado> otro`. `distancia` > 0 dilata `otro`. TRAMPA: no es `union_espacial`, que duplica filas si dos entidades la tocan.
 - `estadisticas_de_resumen(gdf, por=None, campos=None)` → DataFrame, una fila por grupo con `n` y `columna_estadistico`. `campos={col: estadistico}` o lista; un nombre suelto asume `'sum'` y lo dice. Nulos como grupo propio. FALLA si una columna de área o longitud no cuadra con la geometría.
-- `unir_campo(gdf, tabla, clave, como="left")`: join NO espacial con DataFrame o ruta .csv/.xlsx/.xls. `clave`: nombre o `(columna_capa, columna_tabla)`. AVISA de claves repetidas (multiplican filas). FALLA si no casa ninguna clave, con los dos tipos: casi siempre es TIPO (`'007'` contra `7`); convierte del lado que conserva el dato (entero a texto).
+- `unir_campo(gdf, tabla, clave, como="left")`: join NO espacial con DataFrame o ruta .csv/.xlsx/.xls. `clave`: nombre o `(columna_capa, columna_tabla)`; la salida lleva una sola clave, la de la capa. AVISA de claves repetidas (multiplican filas). FALLA si no casa ninguna clave, con los dos tipos: casi siempre es TIPO (`'007'` contra `7`); convierte del lado que conserva el dato (entero a texto).
 - `atributos_a_mayusculas(gdf)`: copia con nombres de campo y valores de texto en mayúsculas. Va al final, después de `SUP`. TRAMPA: la geometría se reconoce por `gdf.geometry.name`. FALLA si dos nombres chocan (`sup` y `SUP`).
 - `atributos_a_minusculas(gdf)`: gemela en minúsculas, mismas reglas.
 
