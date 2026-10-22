@@ -47,7 +47,7 @@ def test_zonificar_invalidar_deja_fuera_y_no_absorbe():
     z = geo.zonificar(_raster(), TF, UTM, RANGOS, 11, invalidar=inval)
     assert set(z["CLASE"]) == {"baja"}
     assert z["SUP"].sum() == pytest.approx(0.50)
-    with pytest.raises(ValueError, match="no estan en rangos"):
+    with pytest.raises(ValueError, match="no están en rangos"):
         geo.zonificar(_raster(), TF, UTM, RANGOS, 11, exentos=["media"])
 
 

@@ -217,7 +217,7 @@ def guardar_raster(
     if arr.ndim == 2:
         arr = arr[None]
     if arr.ndim != 3:
-        raise ValueError(f"el array debe ser 2D o 3D (banda, y, x); llego {arr.ndim}D")
+        raise ValueError(f"el array debe ser 2D o 3D (banda, y, x); llegó {arr.ndim}D")
     nombres = None if nombres is None else tuple(nombres)
     if nombres is not None and len(nombres) != arr.shape[0]:
         raise ValueError(f"{len(nombres)} nombres para {arr.shape[0]} banda(s)")
@@ -347,7 +347,7 @@ def mosaico(
             if len(escalas) > 1:
                 raise ValueError(
                     f"las fuentes declaran escala/desfase distintos {sorted(escalas)}: "
-                    "merge junta valores crudos y no se pueden escalar despues"
+                    "merge junta valores crudos y no se pueden escalar después"
                 )
             fuentes = [
                 o if o.crs == crs_sal else WarpedVRT(o, crs=crs_sal, resampling=metodo)
@@ -642,7 +642,7 @@ def indice_vegetacion(
         raise ValueError(f"tipo '{tipo}' desconocido; usa uno de {sorted(_INDICES)}")
     faltan = [n for n in _INDICES[tipo] if dadas[n] is None]
     if faltan:
-        raise ValueError(f"el indice '{tipo}' necesita las bandas {faltan}")
+        raise ValueError(f"el índice '{tipo}' necesita las bandas {faltan}")
 
     b = {k: np.asarray(v, dtype=float) for k, v in dadas.items() if v is not None}
     formas = {a.shape for a in b.values()}
@@ -805,12 +805,12 @@ def _interp_spline(
         # decision que mas mueve la superficie por rango, y cambiarlo solo seria
         # peor que fallar. Se falla diciendo que mirar.
         raise ValueError(
-            f"el spline no puede resolver un vecindario: los {k} puntos mas "
-            f"cercanos son colineales (todos sobre la misma curva), asi que la "
-            f"cola polinomica del thin-plate queda singular. Causa casi "
-            f"siempre: `intervalo_muestreo` mucho mas fino que la separacion "
+            f"el spline no puede resolver un vecindario: los {k} puntos más "
+            f"cercanos son colineales (todos sobre la misma curva), así que la "
+            f"cola polinómica del thin-plate queda singular. Causa casi "
+            f"siempre: `intervalo_muestreo` mucho más fino que la separación "
             f"entre curvas. Revisa que no venga de dividir la equidistancia "
-            f"entre `p_max` en POR CIENTO (e/100) en vez de entre la fraccion "
+            f"entre `p_max` en POR CIENTO (e/100) en vez de entre la fracción "
             f"(e/1.0). Si el muestreo es el que quieres, sube `vecinos` para "
             f"que el vecindario alcance la curva de al lado, o usa "
             f"`metodo='tin'`. Original: {e}"
@@ -985,7 +985,10 @@ def _interp_placa(
     # tol 1e-10: ~1 mm contra el LU directo, nada para la pendiente
     z, it = _Multimalla(M, ny, nx).resolver(A.T @ d, tol=1e-10, max_iter=1000)
     if it == 1000:
-        print("Aviso: la malla no convergio en 1000 iteraciones; la superficie puede quedar cruda")
+        print(
+            "Aviso: la malla no convergió en 1000 iteraciones; la superficie puede "
+            "quedar cruda. Sube `resolucion` o usa metodo='spline'"
+        )
     return z.reshape(ny, nx)[m:m + alto, m:m + ancho].ravel()
 
 
@@ -1024,7 +1027,10 @@ def _resolver_parametros(
     if equidistancia is None:
         equidistancia = detectada
     elif detectada is not None and not math.isclose(equidistancia, detectada):
-        print(f"Aviso: equidistancia dada {equidistancia} != detectada {detectada}")
+        print(
+            f"Aviso: equidistancia dada {equidistancia:g} != detectada {detectada:g}; "
+            "se usa la dada. Si no es a propósito, quita `equidistancia`"
+        )
 
     # `lambda_m` dada = ya medida sobre ESTE mismo extent por quien llama, que
     # es el caso de `barrer_resolucion` (N interpolaciones sobre un solo
@@ -1071,11 +1077,11 @@ def _resolver_parametros(
                 f"Aviso: resolucion {resolucion:g} m por debajo del piso antialias "
                 f"{separacion / 2:.1f} m (= lambda/2, con lambda {separacion:.1f} m "
                 f"medida sobre el extent). La ventana 3x3 de Horn deriva sobre 2h, "
-                f"asi que el rizo del spline entre curvas entra por alias y engorda "
-                f"la clase de pendiente mas alta: medido a ~lambda/4, 57 % inventado "
+                f"así que el rizo del spline entre curvas entra por alias y engorda "
+                f"la clase de pendiente más alta: medido a ~lambda/4, 57 % inventado "
                 f"sobre 53 % real. Contrasta con "
                 f"`resolucion_regla(..., lambda_m=...)`, o mide la "
-                f"amplitud del rizo y pasala como `amplitud_rizo`: con `A` medida "
+                f"amplitud del rizo y pásala como `amplitud_rizo`: con `A` medida "
                 f"este piso deja de ser el juez."
             )
         else:
@@ -1085,12 +1091,12 @@ def _resolver_parametros(
             # no conoce los rangos, asi que no puede dictaminar: da el numero.
             print(
                 f"Aviso: resolucion {resolucion:g} m por debajo del piso antialias "
-                f"{separacion / 2:.1f} m, PERO la amplitud del rizo esta MEDIDA "
-                f"(A = {amplitud_rizo:g} m), y con `A` manda la medicion: la "
+                f"{separacion / 2:.1f} m, PERO la amplitud del rizo está MEDIDA "
+                f"(A = {amplitud_rizo:g} m), y con `A` manda la medición: la "
                 f"pendiente espuria que entra por alias es ~"
                 f"{_pendiente_espuria(amplitud_rizo, resolucion, separacion):.0f} % "
                 f"(= A*sin(2*pi*h/lambda)/h, con lambda {separacion:.1f} m). "
-                f"Comparala contra el limite inferior de tu clase mas alta antes "
+                f"Compárala contra el límite inferior de tu clase más alta antes "
                 f"de citarla."
             )
 
@@ -1241,18 +1247,18 @@ def planos_de_curva(
 
 
 _AVISO_PLANOS = {
-    "tin": """   Son triangulos con sus tres vertices en la MISMA curva: interpolan una
+    "tin": """   Son triángulos con sus tres vértices en la MISMA curva: interpolan una
    meseta horizontal aunque el terreno sea ladera. Los `quiebres` solo los
    quitan en las vaguadas: en cimas, lomos y a media ladera siguen. Si el rango
-   bajo o la exposicion se citan, sacalos de un MDE spline y deja el TIN para
+   bajo o la exposición se citan, sácalos de un MDE spline y deja el TIN para
    la clase alta (docs/GEOPHIS.md, receta P3).""",
     "rbf": """   Los `vecinos` de esas celdas cayeron TODOS en la misma curva, y un ajuste
    local sobre puntos de igual cota devuelve un plano. Pasa cuando el muestreo
-   sobre las curvas es mucho mas fino que la separacion entre ellas (nube
-   anisotropa) o con pocos `vecinos`: acerca `intervalo_muestreo` a la
-   separacion o sube `vecinos` (`derivar_parametros` da los dos).""",
+   sobre las curvas es mucho más fino que la separación entre ellas (nube
+   anisótropa) o con pocos `vecinos`: acerca `intervalo_muestreo` a la
+   separación o sube `vecinos` (`derivar_parametros` da los dos).""",
 }
-_COMUN_PLANOS = """   Salen con 0 % de pendiente (inflan el rango mas bajo) y sin orientacion, y
+_COMUN_PLANOS = """   Salen con 0 % de pendiente (inflan el rango más bajo) y sin orientación, y
    aguas abajo no se distinguen de un llano: `planos_de_curva` da la mascara."""
 
 
@@ -1262,15 +1268,15 @@ _COMUN_PLANOS = """   Salen con 0 % de pendiente (inflan el rango mas bajo) y si
 # calcula pendientes no lo vería nunca.
 _AVISO_SIN_DATO = """   Esa superficie NO tiene dato de origen: el interpolador no extrapola fuera
    de la envolvente convexa de los puntos muestreados sobre las curvas. Sale
-   NaN, y aguas abajo queda como hueco (pendiente NaN, codigo -1 al
-   reclasificar). Para darle mas curvas, en este orden:
+   NaN, y aguas abajo queda como hueco (pendiente NaN, código -1 al
+   reclasificar). Para darle más curvas, en este orden:
      1. Sube `margen_borde_celdas` en `cuadros_mde` y vuelve a recortar del
         shapefile COMPLETO de curvas, no de una capa ya recortada: recortar dos
-        veces no devuelve las curvas que el primer recorte ya tiro.
+        veces no devuelve las curvas que el primer recorte ya tiró.
      2. Comprueba que el shapefile de curvas de verdad rebasa `cuadro_salida`.
-        Si la cartografia se acaba en el lindero (o en el borde de la carta),
+        Si la cartografía se acaba en el lindero (o en el borde de la carta),
         no hay margen que valga: hace falta otra fuente que cubra el hueco.
-     3. Si no hay mas cartografia, encoge `cuadro_salida` hasta lo que las
+     3. Si no hay más cartografía, encoge `cuadro_salida` hasta lo que las
         curvas sostienen. Es preferible entregar menos superficie que
         entregarla inventada."""
 
@@ -1650,7 +1656,7 @@ def interpolar_mde(
         # es la referencia contra la que se juzgan resolucion y muestreo
         sep = "?" if separacion is None else f"{separacion:.1f}"
         print(
-            f"MDE {ancho}x{alto} px | equidistancia: {eq} | separacion: {sep} | "
+            f"MDE {ancho}x{alto} px | equidistancia: {eq} | separación: {sep} | "
             f"resolucion: {resolucion:g} | muestreo: {intervalo_muestreo:g} | "
             f"extent: ({minx:.1f}, {miny:.1f}, {maxx:.1f}, {maxy:.1f}) | "
             f"z: {np.nanmin(mde):.1f}-{np.nanmax(mde):.1f} | "
@@ -1845,10 +1851,10 @@ def extraer_valores(
         xy = np.asarray(puntos, dtype=float)
     if xy.ndim != 2 or xy.shape[1] != 2:
         raise ValueError(
-            f"`puntos` debe ser una capa de puntos o un array (N, 2); llego {xy.shape}"
+            f"`puntos` debe ser una capa de puntos o un array (N, 2); llegó {xy.shape}"
         )
     if arr.ndim != 2:
-        raise ValueError(f"`arr` debe ser 2D; llego {arr.ndim}D (¿varias bandas?)")
+        raise ValueError(f"`arr` debe ser 2D; llegó {arr.ndim}D (¿varias bandas?)")
 
     filas, cols, dentro = _celdas(transform, xy, arr.shape)
     valores = np.full(len(xy), float(fuera), dtype=float)
@@ -2515,7 +2521,7 @@ def resumen_raster(arr: FloatArray, transform: Affine | None = None) -> dict[str
     """
     a = np.asarray(arr, dtype=float)
     if a.size == 0:
-        raise ValueError("raster vacio: 0 celdas")
+        raise ValueError("raster vacío: 0 celdas")
     nan = np.isnan(a)
     n_nan = int(nan.sum())
     if n_nan == a.size:
@@ -2571,27 +2577,27 @@ def estadisticas_zonales(
     """
     arr = np.asarray(arr, dtype=float)
     if arr.ndim != 2:
-        raise ValueError(f"`arr` debe ser 2D; llego {arr.ndim}D")
+        raise ValueError(f"`arr` debe ser 2D; llegó {arr.ndim}D")
     _exigir_crs(zonas, "zonas")
     if zonas.empty:
-        raise ValueError("`zonas` esta vacia")
+        raise ValueError("`zonas` está vacía")
     if campo not in zonas.columns:
         raise ValueError(f"campo '{campo}' no existe en `zonas`: {list(zonas.columns)}")
     estadisticas = tuple(estadisticas)
     malas = [e for e in estadisticas if e not in _ESTADISTICAS]
     if not estadisticas or malas:
-        raise ValueError(f"estadisticas {malas or '()'} no validas; usa {_ESTADISTICAS}")
+        raise ValueError(f"estadísticas {malas or '()'} no válidas; usa {_ESTADISTICAS}")
 
     geoms = zonas.geometry
     validas = (geoms.notna() & ~geoms.is_empty).to_numpy()
     areas = geoms[validas].area
     if areas.sum() <= 0:
-        raise ValueError("`zonas` sin area: se esperan poligonos")
+        raise ValueError("`zonas` sin área: se esperan polígonos")
     solape = areas.sum() - unary_union(list(geoms[validas])).area
     if solape > 1e-6 * areas.sum():
         raise ValueError(
             f"`zonas` se solapan ({solape:.2f} unidades2): rasterize deja ganar a "
-            "la ultima y la de abajo pierde celdas. Resuelve antes con "
+            "la última y la de abajo pierde celdas. Resuelve antes con "
             "resolver_por_prioridad"
         )
 
@@ -2646,8 +2652,8 @@ def estadisticas_zonales(
     if sin_celdas.any():
         nombres = list(zonas[campo].to_numpy()[sin_celdas][:5])
         print(
-            f"Aviso: {int(sin_celdas.sum())} zona(s) sin ninguna celda (mas chicas "
-            f"que el pixel o fuera del raster), salen con n_celdas=0 y NaN. "
+            f"Aviso: {int(sin_celdas.sum())} zona(s) sin ninguna celda (más chicas "
+            f"que el píxel o fuera del raster), salen con n_celdas=0 y NaN. "
             f"{campo}: {nombres}"
         )
     return pd.DataFrame(tabla, index=zonas.index)
@@ -2679,21 +2685,21 @@ def alinear_rasters(
     """
     if not otros:
         raise ValueError(
-            "alinear_rasters necesita al menos un raster ademas de la referencia"
+            "alinear_rasters necesita al menos un raster además de la referencia"
         )
     arr_ref, tf_ref, crs_ref = referencia
     if crs_ref is None:
         raise ValueError("la referencia no tiene CRS")
     forma = np.shape(arr_ref)
     if len(forma) != 2:
-        raise ValueError(f"la referencia debe ser 2D; llego {len(forma)}D")
+        raise ValueError(f"la referencia debe ser 2D; llegó {len(forma)}D")
     salida = []
     for i, (arr, tf, crs) in enumerate(otros, start=1):
         if crs is None:
             raise ValueError(f"el raster {i} de `otros` no tiene CRS")
         a = np.asarray(arr, dtype=float)
         if a.ndim != 2:
-            raise ValueError(f"el raster {i} de `otros` debe ser 2D; llego {a.ndim}D")
+            raise ValueError(f"el raster {i} de `otros` debe ser 2D; llegó {a.ndim}D")
         destino = np.full(forma, np.nan)
         reproject(
             source=a,
@@ -2749,7 +2755,7 @@ def curvas_de_nivel(
         raise ValueError("transform rotado: remuestrea a una malla norte-arriba antes")
     z = np.asarray(mde, dtype=float)
     if z.ndim != 2 or min(z.shape) < 2:
-        raise ValueError(f"el MDE debe ser 2D de al menos 2x2; llego {z.shape}")
+        raise ValueError(f"el MDE debe ser 2D de al menos 2x2; llegó {z.shape}")
     if np.isnan(z).all():
         raise ValueError("MDE sin datos: todas las celdas son NaN")
 
@@ -2820,21 +2826,21 @@ def vista_previa(
     if capa is not None:
         capa = capa[capa.geometry.notna() & ~capa.geometry.is_empty]
         if capa.empty:
-            raise ValueError("capa vacia: no hay geometria que dibujar")
+            raise ValueError("capa vacía: no hay geometría que dibujar")
 
     if arr is None:
         # malla sobre el extent de la capa, con 1 px de margen para que el
         # borde exterior no caiga justo en el filo de la imagen
         x0, y0, x1, y1 = capa.total_bounds
         if x1 <= x0:
-            raise ValueError("la capa no tiene ancho (una linea vertical o un punto)")
+            raise ValueError("la capa no tiene ancho (una línea vertical o un punto)")
         res = (x1 - x0) / (ancho_px - 2)
         tf = Affine(res, 0.0, x0 - res, 0.0, -res, y1 + res)
         img = np.zeros((math.ceil((y1 - y0) / res) + 2, ancho_px), dtype=np.uint8)
     else:
         z = np.asarray(arr, dtype=float)
         if z.ndim != 2:
-            raise ValueError(f"el array debe ser 2D; llego {z.shape}")
+            raise ValueError(f"el array debe ser 2D; llegó {z.shape}")
         tf = transform if transform is not None else Affine(1, 0, 0, 0, -1, z.shape[0])
         if z.shape[1] > ancho_px:
             # remuestrear pide CRS y no cambia de CRS: cualquiera proyectado

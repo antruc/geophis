@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
 
     tipo = args.tipo.lower().lstrip(".")
     if tipo not in TIPOS:
-        print(f"Error: tipo '{args.tipo}' no valido. Usa uno de: {', '.join(TIPOS)}.")
+        print(f"Error: tipo '{args.tipo}' no válido. Usa uno de: {', '.join(TIPOS)}.")
         return 2
 
     from . import convertir  # diferido sin efecto: main ya importa geophis/__init__, que carga todo

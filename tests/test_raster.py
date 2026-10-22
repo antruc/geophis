@@ -389,7 +389,7 @@ def test_acondicionar_mde_rellena_solo_adentro(tmp_path, capsys):
     assert not np.isnan(np.asarray(dem)).any()  # pysheds recibe un MDE sin NaN
     salida = capsys.readouterr().out
     assert "0.09 ha sin dato parcheadas" in salida
-    assert "geometria inventada" in salida  # el aviso, no solo la cifra
+    assert "geometría inventada" in salida  # el aviso, no solo la cifra
     assert np.asarray(geo.acumulacion_flujo(grid, dem).fdir).shape == z.shape
 
     # el archivo no se toco: quien lea el MDE para pendiente sigue viendo NaN
@@ -884,7 +884,7 @@ def test_interpolar_mde_tin_avisa_planos_a_cota_de_curva(capsys):
     # la causa del metodo, no la del TIN.
     geo.interpolar_mde(cerro, "cota", resolucion=5, intervalo_muestreo=5, vecinos=8)
     salida = capsys.readouterr().out
-    assert "MDE SPLINE son planos" in salida and "anisotropa" in salida
+    assert "MDE SPLINE son planos" in salida and "anisótropa" in salida
 
     geo.interpolar_mde(_curvas_rampa(), "cota", resolucion=5, metodo="tin")
     assert "planos exactos" not in capsys.readouterr().out

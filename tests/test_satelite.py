@@ -300,12 +300,12 @@ def test_imagen_avisa_que_tope_deja_fuera_el_relleno(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "1 de `escenas_relleno` sin turno por `max_fechas=2`" in out
     assert "fuera por" not in out
-    # max_dias=5 deja fuera el relleno (a 10 dias)
+    # max_dias=5 deja fuera el relleno (a 10 días)
     geo.imagen_sentinel2(
         PREDIO, escenas=[sep, sep2], escenas_relleno=[ago], margen_nube=0, max_dias=5
     )
     out = capsys.readouterr().out
-    assert "1 de `escenas_relleno` fuera por `max_dias=5` (a 10 dias" in out
+    assert "1 de `escenas_relleno` fuera por `max_dias=5` (a 10 días" in out
     assert "sin turno" not in out
 
 

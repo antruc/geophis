@@ -123,7 +123,7 @@ def _avisar_datum(gdf: gpd.GeoDataFrame, destino: Any, nombre: str) -> None:
     )
     for acc, rejillas in faltan[:3]:
         print(
-            f"Aviso: {nombre}: hay una operacion de {acc:g} m que no se usa "
+            f"Aviso: {nombre}: hay una operación de {acc:g} m que no se usa "
             f"porque falta la rejilla {', '.join(rejillas)}"
         )
 
@@ -158,8 +158,9 @@ def reproyectar(
     # pero igual al destino no se reproyecta de más
     if gdf.crs.equals(destino):
         return gdf
-    # ponytail: el aviso imprime el destino tal cual, así que con un int
-    # sale "32613" y no "EPSG:32613". Formatearlo si estorba al leer logs.
-    print(f"{nombre}: reproyectando a {destino}")
+    from ._salida import _mostrar  # local: proyeccion y _salida son la misma capa
+
+    if _mostrar():
+        print(f"{nombre}: reproyectando a {CRS.from_user_input(destino).to_string()}")
     _avisar_datum(gdf, destino, nombre)
     return gdf.to_crs(destino)

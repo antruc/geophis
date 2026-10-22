@@ -310,7 +310,7 @@ def test_red_drenaje_umbral_imposible_falla_diciendo_el_maximo(valle):
     # que corregir el umbral, no un "no se encontro nada".
     flujo = valle
     grid, fdir, acc = flujo
-    with pytest.raises(ValueError, match="acumulacion maxima"):
+    with pytest.raises(ValueError, match="acumulación máxima"):
         geo.red_drenaje(flujo, umbral=acc.max() + 1)
 
 
@@ -336,7 +336,7 @@ def test_orden_cauces_avisa_de_las_celdas_de_mascara_sin_numerar(valle, capsys):
     orden = geo.orden_cauces(flujo, umbral=20)
     mascara = acc > 20
     assert (mascara & (orden == 0)).any()
-    assert "NO estan sobre un tramo trazado" in capsys.readouterr().out
+    assert "NO están sobre un tramo trazado" in capsys.readouterr().out
 
 
 def test_delimitar_cuenca_ajusta_el_punto_al_cauce_y_lo_reporta(valle, capsys):
@@ -348,8 +348,8 @@ def test_delimitar_cuenca_ajusta_el_punto_al_cauce_y_lo_reporta(valle, capsys):
     cuenca = geo.delimitar_cuenca(flujo, fuera, umbral=20)
     salida = capsys.readouterr().out
 
-    assert "desague movido" in salida
-    assert "NO caia sobre cauce" in salida  # el aviso, no solo la cifra
+    assert "desagüe movido" in salida
+    assert "NO caía sobre cauce" in salida  # el aviso, no solo la cifra
     assert cuenca.geometry.iloc[0].geom_type in ("Polygon", "MultiPolygon")
     assert len(cuenca) == 1  # una fila: la union, no las piezas
 
@@ -359,7 +359,7 @@ def test_delimitar_cuenca_sobre_el_cauce_no_avisa(valle, capsys):
     grid, fdir, acc = flujo
     sobre = gpd.GeoDataFrame(geometry=[Point(500_105, 1_999_905)], crs=UTM)
     geo.delimitar_cuenca(flujo, sobre, umbral=20)
-    assert "NO caia sobre cauce" not in capsys.readouterr().out
+    assert "NO caía sobre cauce" not in capsys.readouterr().out
 
 
 def test_delimitar_cuenca_reproyecta_el_punto(valle):
@@ -388,10 +388,10 @@ def test_delimitar_cuenca_acepta_una_ZONA_y_mide_su_desague(valle, capsys):
 
     por_zona = geo.delimitar_cuenca(flujo, zona, umbral=20)
     salida = capsys.readouterr().out
-    assert "desague MEDIDO en la zona" in salida
-    assert "mayor acumulacion" in salida
+    assert "desagüe MEDIDO en la zona" in salida
+    assert "mayor acumulación" in salida
 
-    # la celda de mayor acumulacion de la zona, a mano, tiene que dar lo mismo
+    # la celda de mayor acumulación de la zona, a mano, tiene que dar lo mismo
     tf = fdir.viewfinder.affine
     dentro = geo.rasterizar(zona, np.asarray(acc).shape, tf).astype(bool)
     f, c = np.unravel_index(
@@ -446,7 +446,7 @@ def test_delimitar_cuenca_exige_una_sola_geometria(valle):
     dos = gpd.GeoDataFrame(
         geometry=[Point(500_105, 1_999_905), Point(500_105, 1_999_805)], crs=UTM
     )
-    with pytest.raises(ValueError, match="UNA geometria"):
+    with pytest.raises(ValueError, match="UNA geometría"):
         geo.delimitar_cuenca(flujo, dos, umbral=20)
 
 
@@ -770,7 +770,7 @@ def test_rellenar_sumideros_avisa_si_sube_el_cauce(tmp_path, capsys):
     y = 2_000_000 - 65  # centro de la fila 6
     cauce = gpd.GeoDataFrame(geometry=[LineString([(500_000, y), (500_120, y)])], crs=UTM)
     geo.rellenar_sumideros(grid, Raster(z, dem.viewfinder), cauces=cauce)
-    assert "1 celda(s) de cauce subidas mas de 2 mm (hasta 4.000 m)" in capsys.readouterr().out
+    assert "1 celda(s) de cauce subidas más de 2 mm (hasta 4.000 m)" in capsys.readouterr().out
 
 
 def test_quemar_cauces_avisa_del_lecho_por_encima_del_terreno(capsys):

@@ -1033,7 +1033,7 @@ def test_partir_por_linea_diagonal_y_linea_que_no_sale(gdf, cuadrado, capsys):
     assert capsys.readouterr().out == ""
     colgante = gdf(LineString([(5, -1), (5, 5)]))
     assert len(geo.partir_por_linea(rodal, colgante)) == 1
-    assert "1 poligonos tocados" in capsys.readouterr().out
+    assert "1 polígonos tocados" in capsys.readouterr().out
 
 
 def test_partir_por_linea_camino_por_el_lindero_no_avisa(gdf, cuadrado, capsys):

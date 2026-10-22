@@ -96,7 +96,7 @@ def _panel(
     datos = np.asarray(datos, dtype=float)
     if datos.ndim != (3 if tipo == "rgb" else 2):
         raise ValueError(
-            f"{titulo!r}: forma {datos.shape} no valida para un panel {tipo}"
+            f"{titulo!r}: forma {datos.shape} no válida para un panel {tipo}"
         )
     estirado = extra.get("estirado")
     if estirado is not None:
@@ -187,7 +187,7 @@ def panel_clases(
     """
     if set(colores) != set(etiquetas):
         raise ValueError(
-            f"`colores` y `etiquetas` deben tener los mismos codigos: "
+            f"`colores` y `etiquetas` deben tener los mismos códigos: "
             f"{sorted(colores)} contra {sorted(etiquetas)}"
         )
     cols = {k: _color(c) for k, c in colores.items()}
@@ -333,7 +333,7 @@ def lamina(
     solo por un multiplo entero, por vecino mas cercano.
     """
     if not paneles:
-        raise ValueError("`paneles` vacio: no hay nada que dibujar")
+        raise ValueError("`paneles` vacío: no hay nada que dibujar")
     _exigir_salida(ruta, {".png"}, "lamina")
     columnas = columnas or min(len(paneles), 3)
     if columnas < 1:

@@ -514,7 +514,7 @@ def barrer_resolucion(
     _desconocidas = exentos - {r[0] for r in rangos}
     if _desconocidas:
         raise ValueError(
-            f"`exentos` {sorted(map(str, _desconocidas))} no estan en `rangos`"
+            f"`exentos` {sorted(map(str, _desconocidas))} no están en `rangos`"
         )
     if resoluciones is None and metodo in ("tin", "malla"):
         raise ValueError(
@@ -587,13 +587,13 @@ def barrer_resolucion(
                 f"   BANDA: {min(areas):.2f} a {max(areas):.2f} ha entre "
                 f"h={filas[0]['h']:g} y {filas[-1]['h']:g} m "
                 f"(+/-{(max(areas) - min(areas)) / max(areas) * 100 / 2:.0f} % "
-                f"sobre el maximo). Esa es la incertidumbre de la cifra frente a "
+                f"sobre el máximo). Esa es la incertidumbre de la cifra frente a "
                 f"`h`, y es lo que se declara junto a ella."
             )
         print(
-            "   `delta%` es el cambio contra el `h` inmediatamente mas fino. Ojo "
+            "   `delta%` es el cambio contra el `h` inmediatamente más fino. Ojo "
             "al leerlo: `min_pixeles` es entero y salta, y el sieve ABSORBE en el "
-            "vecino mayor, asi que un escalon de `min_px` entre dos filas mete un "
+            "vecino mayor, así que un escalón de `min_px` entre dos filas mete un "
             "brinco que no es del terreno. Fija `min_pixeles` para leerlo limpio. "
             "`p_sost` NaN = ninguna curva dentro de esa clase: rizo puro."
         )
@@ -999,7 +999,7 @@ def histograma_fase(
     """
     cotas = sorted(pd.to_numeric(curvas[campo], errors="coerce").dropna().unique())
     if len(cotas) < 2:
-        raise ValueError("menos de dos cotas: la fase no esta definida")
+        raise ValueError("menos de dos cotas: la fase no está definida")
     e = _detectar_equidistancia(cotas)
     if e is None:
         raise ValueError("no se pudo detectar la equidistancia de curvas[campo]")
@@ -1016,7 +1016,10 @@ def histograma_fase(
     dentro = np.isfinite(mde) if mascara is None else (mascara & np.isfinite(mde))
     n = int(dentro.sum())
     if n == 0:
-        raise ValueError("la mascara no deja ningun pixel con dato")
+        raise ValueError(
+            "la mascara no deja ningún píxel con dato; comprueba que `mascara` "
+            "y `mde` sean la misma malla y que el MDE tenga dato dentro"
+        )
 
     z = mde[dentro] - cotas[0]
     fase = z % e
@@ -1192,10 +1195,13 @@ def amplitud_rizo(
     util = dentro & (k2 >= 0) & (np.abs(k1 - k2) == 1) & (escalar < 0)
     n_dentro = int(dentro.sum())
     if n_dentro == 0:
-        raise ValueError("la mascara no deja ningun pixel con dato")
+        raise ValueError(
+            "la mascara no deja ningún píxel con dato; comprueba que `mascara` "
+            "y `mde` sean la misma malla y que el MDE tenga dato dentro"
+        )
     if not util.any():
         raise ValueError(
-            "ningun pixel queda enmarcado por dos cotas contiguas: comprueba que "
+            "ningún píxel queda enmarcado por dos cotas contiguas: comprueba que "
             "`transform` es el de `mde` y que las curvas caen en esa malla"
         )
 
@@ -1216,13 +1222,13 @@ def amplitud_rizo(
     e = _detectar_equidistancia(cotas)
     if _mostrar():
         print(
-            f"amplitud_rizo: A >= {a:.2f} m (p{cuantil:g} de la excursion fuera de "
+            f"amplitud_rizo: A >= {a:.2f} m (p{cuantil:g} de la excursión fuera de "
             f"[z_lo, z_hi] sobre {n_util:,} px, {detalle['frac_usada'] * 100:.0f} % "
-            f"de la mascara; maximo {detalle['excursion_max']:.2f} m)"
+            f"de la mascara; máximo {detalle['excursion_max']:.2f} m)"
         )
         print(
-            f"   Excursion > 0 en el {detalle['frac_excursion'] * 100:.1f} % de esos "
-            f"pixeles. Es un PISO de A, no A: el rizo que"
+            f"   Excursión > 0 en el {detalle['frac_excursion'] * 100:.1f} % de esos "
+            f"píxeles. Es un PISO de A, no A: el rizo que"
         )
         print(
             "   ondula DENTRO del intervalo no se ve. Si ya supera lo que toleras, "
@@ -1235,7 +1241,7 @@ def amplitud_rizo(
         print(
             f"   Aviso: amplitud_rizo: solo el {detalle['frac_usada'] * 100:.0f} % de "
             f"la mascara queda entre dos cotas contiguas. Cimas y hoyas cerradas no "
-            f"tienen envolvente y no cuentan; si la fraccion es baja de mas, "
+            f"tienen envolvente y no cuentan; si la fracción es baja de más, "
             f"revisa que las curvas cubran el extent de `mde`."
         )
     if e is not None and a > e / 4:
@@ -1244,7 +1250,7 @@ def amplitud_rizo(
             f"equidistancia {e:g} m. A esa escala la cifra suele ser el lomo o la "
             f"vaguada que no llegan al siguiente nivel (no hay curva que los "
             f"cierre, y se les atribuye la banda de abajo), no el interpolador. "
-            f"Baja el `cuantil` y mira donde se estabiliza."
+            f"Baja el `cuantil` y mira dónde se estabiliza."
         )
     return a, detalle
 

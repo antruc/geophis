@@ -523,7 +523,7 @@ def puntos_a_poligono(
         if _mostrar():
             rejilla = np.sqrt(nube.convex_hull.area / len(pts))
             print(
-                f"concava {que}: lado_max {lado_max:.0f} m = umbral relativo {ratio:.3f} "
+                f"cóncava {que}: lado_max {lado_max:.0f} m = umbral relativo {ratio:.3f} "
                 f"| aristas {corta:.0f} a {larga:.0f} m | rejilla uniforme {rejilla:.0f} m "
                 f"(referencia: {2 * rejilla:.0f} a {4 * rejilla:.0f} m)"
             )
@@ -969,7 +969,7 @@ def concordancia_lineas(
     m_lin, m_ref = longitud_total_m(lin_z), longitud_total_m(ref_z)
     if m_lin == 0 or m_ref == 0:
         raise ValueError(
-            f"sin largo dentro de la zona: lineas {m_lin:.1f} m, referencia "
+            f"sin largo dentro de la zona: líneas {m_lin:.1f} m, referencia "
             f"{m_ref:.1f} m. Un porcentaje sobre cero no se reporta."
         )
     filas = []
@@ -1140,7 +1140,7 @@ def separacion_media(
         # va el simbolo: esos se leen, no se codifican a stdout.
         print(
             f"Aviso: paso {paso:g} m > lambda/4 ({lam / 4:.1f} m): la banda toca "
-            f"la curva vecina, el area se satura y lambda ({lam:.1f}) y el zigzag "
+            f"la curva vecina, el área se satura y lambda ({lam:.1f}) y el zigzag "
             f"salen inflados. Baja `paso`; el default de 2.5 m sirve casi siempre."
         )
     return lam, longitud_efectiva, longitud_total_m(dentro) / longitud_efectiva
@@ -1372,9 +1372,9 @@ def ancho_banda(
             f"{largo_efectivo:.0f} m efectivos | blanco {area_m2 / 10_000:.2f} ha"
         )
         print(
-            f"   ancho geometrico (equidistancia/p) = {s_max:.1f} m. Pasa `w` como "
-            f"`ancho_medido` a `resolucion_regla`: con el geometrico el techo de "
-            f"trazado sale {s_max / ancho:.2f} veces mas grueso."
+            f"   ancho geométrico (equidistancia/p) = {s_max:.1f} m. Pasa `w` como "
+            f"`ancho_medido` a `resolucion_regla`: con el geométrico el techo de "
+            f"trazado sale {s_max / ancho:.2f} veces más grueso."
         )
     if devolver_banda:
         # `trozos` no puede venir vacía aquí: sin geometría el largo sería 0 y
@@ -1384,7 +1384,7 @@ def ancho_banda(
             print(
                 f"   banda devuelta: {len(banda)} tramos, "
                 f"{longitud_total_m(banda):.0f} m de TRAZO (con zigzag dentro). "
-                f"Dividelo entre zigzag antes de compararlo con el largo efectivo."
+                f"Divídelo entre zigzag antes de compararlo con el largo efectivo."
             )
         return tabla, resumen, banda
     return tabla, resumen
@@ -1474,9 +1474,9 @@ def sostenimiento_por_clase(
             )
         print(
             "   Un corte es entregable si existe `h` con "
-            "`piso_local <= h <= s_sost`. Toma el corte MAS ALTO que lo cumpla: "
-            "fundir clases ensancha el objeto, y un objeto mas ancho cabe en el "
-            "pixel. `s_sost` NaN = sin curvas dentro, rizo puro, no se cita."
+            "`piso_local <= h <= s_sost`. Toma el corte MÁS ALTO que lo cumpla: "
+            "fundir clases ensancha el objeto, y un objeto más ancho cabe en el "
+            "píxel. `s_sost` NaN = sin curvas dentro, rizo puro, no se cita."
         )
     return filas
 
@@ -1559,7 +1559,7 @@ def auditar_rangos(
             f"{'s sost':>8} {'p sost':>8}  bandera"
         )
         print(
-            "   (techo = cota SUPERIOR floja, no el blanco cartografico firme; "
+            "   (techo = cota SUPERIOR floja, no el blanco cartográfico firme; "
             "el juez por rango es p_sostenida)"
         )
         for f in filas:
@@ -1728,7 +1728,7 @@ def cercano(
     otro = _alinear(gdf, otro)
     _exigir_proyectado(gdf, "gdf")
     if len(otro) == 0:
-        raise ValueError("`otro` esta vacia: no hay entidad cercana que buscar")
+        raise ValueError("`otro` está vacía: no hay entidad cercana que buscar")
     if campo_id is not None and campo_id not in otro.columns:
         raise ValueError(f"`otro` no tiene el campo '{campo_id}'")
     if max_distancia is not None and max_distancia <= 0:
@@ -1779,7 +1779,7 @@ def puntos_sobre_linea(
     lineas = separar_multipartes(gdf)
     tipos = set(lineas.geometry.geom_type) - {"LineString"}
     if tipos:
-        raise ValueError(f"puntos_sobre_linea espera lineas; la capa trae {tipos}")
+        raise ValueError(f"puntos_sobre_linea espera líneas; la capa trae {tipos}")
     c_cad, c_id = nombre_campo_libre(gdf, "CADENA_M"), nombre_campo_libre(gdf, "ID_LINEA")
     filas: list[int] = []
     cadenas: list[float] = []
@@ -1854,7 +1854,7 @@ def thiessen(puntos: gpd.GeoDataFrame, zona: gpd.GeoDataFrame) -> gpd.GeoDataFra
     zona = _alinear(puntos, zona)
     _exigir_proyectado(puntos, "puntos")
     if len(puntos) == 0 or len(zona) == 0:
-        raise ValueError("thiessen necesita puntos y zona no vacios")
+        raise ValueError("thiessen necesita puntos y zona no vacíos")
     tipos = set(puntos.geometry.geom_type) - {"Point"}
     if tipos:
         raise ValueError(f"thiessen espera puntos; la capa trae {tipos}")
@@ -1862,7 +1862,7 @@ def thiessen(puntos: gpd.GeoDataFrame, zona: gpd.GeoDataFrame) -> gpd.GeoDataFra
     if duplicados.any():
         dup = puntos[duplicados.values]
         raise ValueError(
-            f"puntos duplicados (indice: coordenada): "
+            f"puntos duplicados (índice: coordenada): "
             f"{dict(zip(dup.index, dup.geometry.to_wkt()))}"
         )
     limite = unary_union(zona.geometry)
@@ -1878,7 +1878,10 @@ def thiessen(puntos: gpd.GeoDataFrame, zona: gpd.GeoDataFrame) -> gpd.GeoDataFra
         "index_right"
     ]
     if len(pos) != len(puntos) or pos.index.duplicated().any():
-        raise ValueError("no se pudo asignar una celda unica a cada punto")
+        raise ValueError(
+            "no se pudo asignar una celda única a cada punto; suele ser por "
+            "puntos casi coincidentes: fusiona los que estén a menos de 1 mm"
+        )
     salida = puntos.copy()
     col_geom = salida.geometry.name
     salida[col_geom] = capa_celdas.geometry.values[pos.sort_index().values]
@@ -1911,7 +1914,7 @@ def partir_por_linea(
     lineas = _alinear(poligonos, lineas)
     tipos = set(lineas.geometry.geom_type) - {"LineString", "MultiLineString"}
     if tipos:
-        raise ValueError(f"partir_por_linea espera lineas; `lineas` trae {tipos}")
+        raise ValueError(f"partir_por_linea espera líneas; `lineas` trae {tipos}")
     if len(poligonos) == 0 or len(lineas) == 0:
         return poligonos.copy()
     col_geom = poligonos.geometry.name
@@ -1935,8 +1938,8 @@ def partir_por_linea(
         origen.extend([i] * len(piezas))
     if enteros:
         print(
-            f"Aviso: {enteros} poligonos tocados por lineas salieron enteros; "
-            f"la linea no los atraviesa de borde a borde"
+            f"Aviso: {enteros} polígonos tocados por líneas salieron enteros; "
+            f"la línea no los atraviesa de borde a borde"
         )
     salida = poligonos.iloc[origen].reset_index(drop=True)
     salida[col_geom] = gpd.GeoSeries(piezas_todas, index=salida.index, crs=poligonos.crs)
@@ -2048,7 +2051,7 @@ def medir_geodesico(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         if area.sum() > 0:
             d = 100 * (plano_a - area.sum()) / area.sum()
             print(
-                f"Area plana {plano_a / 10000:.2f} ha, elipsoide "
+                f"Área plana {plano_a / 10000:.2f} ha, elipsoide "
                 f"{area.sum() / 10000:.2f} ha: diferencia {d:+.3f} %"
             )
         if largo.sum() > 0:
@@ -2124,11 +2127,11 @@ def simplificar(
         if malas.any():
             n = int(malas.sum())
             raise ValueError(
-                f"la capa no es una particion ({n} poligonos con aristas "
-                "invalidas: solapes o bordes casi coincidentes). Mide con "
+                f"la capa no es una partición ({n} polígonos con aristas "
+                "inválidas: solapes o bordes casi coincidentes). Mide con "
                 "comprobar_particion y arregla con borrar o "
                 "resolver_por_prioridad; si de verdad quieres simplificar cada "
-                "poligono por su cuenta, conservar_topologia=False"
+                "polígono por su cuenta, conservar_topologia=False"
             )
         # `coverage_simplify` tampoco acepta None (cae al reacomodar la salida)
         limpias[llenas] = shapely.coverage_simplify(

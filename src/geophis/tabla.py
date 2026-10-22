@@ -166,8 +166,8 @@ def estadisticas_de_resumen(
         cols = [campos] if isinstance(campos, str) else list(campos)
         spec = {c: ["sum"] for c in cols}
         print(
-            "Aviso: `campos` sin estadistico; se asume 'sum' para "
-            f"{cols}. Declaralo si querias otro: campos={{'{cols[0]}': 'mean'}}"
+            "Aviso: `campos` sin estadístico; se asume 'sum' para "
+            f"{cols}. Decláralo si querías otro: campos={{'{cols[0]}': 'mean'}}"
         )
 
     geom = gdf.geometry.name if gdf.geometry is not None else None
@@ -179,7 +179,7 @@ def estadisticas_de_resumen(
         )
     if geom in claves or geom in spec:
         raise ValueError(
-            f"'{geom}' es la geometria, no un atributo: no se puede agrupar ni "
+            f"'{geom}' es la geometría, no un atributo: no se puede agrupar ni "
             "sumar por ella. Para superficie usa calcular_superficie y resume "
             "esa columna"
         )
@@ -257,7 +257,7 @@ def unir_campo(
             tabla = pd.read_csv(tabla)
         else:
             raise ValueError(
-                f"extension '{ext}' no soportada para una tabla; usa .csv, .xlsx o .xls"
+                f"extensión '{ext}' no soportada para una tabla; usa .csv, .xlsx o .xls"
             )
 
     izq, der = (clave, clave) if isinstance(clave, str) else clave
@@ -317,14 +317,14 @@ def unir_campo(
 
     if casadas == 0:
         raise _sin_coincidencias(
-            "Las dos columnas existen y los tipos son compatibles, asi que no "
+            "Las dos columnas existen y los tipos son compatibles, así que no "
             "es de nombre ni de tipo: los valores son de otro universo."
         )
     if repetidas:
         print(
             f"Aviso: la tabla tiene {repetidas} claves repetidas en '{der}'; la "
-            f"capa paso de {len(gdf)} a {len(salida)} filas. Cada repetida "
-            "duplica la entidad, y eso infla cualquier total que se sume despues"
+            f"capa pasó de {len(gdf)} a {len(salida)} filas. Cada repetida "
+            "duplica la entidad, y eso infla cualquier total que se sume después"
         )
     if pisadas:
         print(
@@ -415,8 +415,8 @@ def _exigir_campos(gdf: gpd.GeoDataFrame, campos: list[str]) -> None:
     """Falla si falta alguna columna o si se pide la geometría como atributo."""
     if gdf.geometry.name in campos:
         raise ValueError(
-            f"'{gdf.geometry.name}' es la geometria, no un atributo: esta "
-            "funcion no la toca"
+            f"'{gdf.geometry.name}' es la geometría, no un atributo: esta "
+            "función no la toca"
         )
     faltan = [c for c in campos if c not in gdf.columns]
     if faltan:
@@ -571,7 +571,7 @@ def calcular_campo(
             "acentos va entre acentos graves: `CLASE DE USO`"
         ) from e
     if campo in gdf.columns:
-        print(f"Aviso: calcular_campo sobrescribe '{campo}', que ya existia")
+        print(f"Aviso: calcular_campo sobrescribe '{campo}', que ya existía")
     salida = gdf.copy()
     salida[campo] = valores
     if _mostrar():
@@ -598,7 +598,7 @@ def renombrar_campos(
     repetidos = sorted({n for n in finales if finales.count(n) > 1})
     if repetidos:
         raise ValueError(
-            f"al renombrar quedarian columnas repetidas: {repetidos}. Renombra "
+            f"al renombrar quedarían columnas repetidas: {repetidos}. Renombra "
             "o borra antes la que ya tiene ese nombre"
         )
     salida = gdf.rename(columns=nombres)
@@ -693,7 +693,7 @@ def cambiar_tipo(
         if not forzar:
             raise ValueError(
                 f"'{campo}': {int(perdidos.sum())} valor(es) no convierten a "
-                f"{tipo}, p. ej. {muestra}. Corrigelos antes con "
+                f"{tipo}, p. ej. {muestra}. Corrígelos antes con "
                 "reemplazar_valores, o pasa forzar=True para dejarlos nulos"
             )
         print(
@@ -832,8 +832,8 @@ def crear_capa(
     tabla = pd.DataFrame(atributos if atributos is not None else {})
     if len(tabla.columns) and len(tabla) != len(geometrias):
         raise ValueError(
-            f"{len(geometrias)} geometrias y {len(tabla)} filas de atributos: "
-            "tiene que haber una fila por geometria"
+            f"{len(geometrias)} geometrías y {len(tabla)} filas de atributos: "
+            "tiene que haber una fila por geometría"
         )
     salida = gpd.GeoDataFrame(
         tabla.reset_index(drop=True),

@@ -59,6 +59,10 @@ DIFERIDOS_OK = {
         "interpolador necesita una medicion de la cartografia. Diferido a "
         "proposito y documentado en `_separacion_horizontal`."
     ),
+    ("proyeccion", "_salida"): (
+        "misma capa 0: `reproyectar` lee `geo.MOSTRAR` para callar su reporte, "
+        "y la regla de capas no admite un import horizontal en la cabecera."
+    ),
     ("cli", "geophis"): (
         "import perezoso a proposito: `geophis ayuda` no tiene por que cargar "
         "geopandas, que son segundos de arranque para imprimir un texto."

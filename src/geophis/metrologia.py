@@ -130,7 +130,7 @@ def _p_max(rangos: list[tuple[Any, float, float]]) -> float:
     finitos = [v for _, mn, mx in rangos for v in (mn, mx) if math.isfinite(v)]
     p = max(finitos) / 100
     if p <= 0:
-        raise ValueError(f"rangos sin limite de pendiente positivo: {rangos}")
+        raise ValueError(f"rangos sin límite de pendiente positivo: {rangos}")
     return p
 
 

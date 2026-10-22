@@ -25,7 +25,7 @@ def test_ayuda_por_palabra(capsys):
 
 def test_tipo_invalido(capsys):
     assert main(["cualquiera.shp", "foo"]) == 2
-    assert "no valido" in capsys.readouterr().out
+    assert "no válido" in capsys.readouterr().out
 
 
 def test_archivo_inexistente(capsys):

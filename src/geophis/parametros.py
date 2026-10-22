@@ -368,7 +368,7 @@ def derivar_parametros(
             antes.pop("medida", None)
             if antes != ahora:
                 raise ValueError(
-                    f"`medidos` se midio sobre otra capa de {capa}: {antes} contra {ahora}"
+                    f"`medidos` se midió sobre otra capa de {capa}: {antes} contra {ahora}"
                 )
         equidistancia = medidos["equidistancia"] if equidistancia is None else equidistancia
         lambda_m = medidos["lambda_m"] if lambda_m is None else lambda_m
@@ -389,8 +389,8 @@ def derivar_parametros(
         vecinos = None
     if es_tin and (vecinos is not None or medir_vecinos):
         raise ValueError(
-            "`vecinos` es de la RBF: con metodo='tin' no entra en ningun sitio, y "
-            "pasarlo haria creer que se eligio algo"
+            "`vecinos` es de la RBF: con metodo='tin' no entra en ningún sitio, y "
+            "pasarlo haría creer que se eligió algo"
         )
     # Antes de medir nada: en grados todo esto sale con la unidad equivocada y
     # sin reventar. None se salta (el camino de aritmetica pura no mide).
@@ -596,8 +596,8 @@ def derivar_parametros(
         if s_medido <= 0:
             # a esta `h` cada celda toca una curva: la malla no ve el vacio
             raise ValueError(
-                f"`s_vacio` mide 0 a h={h_uso:g} m: la malla es mas gruesa que la "
-                f"separacion entre curvas (lambda {lam:.1f} m) y cada celda toca una. "
+                f"`s_vacio` mide 0 a h={h_uso:g} m: la malla es más gruesa que la "
+                f"separación entre curvas (lambda {lam:.1f} m) y cada celda toca una. "
                 "Pasa `resolucion` menor o `s_vacio` a mano."
             )
         p["s_vacio"] = _v(

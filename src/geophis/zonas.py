@@ -85,7 +85,7 @@ def zonificar(
     por_etiqueta = {et: c for c, et in etiquetas.items()}
     desconocidas = [e for e in exentos or () if e not in por_etiqueta]
     if desconocidas:
-        raise ValueError(f"exentos {desconocidas} no estan en rangos: {list(por_etiqueta)}")
+        raise ValueError(f"exentos {desconocidas} no están en rangos: {list(por_etiqueta)}")
     cod_exentos = [por_etiqueta[e] for e in exentos or ()]
 
     codigos = limpiar_moteado(codigos, min_pixeles, mascara=mascara, exentos=cod_exentos)

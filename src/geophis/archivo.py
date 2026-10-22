@@ -181,8 +181,8 @@ def cargar(
     if crs is not None:
         if gdf.crs is not None and not gdf.crs.equals(crs):
             raise ValueError(
-                f"'{ruta}' ya trae CRS {gdf.crs} y se pidio crs={crs}; "
-                "crs= asigna, no reproyecta: usa reproyectar despues de cargar"
+                f"'{ruta}' ya trae CRS {gdf.crs} y se pidió crs={crs}; "
+                "crs= asigna, no reproyecta: usa reproyectar después de cargar"
             )
         gdf = gdf.set_crs(crs, allow_override=True)
     elif gdf.crs is None:
@@ -197,14 +197,22 @@ def cargar(
         mayor = familia.value_counts().index[0]
         tipos = [mayor, "Multi" + mayor]
         print(
-            f"Aviso: '{ruta}' mezcla geometrias {sorted(set(gdf.geom_type.dropna()))}; "
+            f"Aviso: '{ruta}' mezcla geometrías {sorted(set(gdf.geom_type.dropna()))}; "
             f"separa con gdf[gdf.geom_type.isin({tipos})]"
         )
     if _mostrar():
-        print(f"Cargado '{ruta}': {len(gdf)} entidades | CRS: {gdf.crs}")
+        print(f"Cargado '{ruta}': {len(gdf)} entidades | CRS: {_crs_corto(gdf.crs)}")
     if len(gdf) == 0:
         print(f"Aviso: '{ruta}' no tiene entidades")
     return gdf
+
+
+def _crs_corto(crs: Any) -> str:
+    """'EPSG:32613', o el nombre si no hay codigo: el WKT entero son 700 caracteres."""
+    if crs is None:
+        return "(ninguno)"
+    epsg = crs.to_epsg()
+    return f"EPSG:{epsg}" if epsg else f"{crs.name} (sin código EPSG)"
 
 
 def cargar_puntos(
@@ -252,7 +260,7 @@ def cargar_puntos(
         crs=f"EPSG:{epsg}" if epsg else None,
     )
     if _mostrar():
-        print(f"Cargado '{ruta}': {len(gdf)} puntos | CRS: {gdf.crs}")
+        print(f"Cargado '{ruta}': {len(gdf)} puntos | CRS: {_crs_corto(gdf.crs)}")
     if epsg is None:
         print(
             "Aviso: capa sin CRS (no se pasó epsg); no podrás reproyectar ni "
@@ -479,8 +487,8 @@ def _fijar_anchos_dbf(ruta: str, anchos: dict[int, tuple[int, int]]) -> None:
         columnas.append(salida)
     if errores:
         raise ValueError(
-            "hay valores que no caben en el ancho pedido; se cortarian o "
-            "saldrian como asteriscos. El ancho de texto cuenta BYTES: una "
+            "hay valores que no caben en el ancho pedido; se cortarían o "
+            "saldrían como asteriscos. El ancho de texto cuenta BYTES: una "
             "letra con acento o una enie ocupa 2.\n" + "\n".join(errores)
         )
     if redondeados:
@@ -508,7 +516,7 @@ def _validar_anchos(
     """`{campo: 50 | (12, 4)}` -> `{posicion_en_el_dbf: (ancho, decimales)}`."""
     if ext != ".shp":
         raise ValueError(
-            f"`anchos` solo aplica a .shp, no a '{ext}': los demas formatos no "
+            f"`anchos` solo aplica a .shp, no a '{ext}': los demás formatos no "
             "guardan un ancho fijo por campo"
         )
     atributos = [c for c in gdf.columns if c != gdf.geometry.name]
@@ -528,7 +536,7 @@ def _validar_anchos(
             )
         tipo = gdf[campo].dtype
         if pd.api.types.is_datetime64_any_dtype(tipo) or pd.api.types.is_bool_dtype(tipo):
-            raise ValueError(f"'{campo}' es fecha o logico: su ancho es fijo en un .shp")
+            raise ValueError(f"'{campo}' es fecha o lógico: su ancho es fijo en un .shp")
         if d and not pd.api.types.is_numeric_dtype(tipo):
             raise ValueError(f"'{campo}' es texto: lleva solo ancho, sin decimales")
         salida[atributos.index(campo)] = (a, d)
@@ -751,7 +759,8 @@ def _a_geografico(gdf: gpd.GeoDataFrame, ext: str) -> gpd.GeoDataFrame:
     """Reproyecta a EPSG:4326 si hace falta; GPX/KML/KMZ lo exigen."""
     _exigir_crs(gdf, "capa")
     if gdf.crs.to_epsg() != 4326:
-        print(f"Reproyectando a EPSG:4326 para exportar a {ext}")
+        if _mostrar():
+            print(f"Reproyectando a EPSG:4326 para exportar a {ext}")
         return gdf.to_crs(epsg=4326)
     return gdf
 
@@ -759,7 +768,7 @@ def _a_geografico(gdf: gpd.GeoDataFrame, ext: str) -> gpd.GeoDataFrame:
 def _poligono_a_borde(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """GPX no admite polígonos; exporta su contorno como línea."""
     if set(gdf.geom_type) & {"Polygon", "MultiPolygon"}:
-        print("GPX no admite polígonos; exporto su contorno como línea")
+        print("Aviso: GPX no admite polígonos; se exporta su contorno como línea")
         gdf = gdf.copy()
         # por nombre real: con el literal y la columna activa llamada distinto, se
         # añadiría una columna "geometry" y se exportaría el polígono original
@@ -770,7 +779,7 @@ def _poligono_a_borde(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def _multipunto_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """GPX no admite MultiPoint; lo separa en un waypoint por punto."""
     if (gdf.geom_type == "MultiPoint").any():
-        print("GPX no admite multipuntos; exporto un waypoint por punto")
+        print("Aviso: GPX no admite multipuntos; se exporta un waypoint por punto")
         gdf = gdf.explode(index_parts=False).reset_index(drop=True)
     return gdf
 
@@ -1035,7 +1044,7 @@ def detectar_cota(
         print(f"   saltos entre cotas: {reparto}")
         if len(filas) > 1 and filas[1][1] >= regularidad_min:
             print(
-                f"   OJO: '{filas[1][0]}' tambien pasa (regularidad {filas[1][1]:.2f}, "
+                f"   OJO: '{filas[1][0]}' también pasa (regularidad {filas[1][1]:.2f}, "
                 f"paso {filas[1][2]:g} m). Dos escaleras en la misma capa"
             )
     cotas = pd.to_numeric(curvas[col], errors="coerce")
@@ -1078,7 +1087,7 @@ def _avisar_fuera_de_escalera(cotas: pd.Series, col: str, paso: float) -> None:
         f"Aviso: {int(raros.sum())} cota(s) de '{col}' fuera de la escalera de "
         f"{paso:g} m o con salto > 2 pasos:\n" + "\n".join(lineas) + "\n"
         "   Si no es un hueco real de la carta, es una curva mal capturada: hace un "
-        "pico\n   o un escalon falso en el MDE. Corrigela o quitala antes de "
+        "pico\n   o un escalón falso en el MDE. Corrígela o quítala antes de "
         "interpolar."
     )
 
@@ -1131,7 +1140,7 @@ def listar_capas(ruta: str | PathLike[str]) -> list[str]:
     if _mostrar():
         print(f"'{ruta}': {len(nombres)} capa(s)")
         for nombre, tipo in zip(info["name"], info["geometry_type"]):
-            print(f"  {nombre} ({tipo or 'sin geometria'})")
+            print(f"  {nombre} ({tipo or 'sin geometría'})")
     if not nombres:
         print(f"Aviso: '{ruta}' no declara ninguna capa")
     return nombres
@@ -1205,7 +1214,7 @@ def describir(
             )
         if ficha["extension"] is not None:
             x0, y0, x1, y1 = ficha["extension"]
-            print(f"  extension  ({x0:.2f}, {y0:.2f}) - ({x1:.2f}, {y1:.2f})")
+            print(f"  extensión  ({x0:.2f}, {y0:.2f}) - ({x1:.2f}, {y1:.2f})")
         print(f"  campos     {len(ficha['campos'])}")
         for col, tipo in ficha["campos"].items():
             nulos = ficha["nulos"][col]
@@ -1213,18 +1222,18 @@ def describir(
             print(f"    {col}: {tipo}{aviso}")
         if vacias or ficha["invalidas"]:
             print(
-                f"  Aviso: {vacias} geometrias vacias, {ficha['invalidas']} "
-                "invalidas (limpiar_vacias / reparar_geometrias)"
+                f"  Aviso: {vacias} geometrías vacías, {ficha['invalidas']} "
+                "inválidas (limpiar_vacias / reparar_geometrias)"
             )
     if gdf.crs is None:
-        print("Aviso: capa sin CRS; no podras reproyectar ni medir areas")
+        print("Aviso: capa sin CRS; no podrás reproyectar ni medir áreas")
     elif gdf.crs.is_geographic:
         # El docstring dice que las unidades son de las tres que muerden porque
         # "el aviso llega funcion por funcion, tarde", y esta funcion existe para
         # darlo temprano. Imprimir la palabra 'degree' entre otros diez campos no
         # es darlo: un adjetivo no es un aviso.
         print(
-            f"Aviso: CRS GEOGRAFICO (unidades '{ficha['unidades']}'). Cualquier "
+            f"Aviso: CRS GEOGRÁFICO (unidades '{ficha['unidades']}'). Cualquier "
             "superficie, longitud, buffer o distancia sale en grados y NO "
             "significa nada; reproyecta a UTM antes de medir (detectar_utm)"
         )

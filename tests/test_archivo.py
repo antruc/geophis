@@ -103,7 +103,7 @@ def test_cargar_dxf_avisa_geometrias_mezcladas(tmp_path, gdf, capsys):
     g = gdf(LineString([(0, 0), (10, 0)]), Point(3, 3), crs=None, Layer=["a", "b"])
     pyogrio.write_dataframe(g, ruta, driver="DXF")
     geo.cargar(ruta, crs=32613)
-    assert "mezcla geometrias" in capsys.readouterr().out
+    assert "mezcla geometrías" in capsys.readouterr().out
 
 
 def test_cargar_no_avisa_de_polygon_con_multipolygon(tmp_path, gdf, capsys):
@@ -126,7 +126,7 @@ def test_cargar_aviso_de_mezcla_sugiere_la_familia_mayoritaria(tmp_path, gdf, ca
     pyogrio.write_dataframe(gdf(*lineas, Point(3, 3)), ruta, driver="GPKG")
     geo.cargar(ruta)
     out = capsys.readouterr().out
-    assert "mezcla geometrias" in out
+    assert "mezcla geometrías" in out
     assert "isin(['LineString', 'MultiLineString'])" in out
 
 

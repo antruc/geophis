@@ -114,7 +114,7 @@ def test_resumir_avisa_de_una_superficie_obsoleta(capa, capsys):
 
 
 def test_resumir_no_agrupa_por_la_geometria(capa):
-    with pytest.raises(ValueError, match="geometria"):
+    with pytest.raises(ValueError, match="geometría"):
         geo.estadisticas_de_resumen(capa, por="geometry")
 
 
@@ -228,7 +228,7 @@ def test_describir_avisa_de_un_crs_geografico_y_no_solo_lo_imprime(capa, capsys)
     """
     geo.describir(capa.to_crs(4326))
     salida = capsys.readouterr().out
-    assert "Aviso" in salida and "GEOGRAFICO" in salida
+    assert "Aviso" in salida and "GEOGRÁFICO" in salida
     # y con CRS metrico NO grita: una guarda que salta siempre no es guarda
     geo.describir(capa)
     assert "GEOGRAFICO" not in capsys.readouterr().out
@@ -359,7 +359,7 @@ def test_borrar_conservar_y_ordenar_campos(capa):
         "SUP",
         "geometry",
     ]
-    with pytest.raises(ValueError, match="geometria"):
+    with pytest.raises(ValueError, match="geometría"):
         geo.eliminar_campos(capa, "geometry")
 
 

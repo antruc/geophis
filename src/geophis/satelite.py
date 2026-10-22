@@ -96,13 +96,13 @@ def _pedir(url: str, cuerpo: dict[str, Any] | None, metodo: str) -> dict[str, An
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 if r.status != 200:
-                    raise RuntimeError(f"Earth Search respondio HTTP {r.status} en {url}")
+                    raise RuntimeError(f"Earth Search respondió HTTP {r.status} en {url}")
                 return json.load(r)
         except urllib.error.HTTPError as e:
             e.close()  # suelta la conexion antes de reintentar
             if (e.code != 429 and e.code < 500) or intento == _REINTENTOS:
                 raise RuntimeError(
-                    f"Earth Search respondio HTTP {e.code} en {url}"
+                    f"Earth Search respondió HTTP {e.code} en {url}"
                 ) from None
         except (urllib.error.URLError, TimeoutError) as e:
             if intento == _REINTENTOS:
@@ -204,7 +204,7 @@ def buscar_sentinel2(
     _exigir_crs(predio, "predio")
     if not (isinstance(fechas, (tuple, list)) and len(fechas) == 2):
         raise ValueError(
-            f"`fechas` va como ('AAAA-MM-DD', 'AAAA-MM-DD'); llego {fechas!r}"
+            f"`fechas` va como ('AAAA-MM-DD', 'AAAA-MM-DD'); llegó {fechas!r}"
         )
     bbox = [round(float(v), 6) for v in predio.to_crs(4326).total_bounds]
     cuerpo: dict[str, Any] | None = {
@@ -234,7 +234,7 @@ def buscar_sentinel2(
             cuerpo = sig.get("body", cuerpo)
     else:
         raise RuntimeError(
-            f"mas de {_MAX_PAGINAS} paginas de resultados: acorta `fechas` o baja `nubes_max`"
+            f"más de {_MAX_PAGINAS} páginas de resultados: acorta `fechas` o baja `nubes_max`"
         )
 
     escenas = _agrupar_escenas(features, predio) if features else []
@@ -355,7 +355,7 @@ def imagen_sentinel2(
     if escenas is None:
         escenas = buscar_sentinel2(predio, fechas)
     if not escenas:
-        raise ValueError("`escenas` va vacia")
+        raise ValueError("`escenas` va vacía")
     if max_revisar < 1:
         raise ValueError(f"max_revisar {max_revisar} debe ser >= 1")
     if margen_nube < 0:
@@ -383,7 +383,7 @@ def imagen_sentinel2(
     def _dentro(forma: tuple[int, ...], tf: Affine) -> npt.NDArray[np.bool_]:
         d = rasterizar(zona, forma, tf, valor=1) == 1
         if not d.any():
-            raise ValueError("el predio no llega a cubrir el centro de un pixel")
+            raise ValueError("el predio no llega a cubrir el centro de un píxel")
         return d
 
     def _revisar(e: dict[str, Any]) -> tuple[dict[str, Any], float, FloatArray, Affine]:
@@ -404,7 +404,7 @@ def imagen_sentinel2(
             print(
                 f"Aviso: ninguna de las {max_revisar} escenas revisadas llega a "
                 f"{limpio_min:g} % limpio; quedan {len(escenas) - max_revisar} sin "
-                "leer. Se elige entre las revisadas; sube `max_revisar` para mirar mas."
+                "leer. Se elige entre las revisadas; sube `max_revisar` para mirar más."
             )
 
     # 2. principal y relleno, medidos sobre la malla de la scl principal
@@ -495,7 +495,7 @@ def imagen_sentinel2(
     if sin_dato > 100 - limpio_min:
         print(
             f"Aviso: {sin_dato:.1f} % del predio sin dato limpio (nube o sin tesela) "
-            f"tras {len(usadas)} fecha(s). Amplia `fechas`, sube `max_fechas` o "
+            f"tras {len(usadas)} fecha(s). Amplía `fechas`, sube `max_fechas` o "
             "`max_dias`, o baja `margen_nube`."
         )
         # que tope dejo fuera a las de `escenas_relleno`: se pasaron a proposito
@@ -505,7 +505,7 @@ def imagen_sentinel2(
         if lejos:
             print(
                 f"  {len(lejos)} de `escenas_relleno` fuera por `max_dias={max_dias}` "
-                f"(a {', '.join(str(dias[i]) for i in lejos)} dias de la principal)."
+                f"(a {', '.join(str(dias[i]) for i in lejos)} días de la principal)."
             )
         if sin_turno:
             print(

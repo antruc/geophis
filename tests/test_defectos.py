@@ -395,7 +395,7 @@ def test_quemar_cauces_dice_por_que_no_quemo_nada(capsys):
     assert n == 0 and np.array_equal(salida, mde), "el MDE vuelve intacto"
 
     aviso = capsys.readouterr().out
-    assert "0 pixeles quemados" in aviso
+    assert "0 píxeles quemados" in aviso
     assert "2,400,000" in aviso and "CRS" in aviso, "tiene que ensenar los dos extents"
 
 
@@ -407,7 +407,7 @@ def test_quemar_cauces_no_avisa_cuando_si_quema(capsys):
 
     _, n = geo.quemar_cauces(mde, dentro, tf, 5.0)
     assert n > 0
-    assert "0 pixeles quemados" not in capsys.readouterr().out
+    assert "0 píxeles quemados" not in capsys.readouterr().out
 
 
 def test_detectar_cota_no_deja_ganar_a_una_columna_de_codigos(capsys):

@@ -294,7 +294,7 @@ def test_barrer_resolucion_tin_valida_entradas(gdf, cuadrado):
     kw = dict(rangos=[("0-100", 0, 100), (">100", 100, float("inf"))], umm_m2=100)
     with pytest.raises(ValueError, match="pasa `resoluciones`"):
         geo.barrer_resolucion(_curvas_rampa(), "cota", predio, metodo="tin", **kw)
-    with pytest.raises(ValueError, match="no estan en `rangos`"):
+    with pytest.raises(ValueError, match="no están en `rangos`"):
         geo.barrer_resolucion(
             _curvas_rampa(), "cota", predio, resoluciones=[5], exentos=["nope"], **kw
         )
