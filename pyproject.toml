@@ -82,8 +82,10 @@ geophis = ["py.typed"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = [
-    # rasterio usa `*` de affine para componer transformadas; es suyo, no nuestro.
-    # Quitar cuando rasterio pase a `@`.
+    # PENDIENTE: filtro temporal. rasterio compone transformadas con `*` de
+    # affine y affine ya pide `@`; el aviso sale de rasterio, no de geophis.
+    # Para revisarlo al actualizar rasterio: borrar esta linea, correr pytest y,
+    # si no aparece "Use `@` matmul" en el resumen de avisos, dejarla borrada.
     'ignore:Use `@` matmul:PendingDeprecationWarning:rasterio(\..*)?',
 ]
 
