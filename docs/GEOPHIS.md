@@ -21,7 +21,7 @@ Las reglas se citan como **R1** a **R9** y las recetas de pendiente como **P1** 
 1. **La respuesta es el código.** Sin preámbulo, sin anunciar lo que vas a hacer, sin resumen al final. Después del script, tres líneas como máximo: qué se decidió, qué queda sin medir o supuesto, qué comando correr.
 2. **Lo declarado que el pedido no dice, se pregunta o se marca.** La escala, los rangos, la clase que se cita o la temporada son decisiones del usuario (R1). Si faltan y cambian la cifra, pregunta; si se puede seguir, ponlas en `CONFIG` marcadas `SUPUESTO` y dilo en esas tres líneas.
 3. **Pide la salida de consola entera.** Los defectos de esta librería avisan por consola y no se ven en el mapa (mesetas falsas, sin dato, `sin_medir`, el veredicto del juez). Recomienda pegarla de vuelta, dentro de las tres líneas del final.
-4. **La brevedad no se relaja después.** Ante un error o un cambio: el fragmento corregido y una línea de qué cambió, sin repetir el script entero ni disculparse. Un error se responde con dónde está, qué lo causa y el arreglo, en ese orden.
+4. **La brevedad no se relaja después.** Ante un error o un cambio: el fragmento corregido y una línea de qué cambió, sin repetir el script entero ni disculparse. Un error se responde con dónde está, qué lo causa y el arreglo, en ese orden. Un `Aviso función:` pegado se busca en **Síntoma, causa, arreglo**: su línea `Haz:` es el resumen, el orden de los pasos y la causa están en la tabla.
 5. La excepción es que el usuario pida una explicación, un recorrido o una auditoría: eso se entrega completo.
 
 ## Vocabulario
@@ -460,9 +460,9 @@ geo.guardar_raster(orden, SALIDAS + r"\ORDEN.tif", tf, curvas.crs)
 Qué mirar en la consola:
 
 - `acondicionar_mde: N ha sin dato parcheadas`: si no es 0 y no vienes de quemar, es superficie inventada (R8).
-- `N celda(s) INTERIOR(es) sin salida de flujo`: el flujo muere dentro y lo que drena ahí desaparece de la red. Mira la fracción; si son de una celda y milímetros, `rellenar_sumideros` y su `informe` viaja con la cifra.
+- `Aviso acumulacion_flujo: N celda(s) INTERIOR(es) sin salida de flujo`: el flujo muere dentro y lo que drena ahí desaparece de la red. Mira la fracción; si son de una celda y milímetros, `rellenar_sumideros` y su `informe` viaja con la cifra.
 - `orden_cauces: N celdas numeradas de M en la mascara`: si M es mucho mayor que N, el umbral marca ladera baja.
-- `delimitar_cuenca: desague movido X m`: la cifra clave; X grande es coordenada mala o umbral demasiado alto.
+- `delimitar_cuenca: ... desagüe movido X m`: la cifra clave; X grande es coordenada mala o umbral demasiado alto.
 
 ## Clasificación de superficies (capas que se pisan)
 
@@ -605,7 +605,7 @@ Cada fila es un fallo que ya pasó. La columna del medio es lo que de verdad lo 
 | `detectar_cota` avisa de una cota fuera de escalera | curva mal capturada: hace un pico falso | si cae dentro del cuadro de recorte, quítala (`seleccionar_por_atributo`) o corrígela |
 | `Aviso interpolar_mde: N ha del MDE sin dato de origen` | el extent de salida se sale de la envolvente de las curvas: el interpolador no extrapola, sale NaN y aguas abajo es hueco (pendiente NaN, código -1 al reclasificar) | en este orden: 1) sube `margen_borde_celdas` en `cuadros_mde` y recorta del archivo COMPLETO (recortar dos veces no devuelve lo que el primer recorte tiró); 2) comprueba que las curvas de verdad rebasan `cuadro_salida`, si la cartografía se acaba en el lindero hace falta otra fuente; 3) si no la hay, encoge `cuadro_salida`: mejor entregar menos superficie que inventarla (R8) |
 | `quemar_cauces` devuelve `n_pixeles = 0` | cauces en otro CRS o en otro predio | `reproyectar(cauces, crs_del_raster)` antes (R3) |
-| `N celda(s) INTERIOR(es) sin salida de flujo` | sumideros del priority-flood | mira la fracción y `ES_SUMIDER`; `rellenar_sumideros` con su `informe` |
+| `Aviso acumulacion_flujo: N celda(s) INTERIOR(es) sin salida de flujo` | sumideros del priority-flood | mira la fracción y `ES_SUMIDER`; `rellenar_sumideros` con su `informe` |
 | la cuenca sale de media finca | el predio drena por dos sitios | `microcuencas` |
 | `delimitar_cuenca: desagüe movido X m` con X grande | coordenada mala o `umbral` muy alto | corrige la coordenada o baja el umbral |
 | `unir_campo` falla o el mapa sale en blanco | el tipo de la clave (`'007'` no es `7`) | convierte del lado que conserva el dato: entero a texto |
