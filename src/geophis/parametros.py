@@ -812,7 +812,7 @@ def comprobar_cifras_firmes(
 
     fallas: list[str] = []
     if _mostrar():
-        print(f"\narnés contra {nombre}:")
+        print(f"\ncomprobar_cifras_firmes: arnés contra {nombre}")
     for clave, esperado in firmes.items():
         visto = float(medidos[clave])
         margen = tol * abs(esperado) if esperado else tol

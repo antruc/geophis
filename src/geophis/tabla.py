@@ -62,7 +62,7 @@ def seleccionar_por_atributo(
     if _mostrar():
         print(f"seleccionar_por_atributo: {len(salida)} de {len(gdf)} entidades")
     if len(salida) == 0:
-        print(f"Aviso: la consulta '{consulta}' no seleccionó ninguna entidad")
+        print(f"Aviso seleccionar_por_atributo: la consulta '{consulta}' no seleccionó ninguna entidad")
     return salida
 
 
@@ -122,7 +122,7 @@ def seleccionar_por_ubicacion(
             f"({predicado}{orla})"
         )
     if len(salida) == 0:
-        print(f"Aviso: ninguna entidad cumple '{predicado}' con la capa dada")
+        print(f"Aviso seleccionar_por_ubicacion: ninguna entidad cumple '{predicado}' con la capa dada")
     return salida
 
 
@@ -166,7 +166,7 @@ def estadisticas_de_resumen(
         cols = [campos] if isinstance(campos, str) else list(campos)
         spec = {c: ["sum"] for c in cols}
         print(
-            "Aviso: `campos` sin estadístico; se asume 'sum' para "
+            "Aviso estadisticas_de_resumen: `campos` sin estadístico; se asume 'sum' para "
             f"{cols}. Decláralo si querías otro: campos={{'{cols[0]}': 'mean'}}"
         )
 
@@ -184,7 +184,7 @@ def estadisticas_de_resumen(
             "esa columna"
         )
 
-    _avisar_medida_obsoleta(gdf)
+    _avisar_medida_obsoleta(gdf, "estadisticas_de_resumen")
     df = pd.DataFrame(gdf.drop(columns=geom, errors="ignore"))
 
     if claves:
@@ -322,13 +322,13 @@ def unir_campo(
         )
     if repetidas:
         print(
-            f"Aviso: la tabla tiene {repetidas} claves repetidas en '{der}'; la "
+            f"Aviso unir_campo: la tabla tiene {repetidas} claves repetidas en '{der}'; la "
             f"capa pasó de {len(gdf)} a {len(salida)} filas. Cada repetida "
             "duplica la entidad, y eso infla cualquier total que se sume después"
         )
     if pisadas:
         print(
-            f"Aviso: columnas presentes en las dos, la de la tabla entra como "
+            f"Aviso unir_campo: columnas presentes en las dos, la de la tabla entra como "
             f"'_tabla': {pisadas}"
         )
     if _mostrar():
@@ -571,7 +571,7 @@ def calcular_campo(
             "acentos va entre acentos graves: `CLASE DE USO`"
         ) from e
     if campo in gdf.columns:
-        print(f"Aviso: calcular_campo sobrescribe '{campo}', que ya existía")
+        print(f"Aviso calcular_campo: sobrescribe '{campo}', que ya existía")
     salida = gdf.copy()
     salida[campo] = valores
     if _mostrar():
@@ -697,7 +697,7 @@ def cambiar_tipo(
                 "reemplazar_valores, o pasa forzar=True para dejarlos nulos"
             )
         print(
-            f"Aviso: '{campo}': {int(perdidos.sum())} valor(es) quedaron nulos "
+            f"Aviso cambiar_tipo: '{campo}': {int(perdidos.sum())} valor(es) quedaron nulos "
             f"al pasar a {tipo}, p. ej. {muestra}"
         )
     salida = gdf.copy()
@@ -733,7 +733,7 @@ def reemplazar_valores(
             "Si se ven iguales, es el tipo: 1 no es '1'"
         )
     if ausentes:
-        print(f"Aviso: claves que no aparecen en '{campo}': {ausentes}")
+        print(f"Aviso reemplazar_valores: claves que no aparecen en '{campo}': {ausentes}")
     salida = gdf.copy()
     salida[campo] = salida[campo].replace(reemplazos)
     if _mostrar():

@@ -742,7 +742,7 @@ def test_medidas_en_cualquier_unidad_y_crs(gdf, cuadrado, capsys):
         assert r["superficie_km2"].iloc[0] == pytest.approx(0.01, abs=0.005)
         assert r["longitud_km"].iloc[0] == pytest.approx(0.4, abs=0.005)
     # la guarda de `guardar` reconoce la columna en km2 y no da aviso falso
-    geo.archivo._avisar_medida_obsoleta(geo.calcular_superficie(utm, unidad="km2", decimales=6))
+    geo.archivo._avisar_medida_obsoleta(geo.calcular_superficie(utm, unidad="km2", decimales=6), "guardar")
     assert "no cuadra" not in capsys.readouterr().out
     with pytest.raises(ValueError, match="unidad de área 'acre'"):
         geo.superficie_total(utm, "acre")

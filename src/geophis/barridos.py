@@ -144,6 +144,7 @@ def _mapear(
     tareas: Iterable[Any],
     nucleos: int | None,
     bytes_por_tarea: float = 0.0,
+    quien: str = "barrido",
 ) -> Iterator[Any]:
     """`map(fn, tareas)` en orden; con `nucleos > 1`, cada tarea en su proceso.
     `nucleos` None = `geo.NUCLEOS`. Con `bytes_por_tarea`, no lanza mas
@@ -166,7 +167,7 @@ def _mapear(
         caben = max(1, int(0.8 * libre // bytes_por_tarea)) if math.isfinite(libre) else nucleos
         if caben < min(nucleos, len(tareas)):
             print(
-                f"   OJO: caben {caben} procesos en la RAM libre "
+                f"Aviso {quien}: caben {caben} procesos en la RAM libre "
                 f"(~{bytes_por_tarea / 2**30:.1f} GB cada uno), no {nucleos}."
             )
             nucleos = caben
@@ -193,7 +194,7 @@ def _mapear(
         except (BrokenProcessPool, MemoryError) as e:
             # una malla por proceso: si no caben todas, en serie cabe una
             print(
-                f"   OJO: {type(e).__name__} con {nucleos} procesos, sigo en serie. "
+                f"Aviso {quien}: {type(e).__name__} con {nucleos} procesos, sigo en serie. "
                 f"`geo.NUCLEOS = 1` lo evita desde el principio."
             )
     for t in tareas[hechas:]:
@@ -538,7 +539,7 @@ def barrer_resolucion(
             else f"piso antialias lambda/2 = {piso} m (lambda medida sobre el extent)"
         )
         print(
-            f"barrido de {len(resoluciones)} resoluciones sobre {sup_predio:.1f} ha: "
+            f"barrer_resolucion: {len(resoluciones)} resoluciones sobre {sup_predio:.1f} ha: "
             f"{', '.join(f'{h:g}' for h in resoluciones)} m | {cola}"
         )
         # `s_sost` es el ancho al que están las curvas dentro de la clase: si
@@ -562,7 +563,9 @@ def barrer_resolucion(
     )
     x0, y0, x1, y1 = _bounds_cuadro(curvas, cuadro)
     celdas = (x1 - x0) * (y1 - y0) / resoluciones[0] ** 2  # la mas fina manda
-    for fila in _mapear(una_fila, resoluciones, nucleos, _bytes_tarea(celdas, metodo)):
+    for fila in _mapear(
+        una_fila, resoluciones, nucleos, _bytes_tarea(celdas, metodo), quien="barrer_resolucion"
+    ):
         h, min_px, area = fila["h"], fila["min_pixeles"], fila["area_alta_ha"]
         s_c, p_c = fila["s_sostenida"], fila["p_sostenida"]
         # contra el h anterior de la tabla, que es el inmediatamente MÁS
@@ -852,7 +855,7 @@ def barrer_vecinos(
         lambda_m = _separacion_horizontal(curvas, _bounds_cuadro(curvas, cuadro_salida))
     if _mostrar():
         print(
-            f"barrido de hasta {len(enes)} vecindarios sobre {area_zona:.1f} ha a "
+            f"barrer_vecinos: hasta {len(enes)} vecindarios sobre {area_zona:.1f} ha a "
             f"h={resolucion:g} m | alta = pendiente > {p_max * 100:g} %, para al "
             f"moverse <= {tolerancia:.0%}"
         )
@@ -873,7 +876,9 @@ def barrer_vecinos(
     # se cancelan al converger, los que ya corrian se tiran.
     x0, y0, x1, y1 = _bounds_cuadro(curvas, cuadro_salida)
     celdas = (x1 - x0) * (y1 - y0) / resolucion**2
-    for fila in _mapear(una_fila, enes, nucleos, _bytes_tarea(celdas, "spline")):
+    for fila in _mapear(
+        una_fila, enes, nucleos, _bytes_tarea(celdas, "spline"), quien="barrer_vecinos"
+    ):
         n, margen, alta, meseta = (
             fila["vecinos"], fila["margen_borde_celdas"], fila["alta_ha"], fila["meseta_ha"]
         )
@@ -904,7 +909,7 @@ def barrer_vecinos(
             f"n={filas[-1]['vecinos']}."
         )
     for aviso in avisos:
-        print(f"   OJO: {aviso}")
+        print(f"Aviso barrer_vecinos: {aviso}")
     return filas, Rodilla(n_rodilla, avisos)
 
 
@@ -1239,14 +1244,14 @@ def amplitud_rizo(
     # de `geo.MOSTRAR`: ese decide el reporte, no si la cifra vale.
     if detalle["frac_usada"] < 0.5:
         print(
-            f"   Aviso: amplitud_rizo: solo el {detalle['frac_usada'] * 100:.0f} % de "
+            f"Aviso amplitud_rizo: solo el {detalle['frac_usada'] * 100:.0f} % de "
             f"la mascara queda entre dos cotas contiguas. Cimas y hoyas cerradas no "
             f"tienen envolvente y no cuentan; si la fracción es baja de más, "
             f"revisa que las curvas cubran el extent de `mde`."
         )
     if e is not None and a > e / 4:
         print(
-            f"   Aviso: amplitud_rizo: {a:.2f} m es mucho para un rizo con "
+            f"Aviso amplitud_rizo: {a:.2f} m es mucho para un rizo con "
             f"equidistancia {e:g} m. A esa escala la cifra suele ser el lomo o la "
             f"vaguada que no llegan al siguiente nivel (no hay curva que los "
             f"cierre, y se les atribuye la banda de abajo), no el interpolador. "
@@ -1391,7 +1396,7 @@ def juzgar_clasificaciones(
 
     if _mostrar():
         print(
-            f"\nescarpe de carta ({etiqueta_alta}): w {w:.4f} m | largo efectivo "
+            f"\njuzgar_clasificaciones: escarpe de carta ({etiqueta_alta}): w {w:.4f} m | largo efectivo "
             f"{largo_ef:,.0f} m | blanco {blanco:.2f} ha"
         )
         print(
@@ -1419,7 +1424,7 @@ def juzgar_clasificaciones(
             print(f"RECOMENDADA: {recomendada} (mayor % visto entre las que pasan)")
             if r["veredicto"] == "CONDICIONAL":
                 print(
-                    f"   CONDICIONAL: {r['motivo']}. Entregable solo con la amplitud"
+                    f"Aviso juzgar_clasificaciones: {recomendada} es CONDICIONAL: {r['motivo']}. Entregable solo con la amplitud"
                     " del rizo MEDIDA y su espuria por debajo de la clase."
                 )
             if len(vivas) > 1:

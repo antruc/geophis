@@ -402,7 +402,7 @@ def imagen_sentinel2(
     else:
         if len(escenas) > max_revisar:
             print(
-                f"Aviso: ninguna de las {max_revisar} escenas revisadas llega a "
+                f"Aviso imagen_sentinel2: ninguna de las {max_revisar} escenas revisadas llega a "
                 f"{limpio_min:g} % limpio; quedan {len(escenas) - max_revisar} sin "
                 "leer. Se elige entre las revisadas; sube `max_revisar` para mirar más."
             )
@@ -494,7 +494,7 @@ def imagen_sentinel2(
     )
     if sin_dato > 100 - limpio_min:
         print(
-            f"Aviso: {sin_dato:.1f} % del predio sin dato limpio (nube o sin tesela) "
+            f"Aviso imagen_sentinel2: {sin_dato:.1f} % del predio sin dato limpio (nube o sin tesela) "
             f"tras {len(usadas)} fecha(s). Amplía `fechas`, sube `max_fechas` o "
             "`max_dias`, o baja `margen_nube`."
         )

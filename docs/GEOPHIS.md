@@ -105,6 +105,7 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 - Pasos numerados `# ── N. VERBO EN MAYÚSCULAS ──`, lineal, sin funciones propias, reasignando la misma variable (`gdf = geo.algo(gdf)`).
 - Tres o más casos parecidos → lista de tuplas y `for` (el orden puede codificar prioridad). Con dos, escribe los bloques directo.
 - `print()` como reporte. `geo.MOSTRAR = False` calla los reportes de la librería; los avisos de defecto salen igual.
+- Formato: el reporte empieza por `función:` y el aviso por `Aviso función:` en la columna 0, así que `grep ^Aviso` saca todos los avisos de una corrida. Los avisos de GDAL salen como `Aviso GDAL:`.
 - `geo.NUCLEOS` (default: núcleos menos uno, prioridad baja) es cuántos procesos usan los barridos. Con una malla chica van solos en serie; `geo.NUCLEOS = 1` los fuerza en serie.
 - Variables en español y cortas (`gdf`, `capas`, `combinado`); constantes en mayúsculas. Antes de una corrida larga, `comprobar_nombres_shp(gdf)`: el `.shp` corta los nombres a 10 caracteres.
 
@@ -610,7 +611,7 @@ Cada fila es un fallo que ya pasó. La columna del medio es lo que de verdad lo 
 | `unir_campo` falla o el mapa sale en blanco | el tipo de la clave (`'007'` no es `7`) | convierte del lado que conserva el dato: entero a texto |
 | una columna se renombró sola al guardar `.shp` | corte a 10 caracteres o colisión | `comprobar_nombres_shp` antes de la corrida larga; un nombre corto con sentido (`SUP`) |
 | la capa cierra con menos superficie que el polígono | `rasterizar(todo_tocado=False)` y luego recorte vectorial | `todo_tocado=True` (R8) |
-| `OJO: BrokenProcessPool` o `MemoryError` en un barrido | una malla por proceso no cabe | nada: sigue en serie con las mismas filas; `geo.NUCLEOS = 1` lo evita |
+| `Aviso barrer_...: BrokenProcessPool` o `MemoryError` en un barrido | una malla por proceso no cabe | nada: sigue en serie con las mismas filas; `geo.NUCLEOS = 1` lo evita |
 | `repartir_por_cercania` falla por el tope de 20 M píxeles | el tope mide el rectángulo envolvente del conflicto | sube `resolucion` a 2 o 5 |
 | `lamina` falla con "no comparte malla" | dos `imagen_sentinel2` en mallas distintas | `crs=` de la primera y `alinear_rasters` |
 | el relleno de `escenas_relleno` no sale como `usada` | `max_fechas` o `max_dias` se agotan con las propias | `max_fechas=len(escenas)+len(relleno)`, `max_dias` de las fechas |

@@ -542,7 +542,7 @@ def test_amplitud_rizo_no_cuenta_la_cima_como_excursion(capsys):
     # y descarto de verdad: la cima y el exterior no tienen envolvente
     assert detalle["frac_usada"] < 0.9
     # frac_usada 0.45 < 0.5: el aviso sale aunque `geo.MOSTRAR = False`
-    assert "Aviso: amplitud_rizo" in capsys.readouterr().out
+    assert "Aviso amplitud_rizo:" in capsys.readouterr().out
 
 
 def test_juzgar_clasificaciones_veredicto_por_metodo_y_recomienda_por_largo_visto():

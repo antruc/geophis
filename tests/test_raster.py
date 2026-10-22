@@ -874,7 +874,7 @@ def test_interpolar_mde_tin_avisa_planos_a_cota_de_curva(capsys):
     )
     mde, tf = geo.interpolar_mde(cerro, "cota", resolucion=5, intervalo_muestreo=5, metodo="tin")
     salida = capsys.readouterr().out
-    ha = float(salida.split("Aviso: ")[-1].split(" ha")[0])
+    ha = float(salida.split("Aviso interpolar_mde: ")[-1].split(" ha")[0])
     assert 2.6 < ha <= 3.14, salida
     assert "MISMA curva" in salida
     # la mascara publica es la misma cuenta que el aviso

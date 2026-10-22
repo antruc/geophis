@@ -118,12 +118,12 @@ def _avisar_datum(gdf: gpd.GeoDataFrame, destino: Any, nombre: str) -> None:
         return
     txt = "desconocida" if exact < 0 else f"{exact:g} m"
     print(
-        f"Aviso: {nombre}: el cambio de datum de {geo_o.name} a {geo_d.name} "
+        f"Aviso reproyectar: {nombre}: el cambio de datum de {geo_o.name} a {geo_d.name} "
         f"tiene exactitud {txt}; las coordenadas pueden derivar metros"
     )
     for acc, rejillas in faltan[:3]:
         print(
-            f"Aviso: {nombre}: hay una operación de {acc:g} m que no se usa "
+            f"Aviso reproyectar: {nombre}: hay una operación de {acc:g} m que no se usa "
             f"porque falta la rejilla {', '.join(rejillas)}"
         )
 
@@ -161,6 +161,6 @@ def reproyectar(
     from ._salida import _mostrar  # local: proyeccion y _salida son la misma capa
 
     if _mostrar():
-        print(f"{nombre}: reproyectando a {CRS.from_user_input(destino).to_string()}")
+        print(f"reproyectar: {nombre} a {CRS.from_user_input(destino).to_string()}")
     _avisar_datum(gdf, destino, nombre)
     return gdf.to_crs(destino)

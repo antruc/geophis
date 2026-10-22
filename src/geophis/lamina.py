@@ -563,7 +563,7 @@ def lamina(
     }
     if _mostrar():
         print(
-            f"Lamina '{os.fspath(ruta)}': {ancho_px}x{alto_px} px, {len(paneles)} paneles, "
+            f"lamina: '{os.fspath(ruta)}' {ancho_px}x{alto_px} px, {len(paneles)} paneles, "
             f"barra de escala {rot}"
         )
         for f in filas_info:

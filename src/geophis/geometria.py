@@ -54,7 +54,7 @@ def nombre_campo_libre(gdf: gpd.GeoDataFrame, campo: str) -> str:
     while f"{campo}_{i}" in gdf.columns:
         i += 1
     nuevo = f"{campo}_{i}"
-    print(f"Aviso: '{campo}' ya existe, uso '{nuevo}'")
+    print(f"Aviso nombre_campo_libre: '{campo}' ya existe, uso '{nuevo}'")
     return nuevo
 
 
@@ -164,13 +164,13 @@ def separar_multipartes(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf.explode(index_parts=False).reset_index(drop=True)
 
 
-def _avisar_geografico(gdf: gpd.GeoDataFrame, que: str) -> None:
+def _avisar_geografico(gdf: gpd.GeoDataFrame, quien: str, que: str) -> None:
     """Aviso (no error) para funciones que documentan "unidades del CRS"."""
     if gdf.crs is None:
-        print("Aviso: la capa no tiene CRS: la medida va en unidades desconocidas. "
+        print(f"Aviso {quien}: la capa no tiene CRS: la medida va en unidades desconocidas. "
               "Asígnalo al cargar, p. ej. cargar(ruta, crs=32613)")
     elif gdf.crs.is_geographic:
-        print(f"Aviso: CRS geográfico (grados); {que}. Usa UTM.")
+        print(f"Aviso {quien}: CRS geográfico (grados); {que}. Usa UTM.")
 
 
 def zona_de_influencia(gdf: gpd.GeoDataFrame, distancia: float) -> gpd.GeoDataFrame:
@@ -181,7 +181,7 @@ def zona_de_influencia(gdf: gpd.GeoDataFrame, distancia: float) -> gpd.GeoDataFr
     """
     if isinstance(distancia, str):
         raise TypeError(f"distancia debe ser un número, no el texto {distancia!r}")
-    _avisar_geografico(gdf, "la distancia se aplicará en grados")
+    _avisar_geografico(gdf, "zona_de_influencia", "la distancia se aplicará en grados")
     salida = gdf.copy()
     # `salida.geometry.name` y no el literal "geometry": una capa cuya columna
     # activa se llame distinto (GeoPackage con `geom`, `rename_geometry`) se
@@ -508,7 +508,7 @@ def puntos_a_poligono(
             pol = Polygon([(p.x, p.y) for p in pts])
             if not pol.is_valid:
                 print(
-                    f"Aviso: {que}: el polígono por orden no es válido "
+                    f"Aviso puntos_a_poligono: {que}: el polígono por orden no es válido "
                     f"({shapely.is_valid_reason(pol)}); los puntos no siguen el contorno. "
                     "Revísalo en el SIG o usa forma='convexa' o 'concava'"
                 )
@@ -523,7 +523,7 @@ def puntos_a_poligono(
         if _mostrar():
             rejilla = np.sqrt(nube.convex_hull.area / len(pts))
             print(
-                f"cóncava {que}: lado_max {lado_max:.0f} m = umbral relativo {ratio:.3f} "
+                f"puntos_a_poligono: cóncava {que}, lado_max {lado_max:.0f} m = umbral relativo {ratio:.3f} "
                 f"| aristas {corta:.0f} a {larga:.0f} m | rejilla uniforme {rejilla:.0f} m "
                 f"(referencia: {2 * rejilla:.0f} a {4 * rejilla:.0f} m)"
             )
@@ -573,7 +573,7 @@ def crear_cuadro(gdf: gpd.GeoDataFrame, margen: float = 0) -> gpd.GeoDataFrame:
     `margen` amplía el cuadro en las unidades del CRS. Devuelve un
     GeoDataFrame de una sola entidad, útil como máscara de recorte previo.
     """
-    _avisar_geografico(gdf, "el margen se aplicará en grados")
+    _avisar_geografico(gdf, "crear_cuadro", "el margen se aplicará en grados")
     minx, miny, maxx, maxy = gdf.total_bounds
     geom = box(minx - margen, miny - margen, maxx + margen, maxy + margen)
     return gpd.GeoDataFrame(geometry=[geom], crs=gdf.crs)
@@ -841,7 +841,7 @@ def comprobar_particion(
     falta = hueco - exceso
     if _mostrar():
         print(
-            f"cierre: hueco {hueco:.4f} ha | exceso {exceso:.4f} ha | "
+            f"comprobar_particion: hueco {hueco:.4f} ha | exceso {exceso:.4f} ha | "
             f"doble conteo {solape:.4f} ha"
         )
     if hueco > tolerancia_ha or exceso > tolerancia_ha or solape > tolerancia_ha:
@@ -1139,7 +1139,7 @@ def separacion_media(
         # mitad de un barrido de minutos es peor que no avisar. En docstrings si
         # va el simbolo: esos se leen, no se codifican a stdout.
         print(
-            f"Aviso: paso {paso:g} m > lambda/4 ({lam / 4:.1f} m): la banda toca "
+            f"Aviso separacion_media: paso {paso:g} m > lambda/4 ({lam / 4:.1f} m): la banda toca "
             f"la curva vecina, el área se satura y lambda ({lam:.1f}) y el zigzag "
             f"salen inflados. Baja `paso`; el default de 2.5 m sirve casi siempre."
         )
@@ -1631,7 +1631,7 @@ def union_espacial(
         repetidas = unido.index[unido.index.duplicated()].nunique()
         if repetidas:
             print(
-                f"Aviso: {repetidas} entidad(es) cumplen con varias de `otro` y "
+                f"Aviso union_espacial: {repetidas} entidad(es) cumplen con varias de `otro` y "
                 f"salen repetidas: {len(gdf)} -> {len(unido)} filas. Una suma "
                 "posterior las cuenta doble; para filtrar sin duplicar, "
                 "seleccionar_por_ubicacion"
@@ -1745,7 +1745,7 @@ def cercano(
     empatadas = unido.index[unido.index.duplicated()].nunique()
     if empatadas:
         print(
-            f"Aviso: {empatadas} entidades con empate de distancia; "
+            f"Aviso cercano: {empatadas} entidades con empate de distancia; "
             f"se conserva el primer {c_id} de cada una"
         )
     salida = unido[~unido.index.duplicated(keep="first")].drop(columns="index_right")
@@ -1938,7 +1938,7 @@ def partir_por_linea(
         origen.extend([i] * len(piezas))
     if enteros:
         print(
-            f"Aviso: {enteros} polígonos tocados por líneas salieron enteros; "
+            f"Aviso partir_por_linea: {enteros} polígonos tocados por líneas salieron enteros; "
             f"la línea no los atraviesa de borde a borde"
         )
     salida = poligonos.iloc[origen].reset_index(drop=True)
@@ -2051,13 +2051,13 @@ def medir_geodesico(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         if area.sum() > 0:
             d = 100 * (plano_a - area.sum()) / area.sum()
             print(
-                f"Área plana {plano_a / 10000:.2f} ha, elipsoide "
+                f"medir_geodesico: área plana {plano_a / 10000:.2f} ha, elipsoide "
                 f"{area.sum() / 10000:.2f} ha: diferencia {d:+.3f} %"
             )
         if largo.sum() > 0:
             d = 100 * (plano_l - largo.sum()) / largo.sum()
             print(
-                f"Longitud plana {plano_l:.2f} m, elipsoide "
+                f"medir_geodesico: longitud plana {plano_l:.2f} m, elipsoide "
                 f"{largo.sum():.2f} m: diferencia {d:+.3f} %"
             )
     return salida

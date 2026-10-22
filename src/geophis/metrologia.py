@@ -313,7 +313,7 @@ def _resolucion_h(techos: dict[str, float]) -> tuple[float, bool]:
         return _redondear_limpio(techo, "abajo"), True
     h = _redondear_limpio(piso, "arriba")
     print(
-        f"Aviso: INFACTIBLE. Piso antialias {piso:.1f} m > techo {techo:.1f} m "
+        f"Aviso resolucion_regla: INFACTIBLE. Piso antialias {piso:.1f} m > techo {techo:.1f} m "
         f"('{nombre}'). Se devuelve el PISO redondeado a {h:g} m: a "
         f"{techo:.1f} m el rizo del spline entra por alias y se cuenta como "
         f"pendiente. La clase más alta no se puede TRAZAR a esa UMM; "

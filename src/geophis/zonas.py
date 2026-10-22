@@ -96,7 +96,7 @@ def zonificar(
         etiquetas = {**etiquetas, cod_vacia: sin_dato}
         mascara |= vacia
         print(
-            f"Aviso: {float(vacia.sum()) * abs(transform.a * transform.e) / 10_000:.2f} ha "
+            f"Aviso zonificar: {float(vacia.sum()) * abs(transform.a * transform.e) / 10_000:.2f} ha "
             f"sin dato dentro de la zona (celdas NaN): van como clase '{sin_dato}'. "
             f"Es superficie sin dato de origen, no se reparte entre las clases."
         )

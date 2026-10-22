@@ -573,7 +573,7 @@ def test_medida_con_nulos_no_avisa_en_falso(capsys):
     )
     from geophis.archivo import _avisar_medida_obsoleta
 
-    _avisar_medida_obsoleta(capa)
+    _avisar_medida_obsoleta(capa, "guardar")
     assert "no cuadra" not in capsys.readouterr().out
 
 

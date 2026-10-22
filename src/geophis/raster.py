@@ -136,7 +136,7 @@ def cargar_raster(ruta: str | PathLike[str]) -> tuple[FloatArray, Affine, CRS, f
         crs = src.crs
         res = abs(src.transform[0])
     if _mostrar():
-        print(f"Raster '{ruta}': {arr.shape[1]}x{arr.shape[0]} px | {_paso(res, crs)}")
+        print(f"cargar_raster: '{ruta}' {arr.shape[1]}x{arr.shape[0]} px | {_paso(res, crs)}")
     return arr, tf, crs, res
 
 
@@ -176,7 +176,7 @@ def cargar_bandas(
         res = abs(src.transform[0])
     if _mostrar():
         print(
-            f"Raster '{ruta}': {len(bandas)} bandas {bandas} de "
+            f"cargar_bandas: '{ruta}' {len(bandas)} bandas {bandas} de "
             f"{arr.shape[2]}x{arr.shape[1]} px | {_paso(res, crs)}"
         )
     return arr, tf, crs, res
@@ -240,7 +240,7 @@ def guardar_raster(
         for i, nombre in enumerate(nombres or (), start=1):
             dst.set_band_description(i, nombre)
     if _mostrar():
-        print(f"Raster guardado '{ruta}'")
+        print(f"guardar_raster: '{ruta}'")
     return str(ruta)
 
 
@@ -986,7 +986,7 @@ def _interp_placa(
     z, it = _Multimalla(M, ny, nx).resolver(A.T @ d, tol=1e-10, max_iter=1000)
     if it == 1000:
         print(
-            "Aviso: la malla no convergió en 1000 iteraciones; la superficie puede "
+            "Aviso interpolar_mde: la malla no convergió en 1000 iteraciones; la superficie puede "
             "quedar cruda. Sube `resolucion` o usa metodo='spline'"
         )
     return z.reshape(ny, nx)[m:m + alto, m:m + ancho].ravel()
@@ -1028,7 +1028,7 @@ def _resolver_parametros(
         equidistancia = detectada
     elif detectada is not None and not math.isclose(equidistancia, detectada):
         print(
-            f"Aviso: equidistancia dada {equidistancia:g} != detectada {detectada:g}; "
+            f"Aviso interpolar_mde: equidistancia dada {equidistancia:g} != detectada {detectada:g}; "
             "se usa la dada. Si no es a propósito, quita `equidistancia`"
         )
 
@@ -1057,7 +1057,7 @@ def _resolver_parametros(
         resolucion = _redondear_limpio(separacion / 2, "arriba")
     elif separacion is not None and resolucion > separacion:
         print(
-            f"Aviso: resolucion {resolucion:g} mayor que la separación entre "
+            f"Aviso interpolar_mde: resolucion {resolucion:g} mayor que la separación entre "
             f"curvas ({separacion:.1f}); el relieve entre curvas no se va a ver"
         )
 
@@ -1074,7 +1074,7 @@ def _resolver_parametros(
     ):
         if amplitud_rizo is None:
             print(
-                f"Aviso: resolucion {resolucion:g} m por debajo del piso antialias "
+                f"Aviso interpolar_mde: resolucion {resolucion:g} m por debajo del piso antialias "
                 f"{separacion / 2:.1f} m (= lambda/2, con lambda {separacion:.1f} m "
                 f"medida sobre el extent). La ventana 3x3 de Horn deriva sobre 2h, "
                 f"así que el rizo del spline entre curvas entra por alias y engorda "
@@ -1090,7 +1090,7 @@ def _resolver_parametros(
             # pendiente espuria tiene forma cerrada y se REPORTA. Esta funcion
             # no conoce los rangos, asi que no puede dictaminar: da el numero.
             print(
-                f"Aviso: resolucion {resolucion:g} m por debajo del piso antialias "
+                f"Aviso interpolar_mde: resolucion {resolucion:g} m por debajo del piso antialias "
                 f"{separacion / 2:.1f} m, PERO la amplitud del rizo está MEDIDA "
                 f"(A = {amplitud_rizo:g} m), y con `A` manda la medición: la "
                 f"pendiente espuria que entra por alias es ~"
@@ -1167,21 +1167,21 @@ def _interpolar_malla(
         # el TIN no tiene ninguno de los dos; ignorarlos en silencio sería una
         # trampa, el usuario creería estar suavizando
         if suavizado or vecinos is not None:
-            print("Aviso: 'tin' ignora suavizado y vecinos (no son parámetros suyos)")
+            print("Aviso interpolar_mde: 'tin' ignora suavizado y vecinos (no son parámetros suyos)")
         try:
             z = LinearNDInterpolator(pts, zs)(malla)
         except QhullError:
-            print("Aviso: TIN falló (geometría degenerada), usando IDW")
+            print("Aviso interpolar_mde: TIN falló (geometría degenerada), usando IDW")
             z = _interp_idw(pts, zs, malla)
     elif metodo in ("spline", "tps"):
         z = _interp_spline(pts, zs, malla, suavizado=suavizado, **kw)
     elif metodo == "idw":
         if suavizado:
-            print("Aviso: 'idw' ignora suavizado (no es un parámetro suyo)")
+            print("Aviso interpolar_mde: 'idw' ignora suavizado (no es un parámetro suyo)")
         z = _interp_idw(pts, zs, malla, **kw)
     elif metodo == "malla":
         if suavizado or vecinos is not None:
-            print("Aviso: 'malla' ignora suavizado y vecinos (no son parámetros suyos)")
+            print("Aviso interpolar_mde: 'malla' ignora suavizado y vecinos (no son parámetros suyos)")
         z = _interp_placa(pts, zs, gx[0], gy[0], resolucion, ancho, alto)
     else:
         raise ValueError(
@@ -1396,7 +1396,7 @@ def cotas_por_cruce(
         )
     if n_no_monotonas:
         print(
-            f"Aviso: {n_no_monotonas} línea(s) de quiebre con cota que sube y "
+            f"Aviso cotas_por_cruce: {n_no_monotonas} línea(s) de quiebre con cota que sube y "
             f"baja. O cruzan un parteaguas o hay un cruce mal capturado; se usan "
             f"igual, pero revísalas antes de citar lo que salga."
         )
@@ -1656,7 +1656,7 @@ def interpolar_mde(
         # es la referencia contra la que se juzgan resolucion y muestreo
         sep = "?" if separacion is None else f"{separacion:.1f}"
         print(
-            f"MDE {ancho}x{alto} px | equidistancia: {eq} | separación: {sep} | "
+            f"interpolar_mde: {ancho}x{alto} px | equidistancia: {eq} | separación: {sep} | "
             f"resolucion: {resolucion:g} | muestreo: {intervalo_muestreo:g} | "
             f"extent: ({minx:.1f}, {miny:.1f}, {maxx:.1f}, {maxy:.1f}) | "
             f"z: {np.nanmin(mde):.1f}-{np.nanmax(mde):.1f} | "
@@ -1667,7 +1667,7 @@ def interpolar_mde(
     # `geo.MOSTRAR = False` apaga el reporte de una corrida que imprime lo suyo (el
     # caso de los scripts entregables); no puede apagar una senal de defecto.
     if sin_dato_ha > 0:
-        print(f"Aviso: {sin_dato_ha:.2f} ha del MDE sin dato de origen.")
+        print(f"Aviso interpolar_mde: {sin_dato_ha:.2f} ha del MDE sin dato de origen.")
         print(_AVISO_SIN_DATO)
     # Tambien fuera de `geo.MOSTRAR`: es mudo aguas abajo. Una meseta falsa sale
     # como 0-5 % con la misma cara que una real (en un predio real: 535 ha, el 11 %).
@@ -1678,7 +1678,7 @@ def interpolar_mde(
         pct = 100 * n / max(int((~np.isnan(mde)).sum()), 1)
         # sobre el EXTENT: aqui no llega el predio, y el % es la cifra comparable
         print(
-            f"Aviso: {ha:.2f} ha ({pct:.1f} %) del extent del MDE {metodo.upper()} son planos "
+            f"Aviso interpolar_mde: {ha:.2f} ha ({pct:.1f} %) del extent del MDE {metodo.upper()} son planos "
             f"exactos a la cota de una curva."
         )
         print(_AVISO_PLANOS["tin" if metodo == "tin" else "rbf"])
@@ -1810,7 +1810,7 @@ def validar_mde(
 
     if _mostrar():
         print(
-            f"Validación MDE ({metodo}): n={metricas['n_puntos_prueba']} "
+            f"validar_mde: {metodo} | n={metricas['n_puntos_prueba']} "
             f"(reserva {porcentaje_reserva:.0%}) | RMS: {metricas['rms']:.3f} | "
             f"error medio: {metricas['error_medio']:+.3f} | "
             f"|error| medio: {metricas['error_abs_medio']:.3f} | "
@@ -2652,7 +2652,7 @@ def estadisticas_zonales(
     if sin_celdas.any():
         nombres = list(zonas[campo].to_numpy()[sin_celdas][:5])
         print(
-            f"Aviso: {int(sin_celdas.sum())} zona(s) sin ninguna celda (más chicas "
+            f"Aviso estadisticas_zonales: {int(sin_celdas.sum())} zona(s) sin ninguna celda (más chicas "
             f"que el píxel o fuera del raster), salen con n_celdas=0 y NaN. "
             f"{campo}: {nombres}"
         )

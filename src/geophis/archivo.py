@@ -106,7 +106,7 @@ def _traducir_avisos() -> Iterator[None]:
                 # GDAL pone el dato detrás de los dos puntos; los avisos que no
                 # llevan ninguno (el de los 10 caracteres) no pierden nada.
                 detalle = texto.split(":", 1)[1].strip() if ":" in texto else ""
-                print(f"Aviso: {es}" + (f": {detalle}" if detalle else ""))
+                print(f"Aviso GDAL: {es}" + (f": {detalle}" if detalle else ""))
             else:
                 warnings.warn(a.message, a.category)
 
@@ -197,13 +197,13 @@ def cargar(
         mayor = familia.value_counts().index[0]
         tipos = [mayor, "Multi" + mayor]
         print(
-            f"Aviso: '{ruta}' mezcla geometrías {sorted(set(gdf.geom_type.dropna()))}; "
+            f"Aviso cargar: '{ruta}' mezcla geometrías {sorted(set(gdf.geom_type.dropna()))}; "
             f"separa con gdf[gdf.geom_type.isin({tipos})]"
         )
     if _mostrar():
-        print(f"Cargado '{ruta}': {len(gdf)} entidades | CRS: {_crs_corto(gdf.crs)}")
+        print(f"cargar: '{ruta}' {len(gdf)} entidades | CRS: {_crs_corto(gdf.crs)}")
     if len(gdf) == 0:
-        print(f"Aviso: '{ruta}' no tiene entidades")
+        print(f"Aviso cargar: '{ruta}' no tiene entidades")
     return gdf
 
 
@@ -260,18 +260,18 @@ def cargar_puntos(
         crs=f"EPSG:{epsg}" if epsg else None,
     )
     if _mostrar():
-        print(f"Cargado '{ruta}': {len(gdf)} puntos | CRS: {_crs_corto(gdf.crs)}")
+        print(f"cargar_puntos: '{ruta}' {len(gdf)} puntos | CRS: {_crs_corto(gdf.crs)}")
     if epsg is None:
         print(
-            "Aviso: capa sin CRS (no se pasó epsg); no podrás reproyectar ni "
+            "Aviso cargar_puntos: capa sin CRS (no se pasó epsg); no podrás reproyectar ni "
             "medir áreas. Ej.: epsg=32613 para UTM 13N"
         )
     if len(gdf) == 0:
-        print(f"Aviso: '{ruta}' no tiene filas")
+        print(f"Aviso cargar_puntos: '{ruta}' no tiene filas")
     return gdf
 
 
-def _avisar_medida_obsoleta(gdf: gpd.GeoDataFrame) -> None:
+def _avisar_medida_obsoleta(gdf: gpd.GeoDataFrame, quien: str) -> None:
     """Avisa si una columna de área o de longitud ya no cuadra con la geometría.
 
     El área guardada como columna es una instantánea, y **cualquier** operación
@@ -342,7 +342,7 @@ def _avisar_medida_obsoleta(gdf: gpd.GeoDataFrame) -> None:
                 # a revisar justo el paso inocente. Lista los sospechosos que van
                 # DESPUÉS del recorte, que son los que no se buscan solos.
                 print(
-                    f"Aviso: la columna '{col}' no cuadra con la geometría "
+                    f"Aviso {quien}: la columna '{col}' no cuadra con la geometría "
                     "actual; algún paso movió la geometría después de "
                     f"calcularla. Recalcula {que} como ÚLTIMO paso, detrás de "
                     "todo lo que la toque: recortar, reproyectar, disolver, "
@@ -493,7 +493,7 @@ def _fijar_anchos_dbf(ruta: str, anchos: dict[int, tuple[int, int]]) -> None:
         )
     if redondeados:
         print(
-            f"Aviso: {redondeados} valor(es) redondeados a los decimales pedidos "
+            f"Aviso guardar: {redondeados} valor(es) redondeados a los decimales pedidos "
             "en `anchos`"
         )
 
@@ -587,8 +587,8 @@ def guardar(
         )
     ext = _exigir_salida(ruta, _EXT_VECTOR | set(_DRIVERS_GEO), "capa")
     if len(gdf) == 0:
-        print(f"Aviso: guardando capa vacía en '{ruta}'")
-    _avisar_medida_obsoleta(gdf)
+        print(f"Aviso guardar: capa vacía en '{ruta}'")
+    _avisar_medida_obsoleta(gdf, "guardar")
     carpeta = os.path.dirname(os.path.abspath(ruta))
     os.makedirs(carpeta, exist_ok=True)
 
@@ -604,7 +604,7 @@ def guardar(
             for nombre in os.listdir(tmp):
                 shutil.move(os.path.join(tmp, nombre), os.path.join(carpeta, nombre))
         if _mostrar():
-            print(f"Guardado '{ruta}': {len(gdf)} entidades, anchos {anchos}")
+            print(f"guardar: '{ruta}' {len(gdf)} entidades, anchos {anchos}")
         return ruta
 
     if ext in _DRIVERS_GEO:
@@ -622,7 +622,7 @@ def guardar(
             hay_lineas = gdf.geom_type.isin(["LineString", "MultiLineString"]).any()
             if gpx_como is not None and not hay_lineas:
                 print(
-                    "Aviso: gpx_como no aplica: la capa no tiene líneas "
+                    "Aviso guardar: gpx_como no aplica: la capa no tiene líneas "
                     "(los puntos van a waypoints)"
                 )
             if gpx_como in (None, "track"):
@@ -634,7 +634,7 @@ def guardar(
             gdf.to_file(ruta)
 
     if _mostrar():
-        print(f"Guardado '{ruta}': {len(gdf)} entidades")
+        print(f"guardar: '{ruta}' {len(gdf)} entidades")
     return ruta
 
 
@@ -659,7 +659,7 @@ def exportar_tabla(
     # Sin geometría (`gdf[cols]` sin ella, o la salida de `resumir`) ya es
     # tabla: no hay nada contra qué comprobar el área ni qué quitar.
     if isinstance(gdf, gpd.GeoDataFrame):
-        _avisar_medida_obsoleta(gdf)
+        _avisar_medida_obsoleta(gdf, "exportar_tabla")
         tabla = pd.DataFrame(gdf.drop(columns=gdf.geometry.name))
     else:
         tabla = pd.DataFrame(gdf)
@@ -669,7 +669,7 @@ def exportar_tabla(
     else:
         _escribir_xlsx(tabla, ruta, hoja)
     if _mostrar():
-        print(f"Guardado '{ruta}': {len(tabla)} filas, {len(tabla.columns)} campos")
+        print(f"exportar_tabla: '{ruta}' {len(tabla)} filas, {len(tabla.columns)} campos")
     return ruta
 
 
@@ -760,7 +760,7 @@ def _a_geografico(gdf: gpd.GeoDataFrame, ext: str) -> gpd.GeoDataFrame:
     _exigir_crs(gdf, "capa")
     if gdf.crs.to_epsg() != 4326:
         if _mostrar():
-            print(f"Reproyectando a EPSG:4326 para exportar a {ext}")
+            print(f"guardar: reproyectando a EPSG:4326 para {ext}")
         return gdf.to_crs(epsg=4326)
     return gdf
 
@@ -768,7 +768,7 @@ def _a_geografico(gdf: gpd.GeoDataFrame, ext: str) -> gpd.GeoDataFrame:
 def _poligono_a_borde(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """GPX no admite polígonos; exporta su contorno como línea."""
     if set(gdf.geom_type) & {"Polygon", "MultiPolygon"}:
-        print("Aviso: GPX no admite polígonos; se exporta su contorno como línea")
+        print("Aviso guardar: GPX no admite polígonos; se exporta su contorno como línea")
         gdf = gdf.copy()
         # por nombre real: con el literal y la columna activa llamada distinto, se
         # añadiría una columna "geometry" y se exportaría el polígono original
@@ -779,7 +779,7 @@ def _poligono_a_borde(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def _multipunto_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """GPX no admite MultiPoint; lo separa en un waypoint por punto."""
     if (gdf.geom_type == "MultiPoint").any():
-        print("Aviso: GPX no admite multipuntos; se exporta un waypoint por punto")
+        print("Aviso guardar: GPX no admite multipuntos; se exporta un waypoint por punto")
         gdf = gdf.explode(index_parts=False).reset_index(drop=True)
     return gdf
 
@@ -816,7 +816,7 @@ def cargar_waypoints(ruta: str | PathLike[str]) -> gpd.GeoDataFrame:
         crs=gdf.crs,
     )
     if _mostrar():
-        print(f"Waypoints '{ruta}': {len(salida)} entidades")
+        print(f"cargar_waypoints: '{ruta}' {len(salida)} entidades")
     return salida
 
 
@@ -884,7 +884,7 @@ def cargar_tracks(
     # sin tramos válidos: capa vacía CON columna geometry, para que guardar no truene
     salida = gpd.GeoDataFrame(filas if filas else {"geometry": []}, crs=pts.crs)
     if _mostrar():
-        print(f"Tracks '{ruta}': {len(salida)} tramos")
+        print(f"cargar_tracks: '{ruta}' {len(salida)} tramos")
     return salida
 
 
@@ -919,7 +919,7 @@ def detectar_utm(gdf: gpd.GeoDataFrame) -> int:
     zona = int(((x0 + x1) / 2 + 180) // 6) + 1
     epsg = (32600 if (y0 + y1) / 2 >= 0 else 32700) + zona
     if _mostrar():
-        print(f"huso UTM detectado: EPSG:{epsg}")
+        print(f"detectar_utm: EPSG:{epsg}")
     return epsg
 
 
@@ -1032,7 +1032,7 @@ def detectar_cota(
     col, reg, paso, _ = filas[0]
     if _mostrar():
         print(
-            f"cota detectada: '{col}' (regularidad {reg:.2f}), equidistancia {paso:g} m"
+            f"detectar_cota: '{col}' (regularidad {reg:.2f}), equidistancia {paso:g} m"
         )
         v = np.sort(pd.to_numeric(curvas[col], errors="coerce").dropna().unique())
         d = np.round(np.diff(v), 3)
@@ -1044,14 +1044,14 @@ def detectar_cota(
         print(f"   saltos entre cotas: {reparto}")
         if len(filas) > 1 and filas[1][1] >= regularidad_min:
             print(
-                f"   OJO: '{filas[1][0]}' también pasa (regularidad {filas[1][1]:.2f}, "
+                f"Aviso detectar_cota: '{filas[1][0]}' también pasa (regularidad {filas[1][1]:.2f}, "
                 f"paso {filas[1][2]:g} m). Dos escaleras en la misma capa"
             )
     cotas = pd.to_numeric(curvas[col], errors="coerce")
     if cotas.isna().any():
         # sale siempre: son curvas que el MDE no va a ver
         print(
-            f"Aviso: {int(cotas.isna().sum())} de {len(cotas)} curvas sin cota en "
+            f"Aviso detectar_cota: {int(cotas.isna().sum())} de {len(cotas)} curvas sin cota en "
             f"'{col}': `interpolar_mde` las descarta"
         )
     _avisar_fuera_de_escalera(cotas, col, paso)
@@ -1084,7 +1084,7 @@ def _avisar_fuera_de_escalera(cotas: pd.Series, col: str, paso: float) -> None:
         for i in np.nonzero(raros)[0][:5]
     ]
     print(
-        f"Aviso: {int(raros.sum())} cota(s) de '{col}' fuera de la escalera de "
+        f"Aviso detectar_cota: {int(raros.sum())} cota(s) de '{col}' fuera de la escalera de "
         f"{paso:g} m o con salto > 2 pasos:\n" + "\n".join(lineas) + "\n"
         "   Si no es un hueco real de la carta, es una curva mal capturada: hace un "
         "pico\n   o un escalón falso en el MDE. Corrígela o quítala antes de "
@@ -1110,7 +1110,7 @@ def detectar_campo(
         valores = set(gdf[col].astype(str).str.strip().str.upper())
         if vocabulario <= valores:
             if _mostrar():
-                print(f"campo detectado: '{col}' (contiene {sorted(vocabulario)})")
+                print(f"detectar_campo: '{col}' (contiene {sorted(vocabulario)})")
             return col
     raise ValueError(
         f"ninguna columna contiene {sorted(vocabulario)}; columnas: {list(gdf.columns)}"
@@ -1138,11 +1138,11 @@ def listar_capas(ruta: str | PathLike[str]) -> list[str]:
         info = gpd.list_layers(ruta)
     nombres = [str(n) for n in info["name"]]
     if _mostrar():
-        print(f"'{ruta}': {len(nombres)} capa(s)")
+        print(f"listar_capas: '{ruta}' {len(nombres)} capa(s)")
         for nombre, tipo in zip(info["name"], info["geometry_type"]):
             print(f"  {nombre} ({tipo or 'sin geometría'})")
     if not nombres:
-        print(f"Aviso: '{ruta}' no declara ninguna capa")
+        print(f"Aviso listar_capas: '{ruta}' no declara ninguna capa")
     return nombres
 
 
@@ -1199,7 +1199,7 @@ def describir(
         "invalidas": int((~gdf.geometry.is_valid & ~hueca).sum()),
     }
     if _mostrar():
-        print(f"describir '{origen}'")
+        print(f"describir: '{origen}'")
         print(f"  entidades  {ficha['n']} | tipo {', '.join(ficha['tipos']) or '(nada)'}")
         # El nombre y el codigo, NO el WKT: una capa estatal sin codigo EPSG
         # (Lambert ITRF92 en WKT suelto) son 700 caracteres en una linea que
@@ -1222,18 +1222,18 @@ def describir(
             print(f"    {col}: {tipo}{aviso}")
         if vacias or ficha["invalidas"]:
             print(
-                f"  Aviso: {vacias} geometrías vacías, {ficha['invalidas']} "
+                f"Aviso describir: {vacias} geometrías vacías, {ficha['invalidas']} "
                 "inválidas (limpiar_vacias / reparar_geometrias)"
             )
     if gdf.crs is None:
-        print("Aviso: capa sin CRS; no podrás reproyectar ni medir áreas")
+        print("Aviso describir: capa sin CRS; no podrás reproyectar ni medir áreas")
     elif gdf.crs.is_geographic:
         # El docstring dice que las unidades son de las tres que muerden porque
         # "el aviso llega funcion por funcion, tarde", y esta funcion existe para
         # darlo temprano. Imprimir la palabra 'degree' entre otros diez campos no
         # es darlo: un adjetivo no es un aviso.
         print(
-            f"Aviso: CRS GEOGRÁFICO (unidades '{ficha['unidades']}'). Cualquier "
+            f"Aviso describir: CRS GEOGRÁFICO (unidades '{ficha['unidades']}'). Cualquier "
             "superficie, longitud, buffer o distancia sale en grados y NO "
             "significa nada; reproyecta a UTM antes de medir (detectar_utm)"
         )
