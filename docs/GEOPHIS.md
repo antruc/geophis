@@ -423,6 +423,10 @@ El MDE de pendiente es el de P1 o P2 y se guarda ANTES de nada más (R6). La ram
 
 ```python
 # mde, tf, p, predio, curvas, cauces y SALIDAS: los de P1 (o P2 con el MDE del TIN)
+
+# ── CONFIG (además de la de P1 o P2) ───────────────────────────────────
+AREA_APORTADORA_HA = 1.25  # declarado: lo que hace que una vaguada sea cauce
+
 h = tf.a  # lado de celda de ESTE MDE, del transform y no de una constante
 
 # ── 1. QUEMAR (opcional; con el TIN con quiebres no se quema) ──────────
@@ -440,7 +444,6 @@ grid, dem = geo.acondicionar_mde(SALIDAS + r"\MDE_HIDRO.tif")  # float64: no se 
 flujo = geo.acumulacion_flujo(grid, dem)
 
 # ── 4. ENTREGABLES: un solo umbral para los tres ───────────────────────
-AREA_APORTADORA_HA = 1.25  # declarado: lo que hace que una vaguada sea cauce
 UMBRAL = geo.umbral_celdas(AREA_APORTADORA_HA, h)
 red = geo.red_drenaje(flujo, UMBRAL)
 orden = geo.orden_cauces(flujo, UMBRAL)
