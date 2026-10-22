@@ -133,7 +133,9 @@ docs/            documentación
 ejemplos/        scripts de referencia
 ```
 
-Los módulos están en capas y las dependencias solo bajan: `proyeccion` y `metrologia`, luego `archivo` y `raster`, luego `geometria`, `hidrologia`, `tabla` y `satelite`, luego `zonas` y `lamina`, luego `barridos`, luego `parametros`, y arriba `cli`. `tests/test_capas.py` lo vigila. Los scripts de trabajo de cada predio no son parte de la librería: traen rutas absolutas y cifras de un predio
+Cada módulo solo usa funciones de los módulos que están por debajo de él: `zonas` usa `geometria`, nunca al revés. Así no hay imports circulares y se puede cambiar la base sin romper lo de arriba. El orden completo, con el motivo de cada módulo, está en `tests/test_capas.py`, que falla si alguien rompe la regla
+
+Los scripts de un predio concreto, con sus rutas y cifras, no se suben al repo
 
 ```bash
 pytest                    # los 2 tests de red corren solo con GEOPHIS_RED=1
