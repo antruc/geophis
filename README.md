@@ -21,6 +21,8 @@ La librería está documentada para que una IA escriba los scripts por ti. [`doc
 
 Con Claude Code, u otro agente que ejecute código, los pasos 3 y 4 los hace el agente: escribe el script, lo corre y lee la salida él mismo
 
+Sin IA, el mismo [`docs/GEOPHIS.md`](docs/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](docs/API.md)
+
 ## Instalación
 
 Requiere Python >= 3.11
@@ -94,9 +96,9 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 
 | Archivo | Para qué |
 |---|---|
-| [`docs/GEOPHIS.md`](docs/GEOPHIS.md) | La documentación completa: todas las funciones de `__all__` con su firma y sus trampas, los flujos de MDE, pendientes e hidrología, y las instrucciones de trabajo. Es también el único archivo que hay que cargar en un Proyecto de Claude |
+| [`docs/GEOPHIS.md`](docs/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo que hay que cargar en un Proyecto de Claude |
 | [`docs/DECISIONES.md`](docs/DECISIONES.md) | Para personas: las mediciones que justifican cada regla y las alternativas descartadas. No se sube al Proyecto |
-| [`docs/API.md`](docs/API.md) | Índice compacto para buscar una función por nombre |
+| [`docs/API.md`](docs/API.md) | Índice para buscar una función por nombre: una línea por función, con enlace a su entrada completa en `GEOPHIS.md` |
 | [`ejemplos/`](ejemplos/) | Scripts completos: `caminos.py` (buffer jerárquico), `hidrologia.py` (buffer por condición), `mde.py` (curvas a MDE) |
 
 ## Estructura
