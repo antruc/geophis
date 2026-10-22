@@ -8,11 +8,15 @@ Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj
 import geophis as geo
 ```
 
-Este archivo basta para escribir un script correcto sin leer el código fuente: instrucciones de trabajo, reglas, recetas y la API con la trampa de cada función. **Las mediciones que justifican cada regla y las alternativas descartadas están en `DECISIONES.md`**, que es para personas y no se sube al Proyecto.
+Este archivo basta para escribir un script correcto sin leer el código fuente: reglas, recetas y la API con la trampa de cada función. **Las mediciones que justifican cada regla y las alternativas descartadas están en `DECISIONES.md`.**
 
 Las reglas se citan como **R1** a **R9** y las recetas de pendiente como **P1** a **P3**.
 
-## Cómo responder
+## Para la IA: cómo responder
+
+**Esta sección es solo para la Inteligencia Artificial (IA) que escribe scripts con este archivo como contexto.** Quien programa sin IA puede saltarla; el resto del archivo vale igual para los dos.
+
+`DECISIONES.md` no está en tu contexto: si una regla parece no tener razón, la razón está ahí y no se inventa.
 
 1. **La respuesta es el código.** Sin preámbulo, sin anunciar lo que vas a hacer, sin resumen al final. Después del script, tres líneas como máximo: qué se decidió, qué queda sin medir o supuesto, qué comando correr.
 2. **Lo declarado que el pedido no dice, se pregunta o se marca.** La escala, los rangos, la clase que se cita o la temporada son decisiones del usuario (R1). Si faltan y cambian la cifra, pregunta; si se puede seguir, ponlas en `CONFIG` marcadas `SUPUESTO` y dilo en esas tres líneas.
@@ -97,7 +101,7 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 
 - Docstring corto al inicio: qué, y por qué si no es obvio.
 - Bloque `CONFIG` en mayúsculas arriba (rutas, EPSG, distancias, campos), cada valor declarado con su razón al lado.
-- Toda ruta es una constante del `CONFIG` que dice si se lee o se escribe. Entrada: `ENTRADA` en el nombre (`ENTRADA_PREDIO`); en una lista de tuplas, la variable del `for` se llama `entrada`. Salida: `SALIDA` en el nombre, `SALIDA_BUFFER` para un archivo, `SALIDAS` para la carpeta (`SALIDAS + r"\PENDIENTES.shp"`). Nunca una ruta escrita dentro de `cargar` o `guardar`: el usuario distingue de un vistazo qué lee y qué escribe.
+- Toda ruta es una constante del `CONFIG` que dice si se lee o se escribe. Entrada: `ENTRADA` en el nombre (`ENTRADA_PREDIO`); en una lista de tuplas, la variable del `for` se llama `entrada`. Salida: `SALIDA` en el nombre, `SALIDA_BUFFER` para un archivo, `SALIDAS` para la carpeta (`SALIDAS + r"\PENDIENTES.shp"`). Nunca una ruta escrita dentro de `cargar` o `guardar`: quien lee el script distingue de un vistazo qué lee y qué escribe.
 - Pasos numerados `# ── N. VERBO EN MAYÚSCULAS ──`, lineal, sin funciones propias, reasignando la misma variable (`gdf = geo.algo(gdf)`).
 - Tres o más casos parecidos → lista de tuplas y `for` (el orden puede codificar prioridad). Con dos, escribe los bloques directo.
 - `print()` como reporte. `geo.MOSTRAR = False` calla los reportes de la librería; los avisos de defecto salen igual.
@@ -511,7 +515,7 @@ geo.guardar(gdf, SALIDA_CLASES)
 print(geo.estadisticas_de_resumen(gdf, por="CLASS_SUP", campos={"SUP": "sum"}))
 ```
 
-Si una capa no pisa el predio, `disolver` FALLA con la unión vacía: quítala de `SUPERIORES` o del reparto y dilo en las tres líneas.
+Si una capa no pisa el predio, `disolver` FALLA con la unión vacía: quítala de `SUPERIORES` o del reparto y anótalo junto a la cifra.
 
 ## Del predio a la imagen: Sentinel-2
 
@@ -620,7 +624,7 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 - `cargar(ruta, capa=None, bbox=None, crs=None)` → GeoDataFrame (.shp/.gpkg/.geojson/.gpx/.dxf/.osm/.pbf). `capa` elige en multicapa (`listar_capas`). `bbox` (capa, geometría o tupla, en cualquier CRS) lee SOLO las entidades que tocan esa ventana: no recorta, `recortar` sigue haciendo falta. Con cartografía estatal es memoria, no comodidad (33.1 s / 763 MB contra 7.1 s / 164 MB). `crs` ASIGNA el CRS cuando el archivo no lo trae (DXF nunca: `cargar("plano.dxf", crs=32613)`; la capa de CAD va en la columna `Layer`). FALLA si no hay CRS y no se pasa, o si lo trae distinto. VER: R4.
 - `cargar_puntos(ruta, x="x", y="y", epsg=None, orden=None)` → puntos desde CSV/Excel. `epsg` fija el CRS (sin él no reproyecta ni mide: AVISA). `orden` ordena filas antes de convertir a línea o polígono.
 - `convertir(entrada, salida, capa=None, gpx_como=None)`: `cargar` + `guardar` en una línea; autodetecta la capa GPX con datos.
-- `guardar(gdf, ruta, gpx_como=None, anchos=None)`: formato por extensión; .gpx/.kml/.kmz reproyectan a EPSG:4326. **A GPX no elijas el tipo: lo decide la geometría.** Puntos → waypoints (multipuntos, uno por punto), líneas → track, polígonos → contorno como track. Los atributos viajan tal cual (`NAME` → `<name>`, el resto como extensiones): no recortes ni renombres campos. No pases `gpx_como`; solo `gpx_como="route"` y solo si el usuario pide rutas (AVISA si la capa no tiene líneas). `anchos` (solo .shp) fija el ancho del campo en el .dbf: `{"CLASE": 50}`, `{"SUP": (12, 4)}`. AVISA si una columna de área o longitud ya no cuadra con la geometría (R2). FALLA si un valor no cabe en `anchos` (el texto cuenta BYTES: una letra acentuada ocupa 2).
+- `guardar(gdf, ruta, gpx_como=None, anchos=None)`: formato por extensión; .gpx/.kml/.kmz reproyectan a EPSG:4326. **A GPX no elijas el tipo: lo decide la geometría.** Puntos → waypoints (multipuntos, uno por punto), líneas → track, polígonos → contorno como track. Los atributos viajan tal cual (`NAME` → `<name>`, el resto como extensiones): no recortes ni renombres campos. No pases `gpx_como`; solo `gpx_como="route"` y solo si se piden rutas (AVISA si la capa no tiene líneas). `anchos` (solo .shp) fija el ancho del campo en el .dbf: `{"CLASE": 50}`, `{"SUP": (12, 4)}`. AVISA si una columna de área o longitud ya no cuadra con la geometría (R2). FALLA si un valor no cabe en `anchos` (el texto cuenta BYTES: una letra acentuada ocupa 2).
 - `comprobar_nombres_shp(gdf)` → dict `{columna: motivo}` de las que no sobreviven a un .shp (corte a 10 caracteres o colisión); vacío = pasan. Aviso anticipado, no renombra: elige tú un nombre corto con sentido.
 - `exportar_tabla(gdf, ruta, hoja="Hoja1")`: tabla sin geometría a .csv (UTF-8 con BOM) o .xlsx. En .xlsx: pestaña `hoja`, encabezado fijo, ancho por contenido, fechas DD/MM/AAAA. AVISA de área obsoleta como `guardar`.
 - `cargar_waypoints(ruta)`: waypoints GPX con tabla limpia (NAME, LAYER, ELEVATION, time ISO UTC, sym).
