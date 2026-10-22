@@ -8,14 +8,33 @@ Funciones en español para tareas SIG forestales y territoriales: de shapefiles 
 
 ## Para qué sirve
 
-geophis existe para que un script SIG se lea como la tarea que hace: `cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`. Está pensado para el trabajo técnico forestal y territorial que termina en un entregable (shapefiles, rásters y cifras de superficie para una memoria técnica), donde cada número tiene que poder justificarse
+Para el trabajo técnico forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie para una memoria técnica. En vez de repetir clics, escribes un script que se lee como la tarea que hace (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y que se vuelve a correr cuando cambia un dato
+
+**Tareas sueltas, en pocas líneas:**
+
+- Pasar un predio de shapefile a KMZ para abrirlo en el celular, o un GPX de campo a shapefile: `geophis predio.shp kmz`, sin abrir Python
+- La superficie en hectáreas de cada polígono y el total, con la zona UTM detectada sola
+- La tabla de atributos a un Excel listo para leer, con encabezado fijo y fechas DD/MM/AAAA
+- La imagen Sentinel-2 más limpia de una temporada sobre el predio, y su NDVI
+
+**Flujos completos, del dato crudo al entregable.** Las recetas de [`docs/GEOPHIS.md`](docs/GEOPHIS.md) encadenan todo en un script: curvas de nivel, MDE, pendiente, clases sin moteado y shapefile con la superficie de cada clase; o MDE, red de drenaje y cuencas. Cambiar un rango o una capa de entrada es cambiar una línea del bloque `CONFIG` y volver a correr
+
+**Lo que te ahorra frente a un script con geopandas y rasterio a secas,** donde estos errores pasan sin avisar:
+
+- Capas en CRS distintos: `recortar`, `intersecar`, `borrar` y `union_espacial` reproyectan la segunda capa solas
+- Superficie vieja: si recortas después de calcular las hectáreas, `guardar` avisa que la columna ya no corresponde
+- Huecos o doble conteo: `comprobar_particion` dice en hectáreas cuánto falta o sobra para que las clases sumen el predio
+- Terreno inventado: el MDE no extrapola fuera de las curvas, deja sin dato y avisa cuántas hectáreas quedaron así
+- Errores en español que dicen qué falló, en vez de un volcado de GDAL tres llamadas abajo
+
+**Cifras que se pueden defender.** Los números que el script no decide (resolución del MDE, umbrales, superficie mínima de una mancha) se miden desde tus propios datos o se derivan de lo que tú declaras (la escala, los rangos), no se copian de otro predio, y la librería imprime de dónde salió cada uno para citarlo en la memoria
 
 ## Scripts hechos con IA
 
 La librería está documentada para que una IA escriba los scripts por ti. [`docs/GEOPHIS.md`](docs/GEOPHIS.md) trae todas las funciones con su firma y sus trampas, más las reglas de trabajo, y basta con cargarlo como contexto:
 
 1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`docs/GEOPHIS.md`](docs/GEOPHIS.md) como contexto del proyecto
-2. Pide la tarea en lenguaje normal: "recorta las curvas al predio, saca el MDE a 5 m y clasifica la pendiente en tres rangos"
+2. Pide la tarea en lenguaje normal: "recorta las curvas al predio, saca el MDE y clasifica la pendiente en 0 a 15, 15 a 30 y más de 30 %". Lo que decides tú (los rangos, la escala) va en el pedido; lo que se puede medir, como la resolución del MDE, lo mide el script. Si falta una decisión, la IA pregunta antes de escribir código
 3. Corre el script que te devuelve: `python mi_script.py`
 4. Pega la salida de consola completa en la conversación. Los avisos de la librería salen por consola, y es lo que la IA necesita para corregir
 
@@ -72,7 +91,7 @@ Cubre el pipeline de entregables, no el lienzo de un SIG de escritorio:
 - **Tabla de atributos:** seleccionar por atributo o por ubicación, resumir, unir una planilla, crear, calcular, renombrar, borrar y cambiar el tipo de campos, crear una capa desde cero, ver el ancho de campo de un .shp, nombres y valores en mayúsculas o minúsculas
 - **Lámina de revisión:** PNG de varios paneles sobre la misma malla (antes, después, cambio, clases) con color, leyenda, escala, norte y la cita de Copernicus; no es el mapa final
 - **Hidrología:** dirección y acumulación de flujo, red de drenaje, orden de cauces, cuencas y microcuencas
-- **Parámetros con procedencia:** `derivar_parametros` mide desde tus curvas la resolución del MDE y los umbrales, y `tabla_procedencia` imprime de dónde salió cada número (medido, declarado, derivado, convención o default), para justificarlo en la memoria
+- **Parámetros con procedencia:** `derivar_parametros` mide desde las curvas, `tabla_procedencia` clasifica cada número como medido, declarado, derivado, convención o default
 
 No hace teledetección clasificada, ni geocodificación, ni se conecta con SIG de escritorio. No se conecta a servicios externos, salvo Earth Search para bajar Sentinel-2
 
