@@ -107,7 +107,7 @@ ignore = ["E501"]
 # repo saca 17 avisos sobre `src` y `tests`: 11 de I001, 3 de B905 (`zip` sin
 # `strict`) y 3 de B028 (`warnings.warn` sin `stacklevel`). Ninguno es un
 # defecto:
-#   - I001 es reordenar imports en 11 archivos, churn puro sin ganancia.
+#   - I001 es reordenar imports en 11 archivos, cambios de forma que ensucian el historial sin ganancia.
 #   - B905: los tres `zip` de la libreria son de longitud DISTINTA a proposito
 #     (`zip(cotas, cotas[1:])` recorre pares contiguos); `strict=True` ahi
 #     reventaria.
