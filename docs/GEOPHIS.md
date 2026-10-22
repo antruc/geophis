@@ -4,10 +4,6 @@
 
 Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj (proyecciones), con scipy para el análisis espacial. Una función clara por operación SIG. Distancias en unidades del CRS (metros si es UTM).
 
-```python
-import geophis as geo
-```
-
 Este archivo basta para escribir un script correcto sin leer el código fuente: reglas, recetas y la API con la trampa de cada función. **Las mediciones que justifican cada regla y las alternativas descartadas están en `DECISIONES.md`.**
 
 Las reglas se citan como **R1** a **R9** y las recetas de pendiente como **P1** a **P3**.
