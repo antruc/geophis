@@ -127,7 +127,7 @@ El detalle de cada convención, con la medición que la justifica, está en `doc
 ## Para editar la librería
 
 ```
-src/geophis/      la librería (un módulo por capa; las dependencias solo bajan)
+src/geophis/      la librería
 tests/           suite pytest
 docs/            documentación
 ejemplos/        scripts de referencia
