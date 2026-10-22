@@ -589,7 +589,7 @@ geo.lamina([p_antes, p_desp, p_cambio], SALIDAS + r"\LAMINA.png",
 
 **Lámina, cuándo y qué paleta.** Una figura para revisar o para el informe es un PNG de `lamina`, además del `.tif` o el `.shp`. NDVI, NDMI o NBR → `"vegetacion"`; una diferencia → `"divergente"` (pérdida en café); pendiente, HAND o MDE → `"gris"`; clases → `panel_clases` con colores en orden de la variable. `estirado=` es un número tecleado (R1): solo si se pide una escala fija.
 
-**Lo que NO es.** No es ortofoto: píxel de 10 m, y `swir1`/`swir2` son de 20 m reales. `scl` es una máscara de nubes pobre (confunde suelo brillante con nube, deja pasar sombras): mira la `vista_previa`. No es mediana de temporada. Del índice a polígonos: `zonificar` → `eliminar_menores` → `calcular_superficie` → `comprobar_particion`, sin `cerrar_microhuecos` ni `simplificar` (la salida de `poligonizar` no es cobertura noded). La clasificación es un primer borrador que el técnico corrige: sombra y pasto seco entran como suelo desnudo y el umbral cambia con la fecha.
+**Lo que NO es.** No es ortofoto: píxel de 10 m, y `swir1`/`swir2` son de 20 m reales. `scl` es una máscara de nubes pobre (confunde suelo brillante con nube, deja pasar sombras): mira la `vista_previa`. No es mediana de temporada. Del índice a polígonos: `zonificar` → `eliminar_menores` → `simplificar` (tolerancia = píxel) → `calcular_superficie` → `comprobar_particion`, sin `cerrar_microhuecos`. La clasificación es un primer borrador que el técnico corrige: sombra y pasto seco entran como suelo desnudo y el umbral cambia con la fecha.
 
 ## Síntoma, causa, arreglo
 
@@ -711,7 +711,7 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 - `calcular_longitud(gdf, campo=None, unidad="m", decimales=2)`: columna de longitud (`"m"`, `"km"`), cualquier CRS; en polígonos es el perímetro. VER: R2.
 - `calcular_coordenadas(gdf, crs=None, formato="decimal", decimales=None)`: coordenadas de cada PUNTO en `crs` sin mover la geometría (`LAT`/`LON` o `X`/`Y`; `formato="gms"` en texto). FALLA con líneas o polígonos (usa `entidad_a_punto`) y con `gms` en CRS proyectado.
 - `medir_geodesico(gdf)`: añade `SUP_GEO` (ha) y `LONG_GEO` (m) sobre el elipsoide; imprime la diferencia contra el cálculo plano.
-- `simplificar(gdf, tolerancia, conservar_topologia=True)`: con polígonos simplifica la cobertura (los vecinos siguen encajando); la tolerancia es por área, usa el tamaño de píxel. FALLA si la capa de polígonos no es una partición, y hoy sobre la salida de `poligonizar` (no es cobertura noded).
+- `simplificar(gdf, tolerancia, conservar_topologia=True)`: con polígonos simplifica la cobertura (los vecinos siguen encajando); la tolerancia es por área, usa el tamaño de píxel. FALLA si la capa de polígonos no es una partición; las juntas en T de `poligonizar` las noda sola.
 - `cerrar_microhuecos(gdf, distancia)`: cada rendija entre 2+ polígonos va al vecino de borde más largo. No conoce la zona: `recortar` otra vez después. Tras `poligonizar` no hace falta.
 - `rellenar_huecos(gdf, area_max_ha=None)`: quita anillos interiores ≤ `area_max_ha` (ponle la UMM); `None` los quita todos, también el claro real. Antes de `calcular_superficie`.
 - `subdividir_por_area(gdf, area_max_ha, campo_area="superficie_ha", min_esquirla=100)`: parte polígonos grandes por bisección.

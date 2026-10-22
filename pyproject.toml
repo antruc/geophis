@@ -28,10 +28,10 @@ classifiers = [
 
 dependencies = [
     # pisos por `simplificar`: `GeoSeries.simplify_coverage` es de geopandas 1.1
-    # y `shapely.coverage_is_valid` de shapely 2.1. `gpd.list_layers` (lectura
+    # y `shapely.coverage_clean` de shapely 2.2. `gpd.list_layers` (lectura
     # de capas) pide geopandas 1.0, que ya cubre este piso.
     "geopandas>=1.1",
-    "shapely>=2.1",
+    "shapely>=2.2",
     # proyeccion, geometria, zonas y lamina la importan directo. Ya llegaba por
     # geopandas, pero no se depende de lo que arrastre otra libreria. Piso de
     # geopandas 1.1

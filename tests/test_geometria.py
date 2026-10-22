@@ -1080,6 +1080,22 @@ def test_simplificar_conserva_la_particion_y_el_borde_exterior(gdf):
     )
 
 
+def test_simplificar_escalera_con_junta_en_t(gdf):
+    # la derecha partida en y=30, como la deja `poligonizar`: (50, 30) no es
+    # vertice de la izquierda. Sin nodar, `coverage_is_valid` la rechaza. El
+    # None de en medio comprueba que las filas no se desalinean.
+    abajo = box(50, 0, 100, 30)
+    arriba = ESCALERA_DER.difference(abajo)
+    capa = gdf(ESCALERA_IZQ, None, arriba, abajo, CLASE=[1, 2, 3, 4])
+    r = geo.simplificar(capa, 10)
+    geo.comprobar_particion(
+        [r.dropna(subset=["geometry"])], gdf(box(-50, 0, 100, 100)), tolerancia_ha=1e-9
+    )
+    assert r.geometry.isna().tolist() == [False, True, False, False]
+    assert r.geometry.iloc[3].equals(abajo)
+    assert r.geometry.iloc[0].area == pytest.approx(ESCALERA_IZQ.area, abs=1e-6)
+
+
 def test_simplificar_encimados_falla_y_manda_a_comprobar_particion(gdf):
     with pytest.raises(ValueError, match="comprobar_particion"):
         geo.simplificar(gdf(box(0, 0, 60, 100), box(50, 0, 100, 100)), 10)

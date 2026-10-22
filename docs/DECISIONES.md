@@ -74,9 +74,9 @@ Una capa que pasó por una malla de celdas tiene el borde en escalera, y discrep
 ### Otras decisiones de geometría
 
 - **Máscaras con todas las celdas tocadas.** Si una máscara solo pinta las celdas cuyo centro cae dentro, la celda mordida por el lindero no se poligoniza nunca y la capa cierra con menos superficie que el predio. La fuga es de perímetro por píxel entre 8.
-- **Simplificar polígonos como cobertura.** Simplificando cada polígono por su cuenta salían **40.03 ha de hueco y 29.81 ha de solape** en un predio real. Simplificar la cobertura completa resuelve eso, pero hoy falla sobre la salida de la poligonización (330 polígonos rechazados en un predio y 154 en otro): rasterio no pone vértice en las juntas en T. Se arregla con una función de shapely 2.2.
+- **Simplificar polígonos como cobertura.** Simplificando cada polígono por su cuenta salían **40.03 ha de hueco y 29.81 ha de solape** en un predio real. Simplificar la cobertura completa resuelve eso, pero fallaba sobre la salida de la poligonización (330 polígonos rechazados en un predio y 154 en otro): rasterio no pone vértice en las juntas en T. `coverage_clean` de shapely 2.2 pone ese vértice sin mover superficie; un solape real sigue siendo error.
 - **Cerrar rendijas por la unión, no por polígono.** Un cierre morfológico polígono por polígono invadía al vecino: 261 ha de solape.
-- **La cadena del índice de vegetación sin simplificar ni cerrar rendijas.** Con esos dos pasos metía **303.74 ha de doble conteo** sin avisar.
+- **La cadena del índice de vegetación sin cerrar rendijas.** Junto con el simplificado de entonces metía **303.74 ha de doble conteo** sin avisar. `simplificar` por cobertura volvió a la cadena: solape 0 en un predio real.
 - **Reparar geometrías con `make_valid`, no con `buffer(0)`**: en un polígono en forma de moño, `buffer(0)` se queda con media superficie.
 - **El más cercano, sin duplicar.** El join al más cercano devuelve una fila por empate, y una capa pasó de **61 a 2 413 filas** sin avisar. `cercano` deja una fila por entidad y cuenta los empates.
 - **Seleccionar por ubicación no es un join.** El join espacial duplica la fila si dos entidades la tocan; para filtrar, inflaba el total en silencio.

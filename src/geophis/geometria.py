@@ -2078,7 +2078,9 @@ def simplificar(
     solapes o bordes casi coincidentes): `simplify_coverage` no avisa y
     devuelve basura. Mide con `comprobar_particion` y arregla con `borrar`
     o `resolver_por_prioridad`. Si de verdad quieres simplificar cada polígono
-    por su cuenta, `conservar_topologia=False`.
+    por su cuenta, `conservar_topologia=False`. Las juntas en T sin vértice
+    (la salida de `poligonizar`) NO son error: se les pone el vértice antes de
+    simplificar, sin mover nada.
 
     OJO, con polígonos la tolerancia NO es una distancia máxima:
     `simplify_coverage` usa Visvalingam-Whyatt (área). Medido sobre una
@@ -2101,23 +2103,26 @@ def simplificar(
     geo = salida.geometry
     tipos = set(geo[~geo.is_empty & geo.notna()].geom_type)
     if conservar_topologia and tipos and tipos <= {"Polygon", "MultiPolygon"}:
-        # TODO(shapely 2.2 final, shapely/shapely#2413): la salida de
-        # `poligonizar` no es NODED (juntas en T sin vertice) y aqui cae con
-        # ValueError (330 de 724 en un predio real). Arreglo medido con 2.2.0rc1:
-        #   geoms = shapely.coverage_clean(geo.values, snapping_distance=0.0)
-        # antes de `coverage_is_valid`, y simplificar sobre `geoms`. OJO:
-        # `coverage_clean` tambien resuelve solapes reales; decidir si siguen
-        # dando ValueError (medir solapes antes y limpiar solo el noding).
-        # Medido con la rc1: 330 -> 0 invalidos en un predio real, 154 -> 0
-        # en otro, 0 m2 movidos, solape 0 tras simplificar.
-        # Al hacerlo: `pyproject.toml` a "shapely>=2.2", test de escalera con
-        # junta en T en `test_geometria.py`, y devolver `simplificar` a la
-        # receta de vegetacion en `docs/`. Revisado 2026-09-28: PyPI sigue en
-        # 2.1.2 estable, la rama de lineas no necesita nada.
-        geoms = geo.values
-        if not shapely.coverage_is_valid(geoms):
-            aristas = shapely.coverage_invalid_edges(geoms)
-            n = int((~shapely.is_empty(aristas) & ~shapely.is_missing(aristas)).sum())
+        # La salida de `poligonizar` no es NODED: rasterio no pone vertice en
+        # las juntas en T, y sin nodar `coverage_is_valid` rechazaba 330 de 724
+        # poligonos en un predio real (154 en otro). `coverage_clean` sin
+        # snapping solo inserta esos vertices: 0 m2 movidos. Pero TAMBIEN
+        # reparte los solapes reales, y eso sigue siendo error: un poligono
+        # cuya area cambio al limpiar estaba encimado.
+        # Solo las llenas: con un None, `coverage_clean` (2.2.0) lo manda al
+        # final del arreglo y desalinea las filas.
+        geoms = geo.to_numpy()
+        llenas = (geo.notna() & ~geo.is_empty).to_numpy()
+        limpias = geoms.copy()
+        limpias[llenas] = shapely.coverage_clean(geoms[llenas], snapping_distance=0.0)
+        malas = np.zeros(len(geoms), dtype=bool)
+        malas[llenas] = ~np.isclose(
+            shapely.area(limpias[llenas]), shapely.area(geoms[llenas]), rtol=1e-9, atol=0
+        )
+        aristas = shapely.coverage_invalid_edges(limpias)
+        malas |= ~shapely.is_empty(aristas) & ~shapely.is_missing(aristas)
+        if malas.any():
+            n = int(malas.sum())
             raise ValueError(
                 f"la capa no es una particion ({n} poligonos con aristas "
                 "invalidas: solapes o bordes casi coincidentes). Mide con "
@@ -2125,7 +2130,11 @@ def simplificar(
                 "resolver_por_prioridad; si de verdad quieres simplificar cada "
                 "poligono por su cuenta, conservar_topologia=False"
             )
-        salida[geo.name] = geo.simplify_coverage(tolerancia, simplify_boundary=False)
+        # `coverage_simplify` tampoco acepta None (cae al reacomodar la salida)
+        limpias[llenas] = shapely.coverage_simplify(
+            limpias[llenas], tolerancia, simplify_boundary=False
+        )
+        salida[geo.name] = gpd.GeoSeries(limpias, index=geo.index, crs=geo.crs)
         return salida
     salida[geo.name] = geo.simplify(tolerancia, preserve_topology=conservar_topologia)
     return salida
