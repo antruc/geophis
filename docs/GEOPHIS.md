@@ -96,7 +96,7 @@ Con varias llamadas a `derivar_parametros` sobre el mismo predio (otro método, 
 ## Estilo de script
 
 - Docstring corto al inicio: qué, y por qué si no es obvio.
-- Bloque `CONFIG` en mayúsculas arriba (rutas, distancias, campos), cada valor declarado con su razón al lado. El EPSG no va ahí: se mide con `detectar_utm(predio)` en el paso 1, salvo que la entrega pida otro CRS, que entonces se declara.
+- Todo valor declarado va en el bloque `CONFIG` en mayúsculas arriba (rutas, distancias, campos, umbrales), con su razón al lado; nunca como argumento dentro de un paso, para que quien revisa o cambia una decisión la encuentre en un solo bloque. Una receta que continúa otra abre su `CONFIG (además de la de ...)` arriba. El EPSG no va ahí: se mide con `detectar_utm(predio)` en el paso 1, salvo que la entrega pida otro CRS, que entonces se declara.
 - Toda ruta es una constante del `CONFIG` que dice si se lee o se escribe. Entrada: `ENTRADA` en el nombre (`ENTRADA_PREDIO`); en una lista de tuplas, la variable del `for` se llama `entrada`. Salida: `SALIDA` en el nombre, `SALIDA_BUFFER` para un archivo, `SALIDAS` para la carpeta (`SALIDAS + r"\PENDIENTES.shp"`). Nunca una ruta escrita dentro de `cargar` o `guardar`: quien lee el script distingue de un vistazo qué lee y qué escribe.
 - Pasos numerados `# ── N. VERBO EN MAYÚSCULAS ──`, lineal, sin funciones propias, reasignando la misma variable (`gdf = geo.algo(gdf)`).
 - Tres o más casos parecidos → lista de tuplas y `for` (el orden puede codificar prioridad). Con dos, escribe los bloques directo.
@@ -426,13 +426,14 @@ El MDE de pendiente es el de P1 o P2 y se guarda ANTES de nada más (R6). La ram
 
 # ── CONFIG (además de la de P1 o P2) ───────────────────────────────────
 AREA_APORTADORA_HA = 1.25  # declarado: lo que hace que una vaguada sea cauce
+PROFUNDIDAD_QUEMA = 5  # declarado: unidades del MDE que baja el cauce; solo en el MDE de flujo (R6)
 
 h = tf.a  # lado de celda de ESTE MDE, del transform y no de una constante
 
 # ── 1. QUEMAR (opcional; con el TIN con quiebres no se quema) ──────────
 cauces = geo.reproyectar(cauces, curvas.crs, "cauces")  # R3: quemar_cauces no alinea
 mde_h = geo.rellenar_nodata(mde)  # ANTES de quemar
-mde_h, n = geo.quemar_cauces(mde_h, geo.disolver(cauces), tf, profundidad=5)
+mde_h, n = geo.quemar_cauces(mde_h, geo.disolver(cauces), tf, profundidad=PROFUNDIDAD_QUEMA)
 if n == 0:
     raise ValueError("ningun pixel quemado: revisa el CRS de la hidrologia")
 
@@ -557,15 +558,20 @@ geo.lamina([p_rgb, p_ndvi], SALIDAS + r"\LAMINA.png", titulo="Predio · NDVI", c
 
 **El `informe`**, una fila por fecha revisada: `limpio_pct` es lo que decide (la nubosidad de la búsqueda es de la tesela entera, no del predio); `aporta_pct` suma el % con dato; con más de una fila `usada` la imagen mezcla fechas y eso se declara con `S2_ORIGEN.tif` (rellenar con otra fecha puede tapar un desmonte o una quema).
 
-**Antes y después de un evento.** La principal tiene que salir de la ventana del "antes"; si se estira `fechas` para tapar nubes, la fecha limpia de fuera pasa a ser la principal. El relleno de fuera va aparte, con los topes calculados de las fechas:
+**Antes y después de un evento.** La principal tiene que salir de la ventana del "antes"; si se estira `fechas` para tapar nubes, la fecha limpia de fuera pasa a ser la principal. El relleno de fuera va aparte, con `max_fechas` calculado y `MAX_DIAS` declarado:
 
 ```python
-antes = geo.buscar_sentinel2(predio, ("2026-09-01", "2026-09-25"))
-fuera = geo.buscar_sentinel2(predio, ("2026-08-15", "2026-08-31"))
+# ── CONFIG (además de la de Sentinel-2) ────────────────────────────────
+ANTES = ("2026-09-01", "2026-09-25")  # declarado: la ventana del evento
+FUERA = ("2026-08-15", "2026-08-31")  # declarado: de donde sale el relleno
+MAX_DIAS = 41  # declarado: lo mas lejos que el relleno puede estar de la principal; alcanza el inicio de FUERA
+
+antes = geo.buscar_sentinel2(predio, ANTES)
+fuera = geo.buscar_sentinel2(predio, FUERA)
 bandas, tf, crs, res, informe, origen = geo.imagen_sentinel2(
     predio, escenas=antes, escenas_relleno=fuera,
     max_fechas=len(antes) + len(fuera),  # el relleno entra DESPUES de todas las propias
-    max_dias=41,  # 2026-09-25 menos 2026-08-15
+    max_dias=MAX_DIAS,
 )
 ```
 
@@ -613,7 +619,7 @@ Cada fila es un fallo que ya pasó. La columna del medio es lo que de verdad lo 
 | `Aviso barrer_...: BrokenProcessPool` o `MemoryError` en un barrido | una malla por proceso no cabe | nada: sigue en serie con las mismas filas; `geo.NUCLEOS = 1` lo evita |
 | `repartir_por_cercania` falla por el tope de 20 M píxeles | el tope mide el rectángulo envolvente del conflicto | sube `resolucion` a 2 o 5 |
 | `lamina` falla con "no comparte malla" | dos `imagen_sentinel2` en mallas distintas | `crs=` de la primera y `alinear_rasters` |
-| el relleno de `escenas_relleno` no sale como `usada` | `max_fechas` o `max_dias` se agotan con las propias | `max_fechas=len(escenas)+len(relleno)`, `max_dias` de las fechas |
+| el relleno de `escenas_relleno` no sale como `usada` | `max_fechas` o `max_dias` se agotan con las propias | `max_fechas=len(escenas)+len(relleno)`, y un `MAX_DIAS` declarado que alcance la fecha del relleno |
 
 ## Lo que la librería no hace
 
