@@ -8,7 +8,7 @@ Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj
 import geophis as geo
 ```
 
-Este archivo basta para escribir un script correcto sin leer el código fuente: instrucciones de trabajo, reglas, recetas y la API con la trampa de cada función. **Las mediciones que justifican cada regla y las alternativas descartadas están en `DECISIONES.md`**, que es para personas y no se sube al Proyecto. El índice compacto por nombre está en `API.md`.
+Este archivo basta para escribir un script correcto sin leer el código fuente: instrucciones de trabajo, reglas, recetas y la API con la trampa de cada función. **Las mediciones que justifican cada regla y las alternativas descartadas están en `DECISIONES.md`**, que es para personas y no se sube al Proyecto.
 
 Las reglas se citan como **R1** a **R9** y las recetas de pendiente como **P1** a **P3**.
 
@@ -19,6 +19,33 @@ Las reglas se citan como **R1** a **R9** y las recetas de pendiente como **P1** 
 3. **Pide la salida de consola entera.** Los defectos de esta librería avisan por consola y no se ven en el mapa (mesetas falsas, sin dato, `sin_medir`, el veredicto del juez). Recomienda pegarla de vuelta, dentro de las tres líneas del final.
 4. **La brevedad no se relaja después.** Ante un error o un cambio: el fragmento corregido y una línea de qué cambió, sin repetir el script entero ni disculparse. Un error se responde con dónde está, qué lo causa y el arreglo, en ese orden.
 5. La excepción es que el usuario pida una explicación, un recorrido o una auditoría: eso se entrega completo.
+
+## Vocabulario
+
+Los símbolos que usan las reglas, las recetas y la consola. La columna de la derecha dice qué función lo produce.
+
+| Término | Qué es | De dónde sale |
+|---|---|---|
+| carta | la cartografía de curvas de nivel de entrada; el juez externo del MDE | el archivo de curvas |
+| `e` | equidistancia: diferencia de cota entre curvas contiguas | `detectar_cota` |
+| λ (`lambda_m`) | separación horizontal media entre curvas; subestima los llanos | `separacion_media` |
+| zigzag | largo real del trazo de curva entre su largo efectivo; pasa de intervalo de terreno a intervalo de trazo | `separacion_media` |
+| `h` (`resolucion`) | lado de celda del MDE, en metros | `derivar_parametros` (`resolucion_regla`) |
+| UMM (`umm_m2`) | unidad mínima de mapeo: `(2 mm · escala)²`; a 1:25 000 son 2 500 m² | consecuencia de `ESCALA` |
+| `min_pixeles` | la UMM en celdas: lo que el sieve absorbe | `min_pixeles_umm` |
+| sieve | limpieza que pasa cada mancha menor a `min_pixeles` a su vecino mayor | `limpiar_moteado`, dentro de `zonificar` |
+| clase alta | el rango más alto, el que se cita como cifra (p. ej. `>100`); casi siempre una cinta de escarpe estrecha | `RANGOS`, declarado |
+| `w` (`ancho_w`) | ancho medido de la banda de clase alta en la carta | `ancho_banda` |
+| blanco de la carta (`blanco_carta_ha`) | superficie de la clase alta según las curvas; contra ella se compara el MDE | `ancho_banda` |
+| techo de trazado, `factor_techo` | `w/3`, la `h` más gruesa que aún traza la banda; `factor_techo` = `h` del spline / ese techo | `resolucion_regla` |
+| `s_vacio` | separación del hueco más grande entre curvas (`2·q90`); fija el margen de borde | `separaciones` |
+| rizo, `A` (`amplitud_rizo`) | ondulación del spline entre curvas, que sale como pendiente falsa; `A` es su amplitud en m | `amplitud_rizo`, sobre el MDE ya hecho |
+| terraceo, mesetas falsas | escalones planos a la cota de cada curva (spline con pocos `vecinos`, triángulos del TIN) | `histograma_fase`, `planos_de_curva` |
+| `vecinos`, rodilla | puntos que usa el spline por celda; la rodilla es el `n` desde el cual la clase alta deja de moverse | `barrer_vecinos` |
+| `s_sostenida`, `piso_local` | separación entre curvas que la carta sostiene dentro de una clase, y su mitad; un corte se entrega si `piso_local <= h <= s_sostenida` | `sostenimiento_por_clase` |
+| TIN, spline, malla | los tres métodos de `interpolar_mde`; qué da cada uno está en "Pendiente: elegir la receta" | `metodo=` |
+| quiebres | líneas sin cota (cauces) que el TIN o la malla respetan como arista | `interpolar_mde(quiebres=)` |
+| procedencia | la fuente de cada número: `declarado`, `medido`, `derivado`, `convencion` o `default` (R1) | `tabla_procedencia` |
 
 ## Las reglas que no se negocian
 
@@ -98,6 +125,50 @@ for nombre, entrada, dist in NIVELES:
 combinado = geo.resolver_por_prioridad(capas)
 geo.guardar(combinado, SALIDA_BUFFER)
 ```
+
+## Receta vectorial: capa, tabla y superficie
+
+El patrón de casi todo trabajo vectorial: revisar la capa de fuera, alinearla, recortarla, unirle su tabla, medir al final y comprobar la salida antes de guardar.
+
+```python
+"""Superficie por rodal con los datos del inventario, que vienen en tabla aparte."""
+import geophis as geo
+
+# ── CONFIG ─────────────────────────────────────────────────────────────
+ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
+ENTRADA_RODALES = r"C:\SIG\proyecto\datos\rodales.shp"
+ENTRADA_INVENTARIO = r"C:\SIG\proyecto\datos\inventario.xlsx"  # una fila por rodal
+SALIDA_RODALES = r"C:\SIG\proyecto\salidas\RODALES.shp"
+SALIDA_TABLA = r"C:\SIG\proyecto\salidas\RODALES.xlsx"
+EPSG_UTM = 32613  # el huso del predio
+CLAVE = ("RODAL", "rodal")  # columna de la capa, columna de la tabla
+CAMPO_RESUMEN = "ESPECIE"  # de la tabla: por esto se suma la superficie
+TOL = 0.01  # los rodales parten el predio: el residuo legitimo es reparacion de geometria
+
+# ── 1. CARGAR Y REVISAR ANTES DE NADA ──────────────────────────────────
+predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
+rodales = geo.cargar(ENTRADA_RODALES)
+geo.describir(rodales)  # imprime CRS, vacias, invalidas
+rodales = geo.reparar_geometrias(geo.reproyectar(rodales, EPSG_UTM, "rodales"))
+
+# ── 2. RECORTAR AL PREDIO ──────────────────────────────────────────────
+rodales = geo.recortar(rodales, predio)
+
+# ── 3. UNIR EL INVENTARIO ──────────────────────────────────────────────
+# si falla por tipo ('007' contra 7): cambiar_tipo del lado entero a 'texto'
+rodales = geo.unir_campo(rodales, ENTRADA_INVENTARIO, CLAVE)
+rodales = geo.eliminar_campos(rodales, [CLAVE[1]])  # la clave de la tabla repite la de la capa
+
+# ── 4. SUPERFICIE AL FINAL (R2) Y GUARDAS SOBRE LA SALIDA (R9) ─────────
+rodales = geo.calcular_superficie(rodales, campo="SUP")
+geo.comprobar_particion([rodales], predio, tolerancia_ha=TOL)
+assert not geo.comprobar_nombres_shp(rodales), geo.comprobar_nombres_shp(rodales)
+geo.guardar(rodales, SALIDA_RODALES)
+geo.exportar_tabla(rodales, SALIDA_TABLA, hoja="RODALES")
+print(geo.estadisticas_de_resumen(rodales, por=CAMPO_RESUMEN, campos={"SUP": "sum"}))
+```
+
+Si la capa no parte el predio (puntos, líneas, polígonos sueltos), `comprobar_particion` no aplica: la guarda es el conteo de filas antes y después de `unir_campo`.
 
 ## Pendiente: elegir la receta
 
@@ -391,20 +462,57 @@ Qué mirar en la consola:
 Con jerarquía manda el orden (`resolver_por_prioridad`); sin jerarquía, el núcleo más cercano (`repartir_por_cercania`). **Primero resta, luego reparte**: a las capas sin jerarquía quítales antes lo que se llevan las superiores, o las ha del reparto no son las del shapefile. El polígono general entra al final como relleno y la suma cuadra por construcción.
 
 ```python
-superiores = geo.disolver(geo.fusionar([caminos, hidrologia, mayor100]))
-produccion = geo.disolver(geo.borrar(produccion, superiores), campo="CLASS_SUP", valor="PRODUCCION")
-restauracion = geo.disolver(geo.borrar(restauracion, superiores), campo="CLASS_SUP", valor="RESTAURACION")
-produccion, restauracion, conflicto = geo.repartir_por_cercania(
-    produccion, restauracion, nombres=("PRODUCCION", "RESTAURACION")
-)
-geo.guardar(conflicto, SALIDA_CONFLICTOS)  # revisar el reparto a ojo
+"""Clasificacion de superficies del predio: tres capas con jerarquia y dos sin ella."""
+import geophis as geo
 
+# ── CONFIG ─────────────────────────────────────────────────────────────
+ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
+ENTRADA_PRODUCCION = r"C:\SIG\proyecto\datos\produccion.shp"
+ENTRADA_RESTAURACION = r"C:\SIG\proyecto\datos\restauracion.shp"
+SUPERIORES = [  # el orden es la prioridad: la primera gana donde se pisan
+    ("CAMINOS", r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER.shp"),
+    ("HIDROLOGIA", r"C:\SIG\proyecto\salidas\CAUCES_BUFFER.shp"),
+    ("PENDIENTE >100", r"C:\SIG\proyecto\salidas\PENDIENTE_MAYOR_100.shp"),
+]
+SALIDA_CLASES = r"C:\SIG\proyecto\salidas\CLASIFICACION.shp"
+SALIDA_CONFLICTOS = r"C:\SIG\proyecto\salidas\CONFLICTOS.shp"
+EPSG_UTM = 32613  # el huso del predio
+RESOLUCION_REPARTO = 1.0  # el borde del reparto queda al metro; mas fino cuesta al cuadrado
+TOL = 0.01  # el borde es el del predio: el residuo legitimo es reparacion de geometria
+
+# ── 1. CARGAR: TODO AL MISMO CRS (fusionar no alinea, R3) ──────────────
+predio = geo.reproyectar(geo.cargar(ENTRADA_PREDIO), EPSG_UTM, "predio")
+capas = []
+for clase, entrada in SUPERIORES:
+    gdf = geo.recortar(geo.reproyectar(geo.cargar(entrada), EPSG_UTM, clase), predio)
+    capas.append(geo.disolver(gdf, campo="CLASS_SUP", valor=clase))
+
+# ── 2. PRIMERO RESTA: LO QUE SE LLEVAN LAS SUPERIORES ──────────────────
+superiores = geo.disolver(geo.fusionar(capas))
+produccion = geo.recortar(geo.reproyectar(geo.cargar(ENTRADA_PRODUCCION), EPSG_UTM, "produccion"), predio)
+produccion = geo.disolver(geo.borrar(produccion, superiores), campo="CLASS_SUP", valor="PRODUCCION")
+restauracion = geo.recortar(geo.reproyectar(geo.cargar(ENTRADA_RESTAURACION), EPSG_UTM, "restauracion"), predio)
+restauracion = geo.disolver(geo.borrar(restauracion, superiores), campo="CLASS_SUP", valor="RESTAURACION")
+
+# ── 3. LUEGO REPARTE: EL SOLAPE VA AL NUCLEO MAS CERCANO ───────────────
+produccion, restauracion, conflicto = geo.repartir_por_cercania(
+    produccion, restauracion, resolucion=RESOLUCION_REPARTO, nombres=("PRODUCCION", "RESTAURACION")
+)
+print(f"solape repartido: {geo.superficie_total_ha(conflicto):.2f} ha")
+if len(conflicto):
+    geo.guardar(conflicto, SALIDA_CONFLICTOS)  # revisar el reparto a ojo
+
+# ── 4. COMBINAR: EL PREDIO ENTRA AL FINAL COMO RELLENO ─────────────────
 conservacion = geo.disolver(predio, campo="CLASS_SUP", valor="CONSERVACION")
-combinado = geo.resolver_por_prioridad(CAPAS + [conservacion])  # orden = prioridad
+combinado = geo.resolver_por_prioridad(capas + [produccion, restauracion, conservacion])
 gdf = geo.disolver_por_grupo(geo.recortar(combinado, predio), campo="CLASS_SUP")
 gdf = geo.calcular_superficie(gdf, campo="SUP")  # R2: al final
 geo.comprobar_particion([gdf], predio, tolerancia_ha=TOL)  # R9
+geo.guardar(gdf, SALIDA_CLASES)
+print(geo.estadisticas_de_resumen(gdf, por="CLASS_SUP", campos={"SUP": "sum"}))
 ```
+
+Si una capa no pisa el predio, `disolver` FALLA con la unión vacía: quítala de `SUPERIORES` o del reparto y dilo en las tres líneas.
 
 ## Del predio a la imagen: Sentinel-2
 
