@@ -594,11 +594,8 @@ def barrer_resolucion(
                 f"`h`, y es lo que se declara junto a ella."
             )
         print(
-            "   `delta%` es el cambio contra el `h` inmediatamente más fino. Ojo "
-            "al leerlo: `min_pixeles` es entero y salta, y el sieve ABSORBE en el "
-            "vecino mayor, así que un escalón de `min_px` entre dos filas mete un "
-            "brinco que no es del terreno. Fija `min_pixeles` para leerlo limpio. "
-            "`p_sost` NaN = ninguna curva dentro de esa clase: rizo puro."
+            "   Lectura de `delta%` (saltos de `min_px`) y de `p_sost` NaN: docstring "
+            "de `barrer_resolucion`."
         )
     return filas
 
@@ -1233,29 +1230,22 @@ def amplitud_rizo(
         )
         print(
             f"   Excursión > 0 en el {detalle['frac_excursion'] * 100:.1f} % de esos "
-            f"píxeles. Es un PISO de A, no A: el rizo que"
+            f"píxeles. Es un PISO de A, no A (lectura: docstring)."
         )
-        print(
-            "   ondula DENTRO del intervalo no se ve. Si ya supera lo que toleras, "
-            "terminaste; si no,"
-        )
-        print("   no dice que sea menor.")
     # guardas sobre la SALIDA: las dos formas de que la cifra no sea rizo. FUERA
     # de `geo.MOSTRAR`: ese decide el reporte, no si la cifra vale.
     if detalle["frac_usada"] < 0.5:
         print(
             f"Aviso amplitud_rizo: solo el {detalle['frac_usada'] * 100:.0f} % de "
-            f"la mascara queda entre dos cotas contiguas. Cimas y hoyas cerradas no "
-            f"tienen envolvente y no cuentan; si la fracción es baja de más, "
-            f"revisa que las curvas cubran el extent de `mde`."
+            f"la mascara queda entre dos cotas contiguas (cimas y hoyas no cuentan)."
+            f"\n   Haz: revisa que las curvas cubran el extent de `mde`."
         )
     if e is not None and a > e / 4:
         print(
             f"Aviso amplitud_rizo: {a:.2f} m es mucho para un rizo con "
-            f"equidistancia {e:g} m. A esa escala la cifra suele ser el lomo o la "
-            f"vaguada que no llegan al siguiente nivel (no hay curva que los "
-            f"cierre, y se les atribuye la banda de abajo), no el interpolador. "
-            f"Baja el `cuantil` y mira dónde se estabiliza."
+            f"equidistancia {e:g} m: suele ser un lomo o vaguada sin curva que lo "
+            f"cierre, no el interpolador.\n   Haz: baja el `cuantil` y mira dónde "
+            f"se estabiliza."
         )
     return a, detalle
 

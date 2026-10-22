@@ -227,7 +227,7 @@ def test_barrer_resolucion_reporta_banda_y_no_dictamina(gdf, cuadrado, capsys):
     salida = capsys.readouterr().out
     assert "SIN MESETA" not in salida
     assert "no hay `h` que la sostenga" not in salida
-    assert "min_pixeles" in salida  # avisa del escalon que ensucia delta_pct
+    assert "saltos de `min_px`" in salida  # avisa del escalon que ensucia delta_pct
 
 
 def test_barrer_resolucion_min_pixeles_fijo_no_lo_deriva(gdf, cuadrado):

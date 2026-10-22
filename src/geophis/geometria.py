@@ -1473,10 +1473,8 @@ def sostenimiento_por_clase(
                 f"{f['p_sostenida']:8.1f}  {'+'.join(str(e) for e in f['etiquetas'])}"
             )
         print(
-            "   Un corte es entregable si existe `h` con "
-            "`piso_local <= h <= s_sost`. Toma el corte MÁS ALTO que lo cumpla: "
-            "fundir clases ensancha el objeto, y un objeto más ancho cabe en el "
-            "píxel. `s_sost` NaN = sin curvas dentro, rizo puro, no se cita."
+            "   Entregable: el corte MÁS ALTO con `piso_local <= h <= s_sost` "
+            "(fundir clases ensancha el objeto). Lectura: docstring."
         )
     return filas
 

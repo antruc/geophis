@@ -339,16 +339,14 @@ def _avisar_medida_obsoleta(gdf: gpd.GeoDataFrame, quien: str) -> None:
             if not cuadra:
                 # el mensaje NO nombra un culpable: esta función no sabe cuál de
                 # los pasos movió la geometría, y nombrar solo el recorte mandaría
-                # a revisar justo el paso inocente. Lista los sospechosos que van
-                # DESPUÉS del recorte, que son los que no se buscan solos.
+                # a revisar justo el paso inocente. Nombra solo los sospechosos que
+                # van DESPUÉS del recorte, que son los que no se buscan solos; la
+                # lista completa está en el docstring.
                 print(
                     f"Aviso {quien}: la columna '{col}' no cuadra con la geometría "
-                    "actual; algún paso movió la geometría después de "
-                    f"calcularla. Recalcula {que} como ÚLTIMO paso, detrás de "
-                    "todo lo que la toque: recortar, reproyectar, disolver, "
-                    "separar_multipartes, simplificar, zona_de_influencia y también borrar / "
-                    "resolver_por_prioridad, que recortan al final de la cadena "
-                    "y son los que suelen pasar desapercibidos."
+                    "actual: algún paso la movió después de calcularla.\n"
+                    f"   Haz: recalcula {que} como ÚLTIMO paso; ojo con borrar y "
+                    "resolver_por_prioridad, que recortan al final de la cadena."
                 )
 
 

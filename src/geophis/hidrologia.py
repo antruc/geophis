@@ -148,10 +148,8 @@ def acondicionar_mde(mde_path: str | PathLike[str]) -> tuple["Grid", "Raster"]:
             # el diagnostico completo lo da interpolar_mde, que conoce las curvas
             # y el cuadro; aqui solo se avisa de que el hueco llego hasta el agua
             print(
-                "   Superficie sin dato de origen, rellenada copiando el vecino "
-                "más cercano.\n   La red de drenaje que salga de ahí es geometría "
-                "inventada: revisa el aviso\n   de `interpolar_mde` y da más curvas "
-                "antes de citar estos cauces."
+                "   Rellenadas con el vecino más cercano: la red ahí es geometría "
+                "inventada. Haz: da más curvas (aviso de `interpolar_mde`)."
             )
 
     # OJO al leer la salida: el mensaje de arriba cuenta NaN SIN DATO DE ORIGEN,
@@ -236,9 +234,9 @@ def _acumular(grid: "Grid", fdir: "Raster") -> Flujo:
     mayor_dentro = float(acumulacion[dentro].max())
     pct = 100.0 * mayor_dentro / total
     print(
-        f"Aviso acumulacion_flujo: {int(dentro.sum())} celda(s) INTERIOR(es) sin salida de flujo.\n"
-        f"   La mayor recoge {mayor_dentro:,.0f} de {total:,} celdas ({pct:.1f} % "
-        "del raster):\n   todo eso desaparece de la red de drenaje."
+        f"Aviso acumulacion_flujo: {int(dentro.sum())} celda(s) INTERIOR(es) sin "
+        f"salida de flujo; la mayor recoge {mayor_dentro:,.0f} de {total:,} celdas "
+        f"({pct:.1f} %), que no llegan a la red."
     )
     mayor_borde = float(acumulacion[en_borde].max()) if en_borde.any() else 0.0
     if mayor_dentro > mayor_borde:
@@ -246,13 +244,10 @@ def _acumular(grid: "Grid", fdir: "Raster") -> Flujo:
         # estaria en el borde. Que sea interior dice que la red NO llega al
         # borde, y entonces las cuencas que salgan de aqui son de media finca.
         print(
-            f"   El sumidero MAYOR del raster es interior ({mayor_dentro:,.0f} "
-            f"celdas) y no del borde ({mayor_borde:,.0f}).\n   La red no llega "
-            "al borde: `delimitar_cuenca` entregará la cuenca de ese sumidero,\n"
-            "   no la del predio. Amplía el cuadro o revisa el MDE antes de "
-            "citar estas cuencas.\n   Si los sumideros son residuo del relleno "
-            "(1 celda, derrame de milímetros), `rellenar_sumideros`\n   los cierra "
-            "y dice cuánto subió: si subió más de milímetros, no eran residuo."
+            f"   El sumidero MAYOR es interior ({mayor_dentro:,.0f} celdas; el del "
+            f"borde {mayor_borde:,.0f}): `delimitar_cuenca` dará su cuenca, no la "
+            "del predio.\n   Haz: amplía el cuadro o revisa el MDE; si son residuo "
+            "de milímetros, `rellenar_sumideros`."
         )
     return Flujo(grid, fdir, acumulacion)
 
@@ -354,10 +349,9 @@ def rellenar_sumideros(
         n_cauce = int((subida > 0.002).sum())
         if n_cauce:
             print(
-                f"Aviso rellenar_sumideros: {n_cauce} celda(s) de cauce subidas más de 2 mm (hasta "
-                f"{subida.max():.3f} m).\n   Eso deshace el quemado: no es "
-                "residuo, es la zanja rellenada. Mira esos tramos\n   antes de "
-                "citar la red."
+                f"Aviso rellenar_sumideros: {n_cauce} celda(s) de cauce subidas más "
+                f"de 2 mm (hasta {subida.max():.3f} m): la zanja quemada se rellenó."
+                "\n   Haz: revisa esos tramos antes de citar la red."
             )
 
     informe = {
@@ -376,14 +370,14 @@ def rellenar_sumideros(
         )
         if n:
             print(
-                f"Aviso rellenar_sumideros: NO CONVERGE, quedan {n}. Eso ya no son milímetros, es "
-                "estructura del MDE.\n   Más rondas no lo arreglan: mira los "
-                "que quedan antes de citar esta red."
+                f"Aviso rellenar_sumideros: NO CONVERGE, quedan {n}: es estructura "
+                "del MDE, no milímetros.\n   Haz: revisa los que quedan antes de "
+                "citar la red; más rondas no los quitan."
             )
         else:
             print(
-                "   El MDE está REPARADO, y por tanto ya no es el interpolado: "
-                "haz viajar este\n   informe con cualquier cifra que salga de él."
+                "   El MDE está REPARADO, ya no es el interpolado: cita este informe "
+                "junto a sus cifras."
             )
     return Raster(z, vista), informe
 
@@ -443,10 +437,9 @@ def quemar_cauces(
     sin_salida = _pendiente_en_cauce(salida, (ras == 1) & ~np.isnan(salida))
     if sin_salida:
         print(
-            f"Aviso quemar_cauces: {sin_salida} celda(s) de cauce quemado en tramos sin salida "
-            "(no llegan al borde ni\n   desbordan a terreno más bajo): "
-            "`acondicionar_mde` los rellenará y el\n   cauce quedará des-quemado "
-            "ahí. Revisa que la red este conectada."
+            f"Aviso quemar_cauces: {sin_salida} celda(s) de cauce quemado en tramos "
+            "sin salida: `acondicionar_mde` los rellenará y ahí el cauce quedará "
+            "des-quemado.\n   Haz: revisa que la red esté conectada."
         )
     # el lecho por ENCIMA del terreno sin quemar: la linea sube donde el terreno
     # no (mal digitalizada o fuera del fondo del valle). En un predio real, 2,128 celdas
@@ -457,10 +450,10 @@ def quemar_cauces(
         f, c = np.unravel_index(np.where(alto, encima, -np.inf).argmax(), mde.shape)
         x, y = transform @ (c + 0.5, f + 0.5)
         print(
-            f"Aviso quemar_cauces: {int(alto.sum())} celda(s) de cauce quedan por ENCIMA del "
-            f"terreno sin quemar (hasta\n   {encima[f, c]:.2f} m, en x {x:,.0f} "
-            f"y {y:,.0f}): ahí la línea sube cuesta arriba y el lecho se\n   "
-            "relleno hasta su derrame. Revisa esos tramos de la hidrología."
+            f"Aviso quemar_cauces: {int(alto.sum())} celda(s) de cauce quedan por "
+            f"ENCIMA del terreno sin quemar (hasta {encima[f, c]:.2f} m, en x "
+            f"{x:,.0f} y {y:,.0f}): la línea sube cuesta arriba.\n"
+            "   Haz: revisa esos tramos de la hidrología."
         )
 
     # Guarda sobre la SALIDA, y avisa siempre, sin perilla que la apague: por lo
@@ -476,11 +469,9 @@ def quemar_cauces(
         # parar. Un aviso sin la cifra que se decide no es guarda.
         pct = 100.0 * perdidas / celdas_cauce
         print(
-            f"Aviso quemar_cauces: {perdidas} de {celdas_cauce} celda(s) de cauce ({pct:.0f} %) "
-            "caen sobre NoData\n   y siguen sin dato tras quemar. Al rellenar "
-            "después, el lecho subirá ahí (se\n   copia un vecino sin quemar) y "
-            "el cauce quedará cortado en silencio.\n   Llama a `rellenar_nodata` "
-            "ANTES de quemar."
+            f"Aviso quemar_cauces: {perdidas} de {celdas_cauce} celda(s) de cauce "
+            f"({pct:.0f} %) caen sobre NoData: al rellenar, el cauce quedará "
+            "cortado en silencio.\n   Haz: llama a `rellenar_nodata` ANTES de quemar."
         )
 
     quemados = celdas_cauce
@@ -493,10 +484,9 @@ def quemar_cauces(
             f"Aviso quemar_cauces: 0 píxeles quemados con {len(cauces)} entidad(es) de cauce.\n"
             f"   cauces  x[{cx0:,.0f} {cx1:,.0f}]  y[{cy0:,.0f} {cy1:,.0f}]\n"
             f"   raster  x[{rx0:,.0f} {rx1:,.0f}]  y[{ry0:,.0f} {ry1:,.0f}]\n"
-            "   Si los rectángulos ni se rozan es el CRS (`recortar` mueve el\n"
-            "   SEGUNDO argumento, así que recortar los cauces NO los reproyecta:\n"
-            "   pásalos por `reproyectar` al CRS del raster). Si se solapan, la\n"
-            "   hidrología es de otro predio. El MDE vuelve intacto."
+            "   Haz: si no se rozan, es el CRS: `reproyectar` los cauces al del raster "
+            "(`recortar` no reproyecta).\n   Si se solapan, la hidrología es de "
+            "otro predio. El MDE vuelve intacto."
         )
     return salida, quemados
 
@@ -670,8 +660,7 @@ def orden_cauces(
         if n_red < n_mascara:
             print(
                 f"   {n_mascara - n_red} celdas pasan el umbral y NO están sobre un "
-                "tramo trazado:\n   quedan en 0, igual que el fuera de cauce. Si son "
-                "muchas, el umbral está\n   marcando ladera baja en vez de cauce."
+                "tramo trazado (quedan en 0). Si son muchas, sube el umbral."
             )
     return orden
 
@@ -771,9 +760,9 @@ def delimitar_cuenca(
             # La senal del techo de las dos salidas, sobre la SALIDA y con cifra.
             if cuenca_ha < 0.5 * zona_ha:
                 print(
-                    f"Aviso delimitar_cuenca: la cuenca ({cuenca_ha:.2f} ha) es menos de la mitad "
-                    f"de la zona ({zona_ha:.2f} ha).\n   La zona no drena por un "
-                    "solo sitio: el resto sale por otro desagüe y no está aquí."
+                    f"Aviso delimitar_cuenca: la cuenca ({cuenca_ha:.2f} ha) es menos "
+                    f"de la mitad de la zona ({zona_ha:.2f} ha): la zona drena por "
+                    "más de un sitio.\n   Haz: `microcuencas` para el resto."
                 )
         print(
             f"delimitar_cuenca: {cuenca_ha:.2f} ha | "
@@ -781,9 +770,8 @@ def delimitar_cuenca(
         )
         if movido > diagonal:
             print(
-                f"   El punto NO caía sobre cauce (más de {diagonal:.1f} m, la "
-                "diagonal de una celda).\n   O la coordenada está mal, o el "
-                "umbral deja fuera el cauce que buscas. Comprueba cuál."
+                f"   El punto NO caía sobre cauce (más de {diagonal:.1f} m, una "
+                "diagonal de celda). Haz: revisa la coordenada o baja el umbral."
             )
     return gdf
 
@@ -988,10 +976,9 @@ def microcuencas(
             ha_muerta = cuentas[sumideros].sum() * celda_ha
             print(
                 f"Aviso microcuencas: {int(sumideros.sum())} 'desagüe(s)' NO salen de la "
-                f"zona: el flujo MUERE ahí.\n   Son {ha_muerta:.2f} ha "
-                f"({100 * ha_muerta / zona_ha:.1f} %) que no drenan a ningún "
-                "sitio.\n   Mira el aviso de `acumulacion_flujo`: es el mismo "
-                "defecto, contado por microcuenca."
+                f"zona: {ha_muerta:.2f} ha ({100 * ha_muerta / zona_ha:.1f} %) no "
+                "drenan a ningún sitio.\n   Es el defecto del aviso de "
+                "`acumulacion_flujo`, contado por microcuenca: arréglalo ahí."
             )
     return gdf
 

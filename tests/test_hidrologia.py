@@ -169,7 +169,7 @@ def test_acumulacion_flujo_avisa_del_sumidero_interior(tmp_path, capsys):
     salida = capsys.readouterr().out
     assert "INTERIOR" in salida, salida
     # sin la cifra no es una guarda: tiene que decir CUANTO se traga
-    assert "% del raster" in salida, salida
+    assert "que no llegan a la red" in salida, salida
 
 
 def test_acumulacion_flujo_calla_la_condicion_fuerte_si_la_red_llega_al_borde(
@@ -196,7 +196,7 @@ def test_acumulacion_flujo_avisa_fuerte_si_la_red_no_llega_al_borde(tmp_path, ca
     f, c = np.unravel_index(int(np.where(interior, acc, -1).argmax()), acc.shape)
     _acumular_fdir(grid, _fdir_con_sumidero(grid, dem, int(f), int(c)))
     salida = capsys.readouterr().out
-    assert "sumidero MAYOR del raster es interior" in salida, salida
+    assert "sumidero MAYOR es interior" in salida, salida
 
 
 def test_acumulacion_flujo_no_avisa_sin_sumidero_interior(tmp_path, capsys, monkeypatch):
@@ -426,7 +426,7 @@ def test_delimitar_cuenca_avisa_si_la_zona_tiene_dos_salidas(tmp_path, capsys):
     cuenca = geo.delimitar_cuenca(flujo, todo, umbral=5)
     salida = capsys.readouterr().out
 
-    assert "no drena por un solo sitio" in salida, salida
+    assert "drena por más de un sitio" in salida, salida
     # y la cifra que lo sostiene: la cuenca es menos de media zona
     zona_ha = np.asarray(acc).size * 100 / 10_000
     assert cuenca.area.sum() / 10_000 < 0.5 * zona_ha

@@ -1246,39 +1246,30 @@ def planos_de_curva(
     return plano
 
 
+# Causa (primera linea) y arreglo (segunda) de las mesetas a cota de curva, por
+# metodo. El porque largo vive en GEOPHIS.md, tabla de sintomas.
 _AVISO_PLANOS = {
-    "tin": """   Son triángulos con sus tres vértices en la MISMA curva: interpolan una
-   meseta horizontal aunque el terreno sea ladera. Los `quiebres` solo los
-   quitan en las vaguadas: en cimas, lomos y a media ladera siguen. Si el rango
-   bajo o la exposición se citan, sácalos de un MDE spline y deja el TIN para
-   la clase alta (docs/GEOPHIS.md, receta P3).""",
-    "rbf": """   Los `vecinos` de esas celdas cayeron TODOS en la misma curva, y un ajuste
-   local sobre puntos de igual cota devuelve un plano. Pasa cuando el muestreo
-   sobre las curvas es mucho más fino que la separación entre ellas (nube
-   anisótropa) o con pocos `vecinos`: acerca `intervalo_muestreo` a la
-   separación o sube `vecinos` (`derivar_parametros` da los dos).""",
+    "tin": (
+        "triángulos con sus tres vértices en la MISMA curva",
+        "saca el rango bajo y la exposición de un MDE spline y deja el TIN para la "
+        "clase alta (receta P3)",
+    ),
+    "rbf": (
+        "los `vecinos` caen TODOS en la misma curva (nube anisótropa)",
+        "acerca `intervalo_muestreo` a la separación o sube `vecinos` "
+        "(`derivar_parametros` da los dos)",
+    ),
 }
-_COMUN_PLANOS = """   Salen con 0 % de pendiente (inflan el rango más bajo) y sin orientación, y
-   aguas abajo no se distinguen de un llano: `planos_de_curva` da la mascara."""
 
 
 # Aviso de las celdas fuera de la envolvente convexa. Vive aquí, y no en
 # `acondicionar_mde`, porque `interpolar_mde` es quien crea el NaN y porque la
 # rama de pendiente nunca pasa por el acondicionado: puesto allá, quien solo
 # calcula pendientes no lo vería nunca.
-_AVISO_SIN_DATO = """   Esa superficie NO tiene dato de origen: el interpolador no extrapola fuera
-   de la envolvente convexa de los puntos muestreados sobre las curvas. Sale
-   NaN, y aguas abajo queda como hueco (pendiente NaN, código -1 al
-   reclasificar). Para darle más curvas, en este orden:
-     1. Sube `margen_borde_celdas` en `cuadros_mde` y vuelve a recortar del
-        shapefile COMPLETO de curvas, no de una capa ya recortada: recortar dos
-        veces no devuelve las curvas que el primer recorte ya tiró.
-     2. Comprueba que el shapefile de curvas de verdad rebasa `cuadro_salida`.
-        Si la cartografía se acaba en el lindero (o en el borde de la carta),
-        no hay margen que valga: hace falta otra fuente que cubra el hueco.
-     3. Si no hay más cartografía, encoge `cuadro_salida` hasta lo que las
-        curvas sostienen. Es preferible entregar menos superficie que
-        entregarla inventada."""
+_AVISO_SIN_DATO = (
+    "   Haz: sube `margen_borde_celdas` en `cuadros_mde` y recorta del shapefile "
+    "COMPLETO de curvas,\n   o encoge `cuadro_salida`. Ver GEOPHIS.md, Síntoma, causa, arreglo."
+)
 
 
 def cotas_por_cruce(
@@ -1667,7 +1658,10 @@ def interpolar_mde(
     # `geo.MOSTRAR = False` apaga el reporte de una corrida que imprime lo suyo (el
     # caso de los scripts entregables); no puede apagar una senal de defecto.
     if sin_dato_ha > 0:
-        print(f"Aviso interpolar_mde: {sin_dato_ha:.2f} ha del MDE sin dato de origen.")
+        print(
+            f"Aviso interpolar_mde: {sin_dato_ha:.2f} ha del MDE sin dato de origen "
+            "(fuera de la envolvente de las curvas): salen NaN."
+        )
         print(_AVISO_SIN_DATO)
     # Tambien fuera de `geo.MOSTRAR`: es mudo aguas abajo. Una meseta falsa sale
     # como 0-5 % con la misma cara que una real (en un predio real: 535 ha, el 11 %).
@@ -1676,13 +1670,14 @@ def interpolar_mde(
     if n:
         ha = n * resolucion**2 / 10_000
         pct = 100 * n / max(int((~np.isnan(mde)).sum()), 1)
+        causa, arreglo = _AVISO_PLANOS["tin" if metodo == "tin" else "rbf"]
         # sobre el EXTENT: aqui no llega el predio, y el % es la cifra comparable
         print(
-            f"Aviso interpolar_mde: {ha:.2f} ha ({pct:.1f} %) del extent del MDE {metodo.upper()} son planos "
-            f"exactos a la cota de una curva."
+            f"Aviso interpolar_mde: {ha:.2f} ha ({pct:.1f} %) del extent del MDE "
+            f"{metodo.upper()} son planos exactos a la cota de una curva: {causa}.\n"
+            f"   Salen con 0 % de pendiente y sin orientación. Haz: {arreglo}. "
+            "`planos_de_curva` da la máscara."
         )
-        print(_AVISO_PLANOS["tin" if metodo == "tin" else "rbf"])
-        print(_COMUN_PLANOS)
     return mde, tf
 
 
