@@ -48,20 +48,6 @@ Sin IA, el mismo [`docs/GEOPHIS.md`](docs/GEOPHIS.md) sirve para escribir los sc
 pip install geophis
 ```
 
-La última versión de GitHub, antes de que llegue a PyPI:
-
-```bash
-pip install git+https://github.com/antruc/geophis.git
-```
-
-Instalación local, para editar la librería o correr los tests:
-
-```bash
-git clone https://github.com/antruc/geophis.git
-cd geophis
-pip install -e ".[dev]"   # -e: los cambios en src/ se ven sin reinstalar; [dev] suma pytest y ruff
-```
-
 `pip` instala solas las dependencias; la lista con sus versiones mínimas está en `pyproject.toml`
 
 ## Ejemplo básico
@@ -123,24 +109,3 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 - Avisos y reportes por consola con `print`; los errores con `raise ValueError` de mensaje claro
 
 El detalle de cada convención, con la medición que la justifica, está en `docs/DECISIONES.md`
-
-## Para editar la librería
-
-```
-src/geophis/      la librería
-tests/           suite pytest
-docs/            documentación
-ejemplos/        scripts de referencia
-```
-
-Cada módulo solo usa funciones de los módulos que están por debajo de él: `zonas` usa `geometria`, nunca al revés. Así no hay imports circulares y se puede cambiar la base sin romper lo de arriba. El orden completo, con el motivo de cada módulo, está en `tests/test_capas.py`, que falla si alguien rompe la regla
-
-Los scripts de un predio concreto, con sus rutas y cifras, no se suben al repo
-
-```bash
-pytest                    # los 2 tests de red corren solo con GEOPHIS_RED=1
-ruff check .              # lint
-ruff format .             # formato (line-length 90, configurado en pyproject)
-```
-
-`tests/test_docs.py` comprueba que las firmas escritas en `docs/GEOPHIS.md` no se desfasen de las reales, que el índice de `docs/API.md` cubra toda la API, y que la cadena de pendientes documentada corra entera. `tests/test_defectos.py` fija uno a uno los defectos ya corregidos, tres de ellos de falla silenciosa
