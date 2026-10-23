@@ -1,6 +1,6 @@
 # geophis: documentación de referencia
 
-**Versión:** 1.4.1 | **Paquete:** `geophis` (Python >= 3.11)
+**Versión:** 1.4.2 | **Paquete:** `geophis` (Python >= 3.11)
 
 Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj (proyecciones), con scipy para el análisis espacial. Una función clara por operación SIG. Distancias en unidades del CRS (metros si es UTM).
 
