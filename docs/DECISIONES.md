@@ -147,7 +147,7 @@ El álgebra lineal del spline corre a un hilo a propósito: con varios hilos, `n
 
 ### Los cuadros del MDE
 
-Las curvas se recortan a un cuadro más amplio que el predio, para que las celdas del borde se interpolen con datos a los dos lados. El margen sale del vecindario del spline (`ceil(sqrt(n·i·s/π)/h)+2`, con la separación del VACÍO, el doble del cuantil 90, no la mediana: con la mediana salían 40 m donde iban 400). El MDE de salida va dos celdas más ancho que el predio: la ventana de 3 × 3 deja sin dato la celda del borde, y sin ese margen la capa perdía un anillo (0.80 de 2.16 ha en la ladera de prueba).
+Las curvas se recortan a un cuadro más amplio que el predio, para que las celdas del borde se interpolen con datos a los dos lados. El margen sale del vecindario del spline (`ceil(sqrt(n·i·s/π)/h)+2`, con la separación del VACÍO, el doble del cuantil 90, no la mediana: con la mediana salían 40 m donde iban 400). La receta pide el MDE de salida dos celdas más ancho que el predio (`margen_salida=2 * h`): la ventana de 3 × 3 deja sin dato la celda del borde, y sin ese margen la capa perdía un anillo (0.80 de 2.16 ha en la ladera de prueba). El default de `cuadros_mde` sigue en 0: cambiarlo movería el extent, y con él las cifras, de todo lo que ya lo llama sin el argumento.
 
 ### El sin dato no se tapa
 
@@ -300,7 +300,7 @@ Cambiar de proyección no cuesta nada, pero cambiar de datum puede: de NAD27 a U
 | Barrido de vecinos con 3 procesos, sin volver a medir la separación (20 s) y con solo `n` tareas en vuelo (antes esperaba a las `n` grandes al converger) | 82 s | 15 s |
 | El mismo barrido en serie cuando la malla es chica: arrancar procesos costaba más que las filas | 15 s | 3.9 s |
 
-Los procesos del barrido corren con prioridad baja y dejan un núcleo libre, para que el equipo siga respondiendo. Se lanzan solo los que caben en el 80 % de la memoria libre (medido: el spline ocupa unos 2 KB por celda, la malla 860 B, el TIN 130 B, y cada proceso arranca con 300 MB). Un script no necesita la guarda `if __name__ == "__main__":` porque mientras arrancan los procesos se le esconde al script su ruta.
+Los procesos del barrido corren con prioridad baja y dejan un núcleo libre, para que el equipo siga respondiendo. Se lanzan solo los que caben en el 80 % de la memoria libre (medido: el spline ocupa unos 2 KB por celda, la malla 860 B, el TIN 130 B, y cada proceso arranca con 300 MB; la guarda redondea hacia arriba, a 2 KB, 1 KB y 256 B). Un script no necesita la guarda `if __name__ == "__main__":` porque mientras arrancan los procesos se le esconde al script su ruta.
 
 Con hilos en vez de procesos el spline iba más lento (0.77x): scipy recorre cada vecindario en un bucle de Python que retiene el intérprete.
 

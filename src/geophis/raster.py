@@ -2139,7 +2139,7 @@ def calcular_orientacion(
     unidad : 'clase' (default) o 'grados'.
 
         'clase' clasifica el azimut de máxima pendiente de bajada en 4
-        cuadrantes y devuelve **uint8**: 0=plano/NoData, 1=Norte, 2=Este,
+        cuadrantes y devuelve **uint8**: 0=sin orientación (llano o NoData), 1=Norte, 2=Este,
         3=Sur, 4=Oeste. Es la salida histórica y la que consume
         `combinar_categorias`.
 
