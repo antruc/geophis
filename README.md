@@ -4,7 +4,7 @@ Funciones en español para tareas SIG forestales y territoriales: de shapefiles 
 
 ![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.png)
 
-**Versión:** 1.4.1 | **Python:** >= 3.11 (probado en 3.14) | **Licencia:** GPL-3.0-or-later
+[![PyPI](https://img.shields.io/pypi/v/geophis)](https://pypi.org/project/geophis/)
 
 ## Para qué sirve
 
@@ -44,11 +44,13 @@ Sin IA, el mismo [`docs/GEOPHIS.md`](docs/GEOPHIS.md) sirve para escribir los sc
 
 ## Instalación
 
+Requiere Python 3.11 o superior (probado en 3.14)
+
 ```bash
 pip install geophis
 ```
 
-`pip` instala solas las dependencias; la lista con sus versiones mínimas está en `pyproject.toml`
+`pip` instala por sí mismo las dependencias; la lista con sus versiones mínimas está en `pyproject.toml`
 
 ## Ejemplo básico
 
