@@ -2,7 +2,7 @@
 
 Funciones en español para tareas SIG forestales y territoriales: de shapefiles y curvas de nivel a rásters, clases y superficies listas para una memoria técnica. Por debajo usa geopandas y shapely (vector), rasterio (raster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis en cada script
 
-![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.png)
+![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.svg)
 
 [![PyPI](https://img.shields.io/pypi/v/geophis)](https://pypi.org/project/geophis/)
 
