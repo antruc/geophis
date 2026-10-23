@@ -110,4 +110,4 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 - `recortar`, `intersecar`, `borrar` y `union_espacial` alinean el CRS solos, reproyectando el segundo argumento. `fusionar` no lo hace, a propósito
 - Avisos y reportes por consola con `print`; los errores con `raise ValueError` de mensaje claro
 
-El detalle de cada convención, con la medición que la justifica, está en `docs/DECISIONES.md`
+El detalle de cada convención, con la medición que la justifica, está en [`docs/DECISIONES.md`](https://github.com/antruc/geophis/blob/main/docs/DECISIONES.md)
