@@ -17,7 +17,7 @@ Para el trabajo técnico forestal y territorial que termina en un entregable: sh
 - La imagen Sentinel-2 más limpia de una temporada sobre el predio, y su NDVI
 - Pasar un predio de shapefile a KMZ para abrirlo en el celular, o un GPX de campo a shapefile (también desde la consola, ver abajo)
 
-**Flujos completos, del dato crudo al entregable.** Las recetas de [`docs/GEOPHIS.md`](docs/GEOPHIS.md) encadenan todo en un script: curvas de nivel, MDE, pendiente, clases sin moteado y shapefile con la superficie de cada clase; o MDE, red de drenaje y cuencas. Cambiar un rango o una capa de entrada es cambiar una línea del bloque `CONFIG` y volver a correr
+**Flujos completos, del dato crudo al entregable.** Las recetas de [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) encadenan todo en un script: curvas de nivel, MDE, pendiente, clases sin moteado y shapefile con la superficie de cada clase; o MDE, red de drenaje y cuencas. Cambiar un rango o una capa de entrada es cambiar una línea del bloque `CONFIG` y volver a correr
 
 **Lo que te ahorra frente a un script con geopandas y rasterio a secas,** donde estos errores pasan sin avisar:
 
@@ -31,16 +31,16 @@ Para el trabajo técnico forestal y territorial que termina en un entregable: sh
 
 ## Scripts hechos con IA
 
-La librería está documentada para que una IA escriba los scripts por ti. [`docs/GEOPHIS.md`](docs/GEOPHIS.md) trae todas las funciones con su firma y sus trampas, más las reglas de trabajo, y basta con cargarlo como contexto:
+La librería está documentada para que una IA escriba los scripts por ti. [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) trae todas las funciones con su firma y sus trampas, más las reglas de trabajo, y basta con cargarlo como contexto:
 
-1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`docs/GEOPHIS.md`](docs/GEOPHIS.md) como contexto del proyecto
+1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) como contexto del proyecto
 2. Pide la tarea en lenguaje normal: "recorta las curvas al predio, saca el MDE y clasifica la pendiente en 0 a 15, 15 a 30 y más de 30 %". Lo que decides tú (los rangos, la escala) va en el pedido; lo que se puede medir, como la resolución del MDE, lo mide el script. Si falta una decisión, la IA pregunta antes de escribir código
 3. Corre el script que te devuelve: `python mi_script.py`
 4. Pega la salida de consola completa en la conversación. Los avisos de la librería salen por consola, y es lo que la IA necesita para corregir
 
 Con Claude Code, u otro agente que ejecute código, los pasos 3 y 4 los hace el agente: escribe el script, lo corre y lee la salida él mismo
 
-Sin IA, el mismo [`docs/GEOPHIS.md`](docs/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](docs/API.md)
+Sin IA, el mismo [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md)
 
 ## Instalación
 
@@ -65,9 +65,9 @@ print(geo.superficie_total_ha(predio), "ha")
 geo.guardar(predio, "predio_utm.shp")
 ```
 
-Del predio y sus curvas de nivel a clases de pendiente: receta [P1 en `docs/GEOPHIS.md`](docs/GEOPHIS.md#p1-tabla-de-rangos-con-spline). La resolución del MDE y los umbrales no se teclean, los mide `derivar_parametros` desde las curvas
+Del predio y sus curvas de nivel a clases de pendiente: receta [P1 en `docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md#p1-tabla-de-rangos-con-spline). La resolución del MDE y los umbrales no se teclean, los mide `derivar_parametros` desde las curvas
 
-Scripts completos en [`ejemplos/`](ejemplos/)
+Scripts completos en [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos)
 
 ## Qué hace
 
@@ -96,10 +96,10 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 
 | Archivo | Para qué |
 |---|---|
-| [`docs/GEOPHIS.md`](docs/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo que hay que cargar en un Proyecto de Claude |
-| [`docs/DECISIONES.md`](docs/DECISIONES.md) | Para personas: las mediciones que justifican cada regla y las alternativas descartadas. No se sube al Proyecto |
-| [`docs/API.md`](docs/API.md) | Índice para buscar una función por nombre: una línea por función, con enlace a su entrada completa en `GEOPHIS.md` |
-| [`ejemplos/`](ejemplos/) | Scripts completos: `caminos.py` (buffer jerárquico), `hidrologia.py` (buffer por condición), `mde.py` (curvas a MDE) |
+| [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo que hay que cargar en un Proyecto de Claude |
+| [`docs/DECISIONES.md`](https://github.com/antruc/geophis/blob/main/docs/DECISIONES.md) | Para personas: las mediciones que justifican cada regla y las alternativas descartadas. No se sube al Proyecto |
+| [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md) | Índice para buscar una función por nombre: una línea por función, con enlace a su entrada completa en `GEOPHIS.md` |
+| [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos) | Scripts completos: `caminos.py` (buffer jerárquico), `hidrologia.py` (buffer por condición), `mde.py` (curvas a MDE) |
 
 ## Convenciones
 
