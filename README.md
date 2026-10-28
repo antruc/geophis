@@ -40,6 +40,8 @@ La librería está documentada para que una IA escriba los scripts por ti. [`doc
 
 Con Claude Code, u otro agente que ejecute código, los pasos 3 y 4 los hace el agente: escribe el script, lo corre y lee la salida él mismo
 
+[`docs/NORMAS_PROYECTO.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS_PROYECTO.md) es un ejemplo de instrucciones para un Proyecto de Claude Desktop: dónde entregar los scripts, cómo nombrarlos y cuándo ejecutar el proceso o devolverlo. Se pega directamente en el campo "Instrucciones" del Proyecto, **no se sube como archivo del proyecto**: como archivo es solo contexto que se consulta, y como instrucciones se aplica en cada conversación. Remite a un `NOMENCLATURA_SIG.md` propio, con la convención de nombres, que sí va como archivo junto a `GEOPHIS.md`; adáptalo o quita la norma 3
+
 Sin IA, el mismo [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md)
 
 ## Instalación
@@ -96,9 +98,10 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 
 | Archivo | Para qué |
 |---|---|
-| [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo que hay que cargar en un Proyecto de Claude |
+| [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo de geophis que hay que cargar en un Proyecto de Claude |
 | [`docs/DECISIONES.md`](https://github.com/antruc/geophis/blob/main/docs/DECISIONES.md) | Para personas: las mediciones que justifican cada regla y las alternativas descartadas. No se sube al Proyecto |
 | [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md) | Índice para buscar una función por nombre: una línea por función, con enlace a su entrada completa en `GEOPHIS.md` |
+| [`docs/NORMAS_PROYECTO.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS_PROYECTO.md) | Ejemplo de instrucciones para un Proyecto de Claude Desktop. Se pega en "Instrucciones"; no se sube como archivo |
 | [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos) | Scripts completos: `caminos.py` (buffer jerárquico), `hidrologia.py` (buffer por condición), `mde.py` (curvas a MDE) |
 
 ## Convenciones
