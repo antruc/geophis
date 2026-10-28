@@ -15,7 +15,7 @@ Produce dos rasters que no son intercambiables:
   en la misma sesión que calcula el flujo.
 
 Ningún parámetro de la malla se teclea: `derivar_parametros` los mide o los
-deriva, y cada corrida cierra con su tabla de procedencia (R1,
+deriva, y `sin_medir` detiene la corrida si alguno quedó sin elegir (R1,
 docs/GEOPHIS.md).
 
 El manejo del extent replica la práctica de ANUDEM: curvas y cauces se
@@ -24,15 +24,16 @@ metido dentro de los datos para que las celdas de borde se interpolen con
 información a ambos lados.
 """
 
+from pathlib import Path
+
 import geophis as geo
 
 # ── CONFIG ─────────────────────────────────────────────────
-ENTRADA_CURVAS = r"C:\SIG\proyecto\datos\curvas_nivel.shp"
-ENTRADA_CAUCES = r"C:\SIG\proyecto\datos\hidrologia.shp"
-ENTRADA_PREDIO = r"C:\SIG\proyecto\datos\predio.shp"
-SALIDA_MDE_BASE = r"C:\SIG\proyecto\salidas\MDE_BASE.tif"  # terreno sin deformar, para pendientes
-SALIDA_MDE_HIDRO = r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif"  # relleno + quemado, entrada de acondicionar_mde
-SALIDA_PROCEDENCIA = r"C:\SIG\proyecto\salidas\PROCEDENCIA.txt"  # tabla para la memoria técnica
+ENTRADA_CURVAS = Path(r"C:\SIG\proyecto\datos\curvas_nivel.shp")
+ENTRADA_CAUCES = Path(r"C:\SIG\proyecto\datos\hidrologia.shp")
+ENTRADA_PREDIO = Path(r"C:\SIG\proyecto\datos\predio.shp")
+SALIDA_MDE_BASE = Path(r"C:\SIG\proyecto\salidas\MDE_BASE.tif")  # terreno sin deformar, para pendientes
+SALIDA_MDE_HIDRO = Path(r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif")  # relleno + quemado, entrada de acondicionar_mde
 
 ESCALA = 25_000  # compromiso de entrega; la UMM y la resolución son consecuencia
 RANGOS = [
@@ -76,7 +77,6 @@ campo, e = geo.detectar_cota(curvas)  # una vez, sobre el dominio declarado
 # `vecinos="medir"` cuesta una interpolación por cada n; sin él entra el
 # default 48, que nadie eligió, y el assert de abajo lo para.
 p = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos="medir")
-open(SALIDA_PROCEDENCIA, "w", encoding="utf-8").write(geo.tabla_procedencia(p))
 assert not geo.sin_medir(p), f"nadie eligio: {geo.sin_medir(p)}"
 h = p["resolucion"]  # float con procedencia; se pasa tal cual
 

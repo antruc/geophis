@@ -620,3 +620,37 @@ def test_valor_sobrevive_a_pickle():
         w = pickle.loads(pickle.dumps(v))
         assert type(w) is type(v) and w == v
         assert (w.fuente, w.origen) == (v.fuente, v.origen)
+
+
+def test_predio_sin_clase_alta_entrega_0_ha_y_no_deja_nada_sin_medir():
+    """Ladera al 20 % con rangos hasta `>100`: la carta no tiene la clase alta.
+
+    Antes `ancho_w` salia `default` y la guarda de R1 detenia P1. Ahora el blanco
+    es 0 ha MEDIDO y el geometrico solo acota `h`. Con `medir_ancho=False` no se
+    midio nada y sigue siendo `default`. `zona` sin curvas no es un 0 ha: es CRS.
+    """
+    rangos = [("0-15", 0, 15), ("15-45", 15, 45), ("45-100", 45, 100), (">100", 100, float("inf"))]
+    ys = np.arange(0, 1500, 100.0)
+    curvas = _curvas_rectas(32613, ys, ys / 5, x1=3000.0)
+    predio = gpd.GeoDataFrame(geometry=[box(500, 300, 2500, 1200)], crs=32613)
+
+    p = geo.derivar_parametros(curvas, "COTA", predio, rangos, 25_000, vecinos=90)
+    assert geo.sin_medir(p) == []
+    assert float(p["blanco_carta_ha"]) == 0.0
+    assert p["blanco_carta_ha"].fuente == "medido"
+    assert p["ancho_w"].fuente == "derivado"
+
+    sin_w = geo.derivar_parametros(
+        curvas, "COTA", predio, rangos, 25_000, vecinos=90, medir_ancho=False
+    )
+    assert "ancho_w" in geo.sin_medir(sin_w)
+
+    lejos = gpd.GeoDataFrame(geometry=[box(90_000, 90_000, 91_000, 91_000)], crs=32613)
+    with pytest.raises(ValueError, match="no se pisan") as exc:
+        geo.ancho_banda(curvas, "COTA", lejos, 20.0, 1.0)
+    assert not isinstance(exc.value, geo.SinBanda)
+
+    with pytest.raises(geo.SinBanda, match="P2 no aplica"):
+        geo.juzgar_clasificaciones(
+            {"tin": (None, "tin", 5.0)}, curvas, "COTA", predio, rangos, 20.0, 1.0
+        )

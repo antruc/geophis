@@ -1146,6 +1146,20 @@ def separacion_media(
     return lam, longitud_efectiva, longitud_total_m(dentro) / longitud_efectiva
 
 
+class SinBanda(ValueError):
+    """La carta tiene curvas dentro de `zona`, pero ninguna banda de la clase.
+
+    Es un RESULTADO: la clase no existe en este predio y su blanco es 0 ha.
+    Subclase de `ValueError` para que quien no la distinga siga fallando igual.
+    `zona` y `curvas` que no se pisan NO son esto: levantan `ValueError` llano.
+    """
+
+    # firma explicita: la de `ValueError` no se puede inspeccionar y la API
+    # documentada se coteja contra ella
+    def __init__(self, mensaje: str) -> None:
+        super().__init__(mensaje)
+
+
 def ancho_banda(
     curvas: gpd.GeoDataFrame,
     campo: str,
@@ -1230,9 +1244,10 @@ def ancho_banda(
       clase), `largo_efectivo_m`, `separacion_max` y `ancho_geometrico`
       (= `s_max`, con el que hay que contrastar `w`).
 
-    Sin banda medible dentro de `zona` levanta ValueError: eso es un resultado
-    ("esta cartografía no tiene una banda limpia"), no un cero que se pueda
-    seguir usando.
+    Sin banda medible dentro de `zona` levanta `SinBanda` (un ValueError): eso
+    es un resultado ("la clase no existe en este predio"), no un cero que se
+    pueda seguir usando sin decirlo. Si `zona` no tiene ninguna curva, levanta
+    `ValueError` llano: eso es un error de CRS o de capas, no un resultado.
 
     Con `devolver_banda=True` devuelve `(tabla, resumen, banda)`. `banda` son
     los TRAMOS DE CURVA de la clase al último corte, ya recortados a `zona`: la
@@ -1352,10 +1367,17 @@ def ancho_banda(
 
     largo_efectivo = largo_previo / zigzag
     if largo_efectivo <= 0 or area_m2 <= 0:
-        raise ValueError(
+        # Los dos casos daban el mismo mensaje, y solo uno es un resultado. Se
+        # separan aqui y no en quien llama: aqui se ve si hay curvas en `zona`,
+        # venga el zigzag medido, dado a mano o reusado.
+        if recortar(recortadas, zona).empty:
+            raise ValueError(
+                "ninguna curva dentro de `zona`: `zona` y `curvas` no se pisan. "
+                "Revisa el CRS."
+            )
+        raise SinBanda(
             f"ninguna banda medible dentro de `zona` a menos de {s_max:g} m del "
-            f"nivel contiguo. O la clase no existe en este predio (que es un "
-            f"resultado), o `zona` y `curvas` no se pisan: revisa el CRS."
+            f"nivel contiguo: la clase no existe en este predio (0 ha en carta)."
         )
     ancho = area_m2 / largo_efectivo
 

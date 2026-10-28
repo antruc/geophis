@@ -85,6 +85,7 @@ import geophis as geo
 | [`bloques_ajedrez`](GEOPHIS.md#geometriapy-vector) | Cuadros alternados `pliegue` 0/1 para hold-out espacial |
 | [`pendiente_sostenida`](GEOPHIS.md#geometriapy-vector) | `(separacion_m, pendiente_pct)` que la cartografía sostiene dentro de `zona` |
 | [`ancho_banda`](GEOPHIS.md#geometriapy-vector) | El ancho transversal medido `w` de la clase más alta, por escalera de cortes -> `(tabla, resumen)`; con `devolver_banda=True` también la banda como geometría |
+| [`SinBanda`](GEOPHIS.md#geometriapy-vector) | Excepción de `ancho_banda` cuando la carta no tiene la clase alta en `zona`: un resultado, 0 ha |
 | [`sostenimiento_por_clase`](GEOPHIS.md#geometriapy-vector) | Qué separación sostiene la cartografía en cada clase ACUMULADA (`>= p`), de una sola clasificación |
 | [`separacion_media`](GEOPHIS.md#geometriapy-vector) | `(lambda_m, longitud_efectiva_m, factor_zigzag)`. λ por `G'(0)` de la escalera de buffers, no por el cociente global (sesga hacia lo llano) |
 | [`auditar_rangos`](GEOPHIS.md#geometriapy-vector) | Audita cada rango contra un techo cartográfico externo al MDE |

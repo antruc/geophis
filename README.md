@@ -27,7 +27,7 @@ Para el trabajo técnico forestal y territorial que termina en un entregable: sh
 - Terreno inventado: el MDE no extrapola fuera de las curvas, deja sin dato y avisa cuántas hectáreas quedaron así
 - Errores en español que dicen qué falló, en vez de un volcado de GDAL tres llamadas abajo
 
-**Cifras que se pueden defender.** Los números que el script no decide (resolución del MDE, umbrales, superficie mínima de una mancha) se miden desde tus propios datos o se derivan de lo que tú declaras (la escala, los rangos), no se copian de otro predio, y la librería imprime de dónde salió cada uno para citarlo en la memoria
+**Cifras que se pueden defender.** Los números que el script no decide (resolución del MDE, umbrales, superficie mínima de una mancha) se miden desde tus propios datos o se derivan de lo que tú declaras (la escala, los rangos), no se copian de otro predio. Si alguno quedó sin elegir, el script se detiene, y la librería imprime en consola de dónde salió cada número para revisarlo
 
 ## Scripts hechos con IA
 

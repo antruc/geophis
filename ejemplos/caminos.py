@@ -5,20 +5,22 @@ Cada nivel recorta al inferior para que no se solapen. Muestra el uso
 de geophis con un patrón repetido resuelto en un bucle.
 """
 
+from pathlib import Path
+
 import geophis as geo
 
 # ── CONFIG ───────────────────────────────────────────────────
 # declarado: ancho de derecho de via por jerarquia, en metros. El orden es la
 # prioridad (mayor a menor).
 NIVELES = [
-    ("PRIMARIO", r"C:\SIG\proyecto\datos\camino_primario.shp", 5.0),
-    ("SECUNDARIO", r"C:\SIG\proyecto\datos\camino_secundario.shp", 3.0),
-    ("SACA", r"C:\SIG\proyecto\datos\camino_saca.shp", 1.75),
+    ("PRIMARIO", Path(r"C:\SIG\proyecto\datos\camino_primario.shp"), 5.0),
+    ("SECUNDARIO", Path(r"C:\SIG\proyecto\datos\camino_secundario.shp"), 3.0),
+    ("SACA", Path(r"C:\SIG\proyecto\datos\camino_saca.shp"), 1.75),
 ]
 CAMPO_TIPO = "camino"
 
-SALIDA_COMBINADO = r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER_COMBINADO.shp"
-SALIDA_DISUELTO = r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER_DISUELTO.shp"
+SALIDA_COMBINADO = Path(r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER_COMBINADO.shp")
+SALIDA_DISUELTO = Path(r"C:\SIG\proyecto\salidas\CAMINOS_BUFFER_DISUELTO.shp")
 
 # ── 1. CARGAR, ASEGURAR CRS, DISOLVER Y BUFFER CADA NIVEL ────
 # el CRS que pida la entrega manda: si pide otro, declararlo aqui

@@ -48,6 +48,7 @@ import geopandas as gpd
 import numpy as np
 
 from .geometria import (
+    SinBanda,
     ancho_banda,
     crear_cuadro,
     longitud_total_m,
@@ -504,6 +505,19 @@ def derivar_parametros(
             _, res_w = _callado(ancho_banda)(
                 curvas, campo, zona, e, zz, pendiente_pct=p_max * 100
             )
+        except SinBanda:
+            # La carta no tiene la clase alta en `zona`: su blanco es 0 ha, y eso
+            # es una medicion. El geometrico ya no estima una `w` que no existe,
+            # solo acota `h` desde la equidistancia y los rangos: es derivado.
+            w = None
+            p["ancho_w"] = _v(
+                e / p_max,
+                "derivado",
+                "GEOMETRICO e/p_max: la carta no tiene la clase alta en `zona`; solo acota `h`",
+            )
+            p["blanco_carta_ha"] = _v(
+                0.0, "medido", "la carta no tiene la clase alta en `zona`: 0 ha"
+            )
         except ValueError as exc:
             # Una cartografía sin banda limpia es un RESULTADO, no un fallo. Pero
             # seguir con el ancho geométrico sin decirlo es justo el defecto que
@@ -702,11 +716,11 @@ def derivar_parametros(
 def tabla_procedencia(params: dict[str, Any]) -> str:
     """Rinde la tabla parámetro / valor / fuente / origen de `derivar_parametros`.
 
-    Es la tabla que hoy se escribe a mano en la memoria técnica de cada predio.
-    Que se genere sola es el punto: un valor `default` aparece en el ENTREGABLE,
-    no en un aviso de consola que ya se aprendió a ignorar.
+    `derivar_parametros` ya la imprime al terminar; llamarla después solo la
+    repite. Es para revisar en consola de dónde sale cada número: no va al
+    entregable y no es guarda (la guarda es `sin_medir`, R1 de GEOPHIS.md).
 
-    Devuelve el texto además de imprimirlo, para pegarlo en la memoria.
+    Devuelve el texto además de imprimirlo.
     """
     filas = [(k, v) for k, v in params.items() if isinstance(v, (Valor, ValorEntero))]
     ancho = max((len(k) for k, _ in filas), default=10)
@@ -735,8 +749,8 @@ def tabla_procedencia(params: dict[str, Any]) -> str:
             "valores."
         )
         lineas.append(
-            "   No invalida la corrida, pero una cifra que dependa de ellos no es "
-            "firme: es vieja."
+            "   Una cifra que dependa de ellos no es firme: mídelos o decláralos "
+            "con su razón (R1, GEOPHIS.md)."
         )
     if params.get("factible") is False:
         lineas.append("")

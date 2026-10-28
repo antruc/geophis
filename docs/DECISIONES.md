@@ -30,7 +30,7 @@ No es una guía de uso. Para escribir un script, la referencia es `GEOPHIS.md`, 
 
 ### Qué se decidió
 
-Un script no escribe a mano ninguna cantidad que se pueda medir. Las mide `derivar_parametros`, que devuelve cada valor con su **fuente** (declarado, medido, derivado, convención o default) y su **origen**, y esa tabla de procedencia va al entregable.
+Un script no escribe a mano ninguna cantidad que se pueda medir. Las mide `derivar_parametros`, que devuelve cada valor con su **fuente** (declarado, medido, derivado, convención o default) y su **origen**. La guarda es `sin_medir`, la lista de lo que nadie eligió: el script se detiene si no está vacía. `derivar_parametros` imprime la procedencia completa en consola al terminar, para revisarla; no va al entregable.
 
 ### Por qué
 
@@ -46,7 +46,7 @@ Un `48` escrito a mano y un `48` medido se ven igual en el código, en la consol
 ### Detalles que costaron
 
 - **El default de vecinos (48) se llevó el 12 % de la clase alta.** No estaba escrito en ninguna parte del script que lo usó. Con la rodilla medida (90), ese 12 % desapareció: era terraceo, no terreno.
-- **Convertir un valor a `int` o `float` borra su procedencia.** Una segunda llamada recibía el `48` ya convertido y lo marcaba como medido: la tabla del entregable decía "48 medido" sin que nadie hubiera medido nada. Por eso un valor que ya trae procedencia se respeta tal cual.
+- **Convertir un valor a `int` o `float` borra su procedencia.** Una segunda llamada recibía el `48` ya convertido y lo marcaba como medido: la tabla de procedencia decía "48 medido" sin que nadie hubiera medido nada. Por eso un valor que ya trae procedencia se respeta tal cual.
 - **Convención y default se separan.** Las convenciones de oficio (2 mm de lado mínimo, 4 píxeles por UMM, 3 celdas para trazar, cuantil 90) son iguales en todos los predios y no hay medición que las sustituya. Si salieran en la lista de "sin medir", esa lista tendría cinco nombres en cada corrida y se dejaría de mirar.
 - **Lo medido depende de sobre QUÉ capa se midió.** La misma carta recortada al predio da un blanco de 10.28 ha, y recortada al cuadro de trabajo da 16.14. Por eso la tabla guarda la huella de las capas (entidades, CRS, extensión).
 - **Medir cuesta, y se repetía.** Cada llamada a `derivar_parametros` volvía a medir la separación, el zigzag y el ancho de la cinta: entre 145 y 192 s. Con dos métodos y la segunda pasada eran cuatro llamadas. Ahora una llamada puede reusar lo medido por otra (`medidos=`): 0.7 s, y falla si las capas no son las mismas.
@@ -98,6 +98,15 @@ La solución es una sola pasada con la clase alta exenta: ni absorbe ni es absor
 Sin medirlo, el ancho de la clase alta se calcula como equidistancia entre pendiente (20 m para 100 %). Medido sobre la carta, reconstruyendo la banda donde las curvas están más juntas que esa separación, dio **15.5 m**, y con eso el tamaño de píxel bajó de 6.67 a 5.17 m. La medición también da el área que la carta sostiene en esa clase: el **blanco cartográfico** contra el que se compara el MDE.
 
 Dos cuidados: el zigzag del trazo se cancela en el ancho pero manda en el área (pasar zigzag 1.0 por descuido infla el blanco por el factor entero), y el largo de los tramos de la banda es largo de trazo, que hay que dividir entre el zigzag (con zigzag 1.408, olvidarlo son 40 puntos porcentuales de "escarpe visto"). Y la escalera de cotas se toma de las curvas completas, antes del recorte: si no, dos niveles separados 2e quedan como contiguos y aparece una banda que no existe.
+
+### Un predio sin la clase alta la entrega en 0 ha
+
+Cuando la carta no tiene ninguna banda de la clase alta dentro del predio, eso es una medición: el blanco es **0 ha**, fuente `medido`. Antes, el ancho de la cinta quedaba como `default` y la guarda de "sin medir" detenía la receta, aunque nadie hubiera dejado de elegir nada. Con la ladera uniforme al 20 % (curvas cada 100 m, equidistancia 20 m) y rangos hasta `>100`, la receta del spline no podía terminar. Ahora termina: `sin_medir` sale vacío, el ancho geométrico (20 m) entra como `derivado` porque solo acota el píxel, la resolución sale de 50 m (manda el piso antialias) y todo el predio cae en 15-45. Con una ladera fuerte (curvas cada 15 m, 133 %) no cambia nada.
+
+- **Se separa en `ancho_banda`, no en quien la llama.** "Sin banda" y "`zona` y `curvas` no se pisan" daban el mismo mensaje, y solo el primero es un resultado. Quien llama no puede distinguirlos cuando el zigzag llega dado a mano o reusado; `ancho_banda` sí, porque ve si hay curvas dentro de `zona`. El primero levanta `SinBanda` y el segundo un `ValueError` llano.
+- **Los vecinos se declaran en 90.** La rodilla se mide sobre la clase alta y aquí no hay qué medir. Es el mismo caso que los rangos bajos de la cascada (§5).
+- **Las piezas de la clase alta que saque el MDE se reportan, no se reclasifican.** Pueden salir por rizo o por curvatura cerca del umbral. La cifra que se entrega es la de la carta; reclasificar cambiaría una cifra sin medición que lo respalde.
+- **El juez entre métodos no aplica.** Con blanco 0 el porcentaje del blanco divide entre cero y no hay escarpe que ver: `juzgar_clasificaciones` levanta `SinBanda` y manda a la receta del spline.
 
 ### Cuántos píxeles mide la UMM
 
@@ -322,3 +331,4 @@ Con hilos en vez de procesos el spline iba más lento (0.77x): scipy recorre cad
 | Que `acondicionar_mde` repare solo los sumideros | Taparía endorreicas reales; la reparación se pide aparte, después de leer el aviso |
 | Una sola cuenca por desagüe para partir un predio | Deja el 63 % sin cubrir y solapa |
 | Un "PLANO" en la exposición | El plano exacto del TIN es artefacto; se llama "SIN ORIENTACIÓN" y un plano con umbral sale de la pendiente |
+| Componer las rutas sumando texto (`SALIDAS + r"\PENDIENTES.shp"`) | Solo funciona en Windows. En Linux la misma línea escribió `.gpkg`, `.gpx`, `.tif`, `.xlsx`, `.csv` y `.png` fuera de la carpeta, con `\` en el nombre y sin aviso; `.kmz` falló y solo `.shp` acertó. Las rutas son `Path` y se componen con `/`: todas las funciones que leen o escriben lo aceptan |

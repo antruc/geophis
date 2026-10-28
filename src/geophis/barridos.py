@@ -29,6 +29,7 @@ from rasterio.transform import from_origin
 from scipy.ndimage import distance_transform_edt
 
 from .geometria import (
+    SinBanda,
     ancho_banda,
     cuadros_mde,
     longitud_total_m,
@@ -1329,15 +1330,22 @@ def juzgar_clasificaciones(
             raise ValueError(f"{nombre}: h {h} tiene que ser > 0")
     alta = max(rangos, key=lambda r: r[1])
     etiqueta_alta, p_alta = alta[0], alta[1]
-    _, resumen, banda = _callado(ancho_banda)(
-        curvas,
-        campo,
-        zona,
-        equidistancia,
-        zigzag,
-        pendiente_pct=p_alta,
-        devolver_banda=True,
-    )
+    try:
+        _, resumen, banda = _callado(ancho_banda)(
+            curvas,
+            campo,
+            zona,
+            equidistancia,
+            zigzag,
+            pendiente_pct=p_alta,
+            devolver_banda=True,
+        )
+    except SinBanda as exc:
+        # Con blanco 0 no hay contra que juzgar: el veredicto seria inventado.
+        raise SinBanda(
+            f"{exc} No hay clase alta que juzgar: P2 no aplica. Usa P1 y cita "
+            f"'{etiqueta_alta}' en 0 ha desde p['blanco_carta_ha']."
+        ) from exc
     w = float(resumen["ancho_m"])
     largo_ef = float(resumen["largo_efectivo_m"])
     blanco = float(resumen["area_ha"])

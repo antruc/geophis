@@ -6,18 +6,20 @@ corto: cargar solo lo del ejido → reproyectar → recortar → separar →
 disolver → zona de influencia → resolver solapes → recortar → guardar.
 """
 
+from pathlib import Path
+
 import geophis as geo
 
 # ── CONFIG ─────────────────────────────────────────────────
-ENTRADA_HIDRO = r"C:\SIG\proyecto\datos\hidrologia.shp"
-ENTRADA_EJIDO = r"C:\SIG\proyecto\datos\ejido.shp"
+ENTRADA_HIDRO = Path(r"C:\SIG\proyecto\datos\hidrologia.shp")
+ENTRADA_EJIDO = Path(r"C:\SIG\proyecto\datos\ejido.shp")
 
 BUFFER_PERENNE = 20  # declarado: franja ribereña de cauce perenne, criterio del programa de manejo
 BUFFER_INTERMITENTE = 10  # declarado: idem para intermitente
 CAMPO_AREA = "SUP"  # el SHP recorta los nombres de campo a 10 caracteres
 
-SALIDA_CONDICION = r"C:\SIG\proyecto\salidas\HIDRO_BUFFER_CONDICION.shp"
-SALIDA_DISUELTO = r"C:\SIG\proyecto\salidas\HIDRO_BUFFER_DISUELTO.shp"
+SALIDA_CONDICION = Path(r"C:\SIG\proyecto\salidas\HIDRO_BUFFER_CONDICION.shp")
+SALIDA_DISUELTO = Path(r"C:\SIG\proyecto\salidas\HIDRO_BUFFER_DISUELTO.shp")
 
 # ── 1. CARGAR (la hidrología, solo lo que toca el ejido) ───
 # `bbox` lee por el índice espacial del archivo: la hidrografía estatal entera
