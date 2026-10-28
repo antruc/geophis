@@ -67,7 +67,11 @@ def _sin_script_principal() -> Iterator[None]:
     consola interactiva, que no tiene `__file__`.
     """
     principal = sys.modules["__main__"]
-    guardado = {a: principal.__dict__.pop(a) for a in ("__file__", "__spec__") if a in principal.__dict__}
+    guardado = {
+        a: principal.__dict__.pop(a)
+        for a in ("__file__", "__spec__")
+        if a in principal.__dict__
+    }
     principal.__spec__ = None  # `multiprocessing` lo lee sin `getattr` con default
     try:
         yield
@@ -122,7 +126,15 @@ def _memoria_libre() -> float:
             class _Estado(ctypes.Structure):
                 _fields_ = [("largo", ctypes.c_ulong), ("carga", ctypes.c_ulong)] + [
                     (n, ctypes.c_ulonglong)
-                    for n in ("total", "libre", "pag_total", "pag_libre", "virt_total", "virt_libre", "ext")
+                    for n in (
+                        "total",
+                        "libre",
+                        "pag_total",
+                        "pag_libre",
+                        "virt_total",
+                        "virt_libre",
+                        "ext",
+                    )
                 ]
 
             e = _Estado()
@@ -137,7 +149,9 @@ def _memoria_libre() -> float:
 
 def _bytes_tarea(celdas: float, metodo: str | None) -> float:
     """Memoria estimada de UNA interpolacion de `celdas` celdas en su proceso."""
-    return _BYTES_PROCESO + celdas * _BYTES_CELDA.get(metodo or "spline", _BYTES_CELDA["spline"])
+    return _BYTES_PROCESO + celdas * _BYTES_CELDA.get(
+        metodo or "spline", _BYTES_CELDA["spline"]
+    )
 
 
 def _mapear(
@@ -165,7 +179,11 @@ def _mapear(
     hechas = 0
     if nucleos > 1 and len(tareas) > 1 and bytes_por_tarea > 0:
         libre = _memoria_libre()
-        caben = max(1, int(0.8 * libre // bytes_por_tarea)) if math.isfinite(libre) else nucleos
+        caben = (
+            max(1, int(0.8 * libre // bytes_por_tarea))
+            if math.isfinite(libre)
+            else nucleos
+        )
         if caben < min(nucleos, len(tareas)):
             print(
                 f"Aviso {quien}: caben {caben} procesos en la RAM libre "
@@ -202,7 +220,9 @@ def _mapear(
         yield fn(t)
 
 
-def _exigir_mismo_crs(curvas: gpd.GeoDataFrame, otra: gpd.GeoDataFrame, nombre: str) -> None:
+def _exigir_mismo_crs(
+    curvas: gpd.GeoDataFrame, otra: gpd.GeoDataFrame, nombre: str
+) -> None:
     """Falla si `otra` no está en el CRS de `curvas`: la malla sale de un CRS y
     la otra capa se rasteriza sobre ella sin reproyectar. Como
     `cotas_por_cruce`: no alinea, exige."""
@@ -210,8 +230,7 @@ def _exigir_mismo_crs(curvas: gpd.GeoDataFrame, otra: gpd.GeoDataFrame, nombre: 
         a = curvas.crs.name if curvas.crs else None
         b = otra.crs.name if otra.crs else None
         raise ValueError(
-            f"curvas en {a} y {nombre} en {b}: reproyecta antes, aquí no se "
-            f"alinea nada"
+            f"curvas en {a} y {nombre} en {b}: reproyecta antes, aquí no se alinea nada"
         )
 
 
@@ -266,7 +285,9 @@ def raster_distancia(
     mascara = rasterizar(zona, forma, transform, todo_tocado=True) == 1
     if _mostrar():
         area_ha = float(mascara.sum()) * resolucion**2 / 10_000
-        print(f"raster_distancia: {ncol}x{nrow} px a {resolucion:g} m | zona {area_ha:.2f} ha")
+        print(
+            f"raster_distancia: {ncol}x{nrow} px a {resolucion:g} m | zona {area_ha:.2f} ha"
+        )
     return distancia, mascara, transform
 
 
@@ -482,17 +503,15 @@ def barrer_resolucion(
     tabla que solo aparece al final no deja ver dónde va.
     """
     _exigir_mismo_crs(curvas, predio, "predio")
-    umm_m2, lambda_m, equidistancia, intervalo_muestreo, vecinos, metodo = (
-        _de_parametros(
-            parametros,
-            umm_m2=umm_m2,
-            lambda_m=lambda_m,
-            equidistancia=equidistancia,
-            intervalo_muestreo=intervalo_muestreo,
-            vecinos=vecinos,
-            metodo=metodo,
-        ).values()
-    )
+    umm_m2, lambda_m, equidistancia, intervalo_muestreo, vecinos, metodo = _de_parametros(
+        parametros,
+        umm_m2=umm_m2,
+        lambda_m=lambda_m,
+        equidistancia=equidistancia,
+        intervalo_muestreo=intervalo_muestreo,
+        vecinos=vecinos,
+        metodo=metodo,
+    ).values()
     metodo = metodo or "spline"
     if umm_m2 is None:
         raise ValueError("falta `umm_m2` (o `parametros`)")
@@ -525,7 +544,9 @@ def barrer_resolucion(
         )
     if resoluciones is None:
         if not math.isfinite(lambda_m):
-            raise ValueError("sin lambda medible no hay rango que derivar; pasa `resoluciones`")
+            raise ValueError(
+                "sin lambda medible no hay rango que derivar; pasa `resoluciones`"
+            )
         resoluciones = [round(lambda_m * f, 1) for f in (0.25, 1 / 3, 0.5, 2 / 3, 1.0)]
     resoluciones = sorted({float(h) for h in resoluciones})
     if not resoluciones:
@@ -555,23 +576,41 @@ def barrer_resolucion(
     filas: list[dict[str, Any]] = []
     una_fila = functools.partial(
         _fila_resolucion,
-        curvas=curvas, campo=campo, predio=predio, rangos=rangos, umm_m2=umm_m2,
-        lambda_m=lambda_m, equidistancia=equidistancia,
-        intervalo_muestreo=intervalo_muestreo, cuadro=cuadro, metodo=metodo,
-        suavizado=suavizado, vecinos=vecinos, etiqueta_alta=etiqueta_alta,
-        min_pixeles=min_pixeles, quiebres=quiebres, paso_quiebre=paso_quiebre,
-        exentos=exentos, sup_predio=sup_predio,
+        curvas=curvas,
+        campo=campo,
+        predio=predio,
+        rangos=rangos,
+        umm_m2=umm_m2,
+        lambda_m=lambda_m,
+        equidistancia=equidistancia,
+        intervalo_muestreo=intervalo_muestreo,
+        cuadro=cuadro,
+        metodo=metodo,
+        suavizado=suavizado,
+        vecinos=vecinos,
+        etiqueta_alta=etiqueta_alta,
+        min_pixeles=min_pixeles,
+        quiebres=quiebres,
+        paso_quiebre=paso_quiebre,
+        exentos=exentos,
+        sup_predio=sup_predio,
     )
     x0, y0, x1, y1 = _bounds_cuadro(curvas, cuadro)
     celdas = (x1 - x0) * (y1 - y0) / resoluciones[0] ** 2  # la mas fina manda
     for fila in _mapear(
-        una_fila, resoluciones, nucleos, _bytes_tarea(celdas, metodo), quien="barrer_resolucion"
+        una_fila,
+        resoluciones,
+        nucleos,
+        _bytes_tarea(celdas, metodo),
+        quien="barrer_resolucion",
     ):
         h, min_px, area = fila["h"], fila["min_pixeles"], fila["area_alta_ha"]
         s_c, p_c = fila["s_sostenida"], fila["p_sostenida"]
         # contra el h anterior de la tabla, que es el inmediatamente MÁS
         # FINO. La meseta es donde esta columna se aplana.
-        fila["delta_pct"] = _delta_pct(filas[-1]["area_alta_ha"], area) if filas else float("nan")
+        fila["delta_pct"] = (
+            _delta_pct(filas[-1]["area_alta_ha"], area) if filas else float("nan")
+        )
         filas.append(fila)
         if _mostrar():
             print(
@@ -650,8 +689,14 @@ def _fila_resolucion(
     # vectorial al final. La regla de la UMM vive en `min_pixeles_umm`.
     min_px = min_pixeles_umm(umm_m2, h) if min_pixeles is None else min_pixeles
     gdf = zonificar(
-        calcular_pendiente(mde, tf), tf, predio.crs, rangos, min_px,
-        recorte=predio, exentos=exentos, campo="_clase",
+        calcular_pendiente(mde, tf),
+        tf,
+        predio.crs,
+        rangos,
+        min_px,
+        recorte=predio,
+        exentos=exentos,
+        campo="_clase",
         sin_dato=None,  # el hueco lo mide `sin_clase_ha`, una vez por fila
     )
 
@@ -865,10 +910,17 @@ def barrer_vecinos(
     filas: list[dict[str, Any]] = []
     una_fila = functools.partial(
         _fila_vecinos,
-        curvas=curvas, campo=campo, zona=zona, resolucion=resolucion,
-        intervalo_terreno=intervalo_terreno, s_vacio=s_vacio,
-        equidistancia=equidistancia, intervalo_trazo=intervalo_trazo,
-        cuadro_salida=cuadro_salida, lambda_m=lambda_m, p_max=p_max,
+        curvas=curvas,
+        campo=campo,
+        zona=zona,
+        resolucion=resolucion,
+        intervalo_terreno=intervalo_terreno,
+        s_vacio=s_vacio,
+        equidistancia=equidistancia,
+        intervalo_trazo=intervalo_trazo,
+        cuadro_salida=cuadro_salida,
+        lambda_m=lambda_m,
+        p_max=p_max,
     )
     # con `nucleos > 1` se adelantan los `n` siguientes; los que no arrancaron
     # se cancelan al converger, los que ya corrian se tiran.
@@ -878,9 +930,14 @@ def barrer_vecinos(
         una_fila, enes, nucleos, _bytes_tarea(celdas, "spline"), quien="barrer_vecinos"
     ):
         n, margen, alta, meseta = (
-            fila["vecinos"], fila["margen_borde_celdas"], fila["alta_ha"], fila["meseta_ha"]
+            fila["vecinos"],
+            fila["margen_borde_celdas"],
+            fila["alta_ha"],
+            fila["meseta_ha"],
         )
-        fila["delta_pct"] = _delta_pct(filas[-1]["alta_ha"], alta) if filas else float("nan")
+        fila["delta_pct"] = (
+            _delta_pct(filas[-1]["alta_ha"], alta) if filas else float("nan")
+        )
         filas.append(fila)
         if _mostrar():
             print(
@@ -930,7 +987,9 @@ def _fila_vecinos(
     `nucleos`, como `_fila_resolucion`."""
     t0 = time.perf_counter()
     margen = margen_borde_celdas(n, intervalo_terreno, s_vacio, resolucion)
-    cuadro_recorte, _ = cuadros_mde(zona, resolucion=resolucion, margen_borde_celdas=margen)
+    cuadro_recorte, _ = cuadros_mde(
+        zona, resolucion=resolucion, margen_borde_celdas=margen
+    )
     mde, tf = _callado(interpolar_mde)(
         recortar(curvas, cuadro_recorte),
         campo,
@@ -1325,7 +1384,9 @@ def juzgar_clasificaciones(
         raise ValueError("sin candidatas")
     for nombre, (_, metodo, h) in candidatas.items():
         if metodo not in ("tin", "spline", "tps", "malla"):
-            raise ValueError(f"{nombre}: metodo '{metodo}', usa 'tin', 'spline' o 'malla'")
+            raise ValueError(
+                f"{nombre}: metodo '{metodo}', usa 'tin', 'spline' o 'malla'"
+            )
         if not h > 0:
             raise ValueError(f"{nombre}: h {h} tiene que ser > 0")
     alta = max(rangos, key=lambda r: r[1])

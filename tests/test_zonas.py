@@ -25,7 +25,9 @@ def _raster():
 
 
 def test_zonificar_particion_del_recorte_y_sieve():
-    predio = gpd.GeoDataFrame(geometry=[box(0, 0, 95, 100)], crs=UTM)  # media columna fuera
+    predio = gpd.GeoDataFrame(
+        geometry=[box(0, 0, 95, 100)], crs=UTM
+    )  # media columna fuera
     z = geo.zonificar(_raster(), TF, UTM, RANGOS, 11, recorte=predio)
     # la cinta (10 celdas < 11) se la come la baja; la capa cubre el predio
     assert set(z["CLASE"]) == {"baja", "alta"}

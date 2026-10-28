@@ -44,9 +44,7 @@ RANGOS = [
 def _referencia(**cambios):
     datos = dict(REFERENCIA, **cambios)
     escala = datos.pop("escala")
-    return geo.derivar_parametros(
-        None, "COTA", None, RANGOS, escala, **datos
-    )
+    return geo.derivar_parametros(None, "COTA", None, RANGOS, escala, **datos)
 
 
 def test_reproduce_los_derivados_de_referencia():
@@ -149,7 +147,9 @@ def test_comprobar_cifras_firmes_pasa_cerca_y_revienta_lejos():
     firmes = {"alta_sin_sieve_ha": 14.86, "atomo_ha": 57.80}
     geo.comprobar_cifras_firmes({"alta_sin_sieve_ha": 14.9, "atomo_ha": 57.7}, firmes)
     with pytest.raises(ValueError, match="alta_sin_sieve_ha"):
-        geo.comprobar_cifras_firmes({"alta_sin_sieve_ha": 4.35, "atomo_ha": 57.80}, firmes)
+        geo.comprobar_cifras_firmes(
+            {"alta_sin_sieve_ha": 4.35, "atomo_ha": 57.80}, firmes
+        )
     with pytest.raises(ValueError, match="no trae"):
         geo.comprobar_cifras_firmes({"atomo_ha": 57.80}, firmes)
 
@@ -199,9 +199,7 @@ def test_lambda_sale_del_extent_y_el_zigzag_de_la_zona():
         ],
         crs=32613,
     )
-    p = geo.derivar_parametros(
-        curvas, "COTA", zona, RANGOS, 25_000, medir_ancho=False
-    )
+    p = geo.derivar_parametros(curvas, "COTA", zona, RANGOS, 25_000, medir_ancho=False)
     lam_extent = geo.separacion_media(curvas, geo.crear_cuadro(zona))[0]
     lam_zona = geo.separacion_media(curvas, zona)[0]
     zz_zona = geo.separacion_media(curvas, zona)[2]
@@ -581,7 +579,10 @@ def test_parametros_rellena_solo_lo_que_queda_en_none():
     from geophis.metrologia import _de_parametros
 
     p = {"resolucion": 5.0, "margen_borde_celdas": 12}
-    assert list(_de_parametros(p, resolucion=None, margen_borde_celdas=3).values()) == [5.0, 3]
+    assert list(_de_parametros(p, resolucion=None, margen_borde_celdas=3).values()) == [
+        5.0,
+        3,
+    ]
     assert list(_de_parametros(None, resolucion=None).values()) == [None]
 
 
@@ -607,8 +608,14 @@ def test_s_vacio_que_mide_cero_falla_claro():
     zona = gpd.GeoDataFrame(geometry=[box(100, 100, 900, 900)], crs=32613)
     with pytest.raises(ValueError, match="s_vacio` mide 0"):
         geo.derivar_parametros(
-            curvas, "COTA", zona, [("0-100", 0, 100)], 25_000,
-            resolucion=50.0, medir_ancho=False, vecinos=48,
+            curvas,
+            "COTA",
+            zona,
+            [("0-100", 0, 100)],
+            25_000,
+            resolucion=50.0,
+            medir_ancho=False,
+            vecinos=48,
         )
 
 
@@ -616,7 +623,10 @@ def test_valor_sobrevive_a_pickle():
     """`barrer_resolucion(nucleos=)` manda `parametros` a otro proceso por
     `pickle`. Sin `__reduce__`, `Valor` revienta al llegar y el barrido cae a
     serie."""
-    for v in (Valor(20.0, "derivado", "lambda/2"), ValorEntero(48, "default", "nadie eligio")):
+    for v in (
+        Valor(20.0, "derivado", "lambda/2"),
+        ValorEntero(48, "default", "nadie eligio"),
+    ):
         w = pickle.loads(pickle.dumps(v))
         assert type(w) is type(v) and w == v
         assert (w.fuente, w.origen) == (v.fuente, v.origen)
@@ -629,7 +639,12 @@ def test_predio_sin_clase_alta_entrega_0_ha_y_no_deja_nada_sin_medir():
     es 0 ha MEDIDO y el geometrico solo acota `h`. Con `medir_ancho=False` no se
     midio nada y sigue siendo `default`. `zona` sin curvas no es un 0 ha: es CRS.
     """
-    rangos = [("0-15", 0, 15), ("15-45", 15, 45), ("45-100", 45, 100), (">100", 100, float("inf"))]
+    rangos = [
+        ("0-15", 0, 15),
+        ("15-45", 15, 45),
+        ("45-100", 45, 100),
+        (">100", 100, float("inf")),
+    ]
     ys = np.arange(0, 1500, 100.0)
     curvas = _curvas_rectas(32613, ys, ys / 5, x1=3000.0)
     predio = gpd.GeoDataFrame(geometry=[box(500, 300, 2500, 1200)], crs=32613)

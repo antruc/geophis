@@ -14,7 +14,9 @@ import geophis as geo
 ENTRADA_HIDRO = Path(r"C:\SIG\proyecto\datos\hidrologia.shp")
 ENTRADA_EJIDO = Path(r"C:\SIG\proyecto\datos\ejido.shp")
 
-BUFFER_PERENNE = 20  # declarado: franja ribereña de cauce perenne, criterio del programa de manejo
+BUFFER_PERENNE = (
+    20  # declarado: franja ribereña de cauce perenne, criterio del programa de manejo
+)
 BUFFER_INTERMITENTE = 10  # declarado: idem para intermitente
 CAMPO_AREA = "SUP"  # el SHP recorta los nombres de campo a 10 caracteres
 
@@ -41,7 +43,9 @@ hidro = geo.reproyectar(hidro, EPSG_UTM, "hidro")
 # ── 3. RECORTAR AL EJIDO ───────────────────────────────────
 hidro = geo.recortar(hidro, ejido)
 print(f"Hidrología en el ejido: {len(hidro)} entidades")
-print(hidro[condicion].value_counts().to_string())  # lo que no es PERENNE/INTERMITENTE no lleva franja
+print(
+    hidro[condicion].value_counts().to_string()
+)  # lo que no es PERENNE/INTERMITENTE no lleva franja
 
 # ── 4. SEPARAR, DISOLVER Y BUFFER POR CONDICION ────────────
 perenne = geo.disolver(

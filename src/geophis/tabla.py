@@ -26,9 +26,7 @@ from .proyeccion import _a_crs, _exigir_crs, _exigir_proyectado
 from ._salida import _callado, _mostrar
 
 
-def seleccionar_por_atributo(
-    gdf: gpd.GeoDataFrame, consulta: str
-) -> gpd.GeoDataFrame:
+def seleccionar_por_atributo(gdf: gpd.GeoDataFrame, consulta: str) -> gpd.GeoDataFrame:
     """Seleccionar por atributo: las filas que cumplen `consulta`.
 
     `consulta` es la sintaxis de `DataFrame.query`, que es la que más se parece
@@ -62,7 +60,9 @@ def seleccionar_por_atributo(
     if _mostrar():
         print(f"seleccionar_por_atributo: {len(salida)} de {len(gdf)} entidades")
     if len(salida) == 0:
-        print(f"Aviso seleccionar_por_atributo: la consulta '{consulta}' no seleccionó ninguna entidad")
+        print(
+            f"Aviso seleccionar_por_atributo: la consulta '{consulta}' no seleccionó ninguna entidad"
+        )
     return salida
 
 
@@ -122,7 +122,9 @@ def seleccionar_por_ubicacion(
             f"({predicado}{orla})"
         )
     if len(salida) == 0:
-        print(f"Aviso seleccionar_por_ubicacion: ninguna entidad cumple '{predicado}' con la capa dada")
+        print(
+            f"Aviso seleccionar_por_ubicacion: ninguna entidad cumple '{predicado}' con la capa dada"
+        )
     return salida
 
 
@@ -332,9 +334,7 @@ def unir_campo(
             f"'_tabla': {pisadas}"
         )
     if _mostrar():
-        print(
-            f"unir_campo: {casadas} de {len(gdf)} entidades casaron por '{izq}'"
-        )
+        print(f"unir_campo: {casadas} de {len(gdf)} entidades casaron por '{izq}'")
     return salida
 
 
@@ -581,9 +581,7 @@ def calcular_campo(
     return salida
 
 
-def renombrar_campos(
-    gdf: gpd.GeoDataFrame, nombres: dict[str, str]
-) -> gpd.GeoDataFrame:
+def renombrar_campos(gdf: gpd.GeoDataFrame, nombres: dict[str, str]) -> gpd.GeoDataFrame:
     """Cambia nombres de campo con `{"viejo": "NUEVO"}`. Devuelve copia.
 
     Lo que añade sobre `rename`: **falla si un nombre viejo no existe** (pandas
@@ -608,9 +606,7 @@ def renombrar_campos(
     return salida
 
 
-def eliminar_campos(
-    gdf: gpd.GeoDataFrame, campos: str | list[str]
-) -> gpd.GeoDataFrame:
+def eliminar_campos(gdf: gpd.GeoDataFrame, campos: str | list[str]) -> gpd.GeoDataFrame:
     """Eliminar campo: quita columnas. Devuelve copia. Falla si alguna no existe.
 
     capa = geo.eliminar_campos(capa, ["FID_1", "Shape_Leng"])
@@ -623,9 +619,7 @@ def eliminar_campos(
     return salida
 
 
-def conservar_campos(
-    gdf: gpd.GeoDataFrame, campos: str | list[str]
-) -> gpd.GeoDataFrame:
+def conservar_campos(gdf: gpd.GeoDataFrame, campos: str | list[str]) -> gpd.GeoDataFrame:
     """Deja SOLO estos campos (y la geometría), en este orden. Devuelve copia.
 
     El inverso de `eliminar_campos`, y el útil antes de entregar: se escribe la
@@ -643,9 +637,7 @@ def conservar_campos(
     return salida
 
 
-def ordenar_campos(
-    gdf: gpd.GeoDataFrame, campos: str | list[str]
-) -> gpd.GeoDataFrame:
+def ordenar_campos(gdf: gpd.GeoDataFrame, campos: str | list[str]) -> gpd.GeoDataFrame:
     """Pone estos campos PRIMERO, en este orden; el resto detrás, como estaba.
 
     No quita nada (para eso `conservar_campos`). La geometría va al final.
@@ -733,7 +725,9 @@ def reemplazar_valores(
             "Si se ven iguales, es el tipo: 1 no es '1'"
         )
     if ausentes:
-        print(f"Aviso reemplazar_valores: claves que no aparecen en '{campo}': {ausentes}")
+        print(
+            f"Aviso reemplazar_valores: claves que no aparecen en '{campo}': {ausentes}"
+        )
     salida = gdf.copy()
     salida[campo] = salida[campo].replace(reemplazos)
     if _mostrar():

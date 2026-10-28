@@ -195,7 +195,10 @@ def test_vertices_a_puntos_huecos_multipartes_y_atributos():
     otro = [(200, 0), (210, 0), (210, 10)]
     capa = gpd.GeoDataFrame(
         {"NOMBRE": ["a", "b"], "SUP": [1.0, 0.0], "perimetro": [400.0, 30.0]},
-        geometry=[MultiPolygon([Polygon(cuadro, [hueco]), Polygon(otro)]), LineString(otro)],
+        geometry=[
+            MultiPolygon([Polygon(cuadro, [hueco]), Polygon(otro)]),
+            LineString(otro),
+        ],
         crs=UTM,
     )
     pts = geo.vertices_a_puntos(capa)

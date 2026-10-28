@@ -107,9 +107,7 @@ def test_resumir_avisa_de_una_superficie_obsoleta(capa, capsys):
     """
     capa = geo.calcular_superficie(capa, campo="superficie_ha")
     capa = geo.recortar(capa, box(0, 0, 5, 100))  # la mitad de la geometria
-    geo.estadisticas_de_resumen(
-        capa, por="CLASE", campos={"superficie_ha": "sum"}
-    )
+    geo.estadisticas_de_resumen(capa, por="CLASE", campos={"superficie_ha": "sum"})
     assert "no cuadra con la" in capsys.readouterr().out
 
 

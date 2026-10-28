@@ -731,7 +731,9 @@ def test_altura_sobre_cauce_mide_con_el_mde_base_y_no_con_el_quemado(tmp_path):
     z = _valle_en_v()
     tf = Affine(10.0, 0, 500_000, 0, -10.0, 2_000_000)
     x = 500_000 + 10 * 10 + 5  # centro de la columna del eje
-    cauce = gpd.GeoDataFrame(geometry=[LineString([(x, 2_000_000), (x, 2_000_000 - 200)])], crs=UTM)
+    cauce = gpd.GeoDataFrame(
+        geometry=[LineString([(x, 2_000_000), (x, 2_000_000 - 200)])], crs=UTM
+    )
     quemado, _ = geo.quemar_cauces(z, cauce, tf, 5)
     grid, dem = geo.acondicionar_mde(_a_disco(quemado, tmp_path))
     hand = geo.altura_sobre_cauce(geo.acumulacion_flujo(grid, dem), z, cauce)
@@ -751,10 +753,14 @@ def test_quemar_cauces_da_pendiente_a_la_zanja_llana(capsys):
     cauce = gpd.GeoDataFrame(geometry=[LineString([(500_000, y), (500_065, y)])], crs=UTM)
     quemado, n = geo.quemar_cauces(np.full((12, 12), 100.0), cauce, tf, 5)
     lecho = quemado[5, :7]
-    assert n == 7 and (np.diff(lecho) > 0).all() and lecho[0] == 95.0 and lecho.max() < 95.01
+    assert (
+        n == 7 and (np.diff(lecho) > 0).all() and lecho[0] == 95.0 and lecho.max() < 95.01
+    )
     assert "sin salida" not in capsys.readouterr().out
 
-    dentro = gpd.GeoDataFrame(geometry=[LineString([(500_035, y), (500_075, y)])], crs=UTM)
+    dentro = gpd.GeoDataFrame(
+        geometry=[LineString([(500_035, y), (500_075, y)])], crs=UTM
+    )
     geo.quemar_cauces(np.full((12, 12), 100.0), dentro, tf, 5)
     assert "5 celda(s) de cauce quemado en tramos sin salida" in capsys.readouterr().out
 
@@ -770,7 +776,10 @@ def test_rellenar_sumideros_avisa_si_sube_el_cauce(tmp_path, capsys):
     y = 2_000_000 - 65  # centro de la fila 6
     cauce = gpd.GeoDataFrame(geometry=[LineString([(500_000, y), (500_120, y)])], crs=UTM)
     geo.rellenar_sumideros(grid, Raster(z, dem.viewfinder), cauces=cauce)
-    assert "1 celda(s) de cauce subidas más de 2 mm (hasta 4.000 m)" in capsys.readouterr().out
+    assert (
+        "1 celda(s) de cauce subidas más de 2 mm (hasta 4.000 m)"
+        in capsys.readouterr().out
+    )
 
 
 def test_quemar_cauces_avisa_del_lecho_por_encima_del_terreno(capsys):

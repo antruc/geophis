@@ -738,11 +738,15 @@ def test_medidas_en_cualquier_unidad_y_crs(gdf, cuadrado, capsys):
         assert geo.superficie_total(capa) == pytest.approx(1.0, rel=2e-3)
         assert geo.superficie_total(capa, "m2") == pytest.approx(10_000, rel=2e-3)
         assert geo.longitud_total(capa, "km") == pytest.approx(0.4, rel=2e-3)
-        r = geo.calcular_superficie(geo.calcular_longitud(capa, unidad="km"), unidad="km2")
+        r = geo.calcular_superficie(
+            geo.calcular_longitud(capa, unidad="km"), unidad="km2"
+        )
         assert r["superficie_km2"].iloc[0] == pytest.approx(0.01, abs=0.005)
         assert r["longitud_km"].iloc[0] == pytest.approx(0.4, abs=0.005)
     # la guarda de `guardar` reconoce la columna en km2 y no da aviso falso
-    geo.archivo._avisar_medida_obsoleta(geo.calcular_superficie(utm, unidad="km2", decimales=6), "guardar")
+    geo.archivo._avisar_medida_obsoleta(
+        geo.calcular_superficie(utm, unidad="km2", decimales=6), "guardar"
+    )
     assert "no cuadra" not in capsys.readouterr().out
     with pytest.raises(ValueError, match="unidad de área 'acre'"):
         geo.superficie_total(utm, "acre")
@@ -1142,7 +1146,12 @@ def test_ruta_red_rodea_por_lo_rapido_y_respeta_el_sentido(gdf):
 def test_ruta_red_dice_que_tipo_no_tiene_velocidad(gdf):
     red = _red_rodeo(gdf)
     with pytest.raises(ValueError, match=r"'calle' \(2 vías\)"):
-        geo.ruta_red(red, gdf(Point(0, 0), Point(200, 0)), {"brecha": 5, "avenida": 60}, campo="tipo")
+        geo.ruta_red(
+            red,
+            gdf(Point(0, 0), Point(200, 0)),
+            {"brecha": 5, "avenida": 60},
+            campo="tipo",
+        )
 
 
 def test_ruta_red_sentido_que_bloquea_lo_dice(gdf):
@@ -1188,7 +1197,9 @@ def test_isocronas_hacia_respeta_el_sentido(gdf):
     # de un sentido, alejandose del origen: se sale por ella pero no se llega
     calle = gdf(LineString([(0, 0), (1000, 0)]), sentido=["yes"])
     salir = geo.isocronas(calle, gdf(Point(0, 0)), 60, [0.5], campo_sentido="sentido")
-    llegar = geo.isocronas(calle, gdf(Point(0, 0)), 60, [0.5], campo_sentido="sentido", hacia=True)
+    llegar = geo.isocronas(
+        calle, gdf(Point(0, 0)), 60, [0.5], campo_sentido="sentido", hacia=True
+    )
     assert salir["KM"].iloc[0] == pytest.approx(0.5)
     assert llegar["KM"].iloc[0] == 0 and llegar.geometry.iloc[0].is_empty
 
@@ -1198,7 +1209,9 @@ def test_isocronas_con_ancho_da_poligonos_que_no_se_pisan(gdf):
     r = geo.isocronas(calle, gdf(Point(0, 0)), 60, [0.25, 0.5], ancho=10)
     a, b = r.geometry
     assert a.intersection(b).area == pytest.approx(0, abs=1e-6)
-    assert a.area + b.area == pytest.approx(LineString([(0, 0), (500, 0)]).buffer(10).area)
+    assert a.area + b.area == pytest.approx(
+        LineString([(0, 0), (500, 0)]).buffer(10).area
+    )
 
 
 def test_isocronas_cortes_no_crecientes_falla(gdf):

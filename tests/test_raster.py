@@ -817,8 +817,12 @@ def test_muestrear_curvas_igual_que_shapely():
         largos = shapely.length(partes)
         n = np.maximum((largos // paso).astype(int), 1) + 1
         idx = np.repeat(np.arange(len(partes)), n)
-        dist = np.minimum((np.arange(idx.size) - np.repeat(np.cumsum(n) - n, n)) * paso, largos[idx])
-        esperado = shapely.get_coordinates(shapely.line_interpolate_point(partes[idx], dist))
+        dist = np.minimum(
+            (np.arange(idx.size) - np.repeat(np.cumsum(n) - n, n)) * paso, largos[idx]
+        )
+        esperado = shapely.get_coordinates(
+            shapely.line_interpolate_point(partes[idx], dist)
+        )
         np.testing.assert_allclose(np.column_stack([xs, ys]), esperado, atol=1e-9)
     # paso mayor que la cerrada: sus dos puntos son su inicio y su fin, iguales al bit
     xs, ys, zs, _ = _muestrear_curvas(curvas.iloc[[1]], "cota", 50.0)
@@ -872,13 +876,17 @@ def test_interpolar_mde_tin_avisa_planos_a_cota_de_curva(capsys):
         geometry=[Point(0, 0).buffer(r).exterior for r in (100, 200, 300)],
         crs=UTM,
     )
-    mde, tf = geo.interpolar_mde(cerro, "cota", resolucion=5, intervalo_muestreo=5, metodo="tin")
+    mde, tf = geo.interpolar_mde(
+        cerro, "cota", resolucion=5, intervalo_muestreo=5, metodo="tin"
+    )
     salida = capsys.readouterr().out
     ha = float(salida.split("Aviso interpolar_mde: ")[-1].split(" ha")[0])
     assert 2.6 < ha <= 3.14, salida
     assert "MISMA curva" in salida
     # la mascara publica es la misma cuenta que el aviso
-    assert geo.planos_de_curva(mde, tf, cerro, "cota").sum() * 25 / 10_000 == pytest.approx(ha, abs=0.01)
+    assert geo.planos_de_curva(
+        mde, tf, cerro, "cota"
+    ).sum() * 25 / 10_000 == pytest.approx(ha, abs=0.01)
     # el spline tambien los hace si el muestreo (5 m) es mucho mas fino que la
     # separacion (100 m): los vecinos caen todos en el anillo. El aviso nombra
     # la causa del metodo, no la del TIN.
@@ -919,7 +927,9 @@ def test_spline_evalua_con_blas_a_un_hilo(monkeypatch):
     llamar = RBFInterpolator.__call__
 
     def espia(self, x):
-        hilos.extend(i["num_threads"] for i in threadpool_info() if i["user_api"] == "blas")
+        hilos.extend(
+            i["num_threads"] for i in threadpool_info() if i["user_api"] == "blas"
+        )
         return llamar(self, x)
 
     monkeypatch.setattr(RBFInterpolator, "__call__", espia)
@@ -1343,7 +1353,6 @@ def test_quiebres_imponen_el_talweg_que_el_tin_pelado_aplana():
         geo.interpolar_mde(curvas, "ELEV", resolucion=2, quiebres=cauce)
 
 
-
 def test_malla_reproduce_un_plano_y_acepta_quiebres():
     """`metodo='malla'`: la placa delgada tiene curvatura cero en un plano, asi
     que lo reproduce exacto (salvo la tolerancia del solver), sin mesetas a
@@ -1363,7 +1372,9 @@ def test_malla_reproduce_un_plano_y_acepta_quiebres():
 
     # los quiebres entran como en el TIN (paralelos a la pendiente: no la mueven)
     cauce = gpd.GeoDataFrame(geometry=[LineString([(10, 400), (990, 400)])], crs=crs)
-    con, _ = geo.interpolar_mde(curvas, "ELEV", resolucion=10, metodo="malla", quiebres=cauce)
+    con, _ = geo.interpolar_mde(
+        curvas, "ELEV", resolucion=10, metodo="malla", quiebres=cauce
+    )
     assert np.nanmax(np.abs(con - 0.5 * gx[None, :])) < 1e-3
 
 
@@ -1376,12 +1387,16 @@ def test_multimalla_resuelve_igual_que_el_lu():
 
     alto, ancho = 100, 120
     lap = lambda n: sparse.diags([-1.0, 2.0, -1.0], [-1, 0, 1], shape=(n, n))  # noqa: E731
-    M = (sparse.kron(lap(alto), sparse.identity(ancho)) + sparse.kron(sparse.identity(alto), lap(ancho))
-         + 0.01 * sparse.identity(alto * ancho)).tocsr()
+    M = (
+        sparse.kron(lap(alto), sparse.identity(ancho))
+        + sparse.kron(sparse.identity(alto), lap(ancho))
+        + 0.01 * sparse.identity(alto * ancho)
+    ).tocsr()
     b = np.random.default_rng(0).normal(size=alto * ancho)
     x, it = _Multimalla(M, alto, ancho).resolver(b, tol=1e-10, max_iter=1000)
     assert it < 1000
     assert np.allclose(x, spsolve(M.tocsc(), b), atol=1e-6)
+
 
 # ---- raster de QA ----------------------------------------------------------
 
@@ -1690,7 +1705,10 @@ def test_ruta_a_pie_anisotropa():
     # subir no cuesta lo mismo que bajar
     sube = gpd.GeoDataFrame(geometry=[Point(10.5, -20.5), Point(10.5, -0.5)], crs=UTM)
     baja = gpd.GeoDataFrame(geometry=[Point(10.5, -0.5), Point(10.5, -20.5)], crs=UTM)
-    assert geo.ruta_a_pie(z, TF, UTM, sube)["HORAS"].iloc[0] > geo.ruta_a_pie(z, TF, UTM, baja)["HORAS"].iloc[0]
+    assert (
+        geo.ruta_a_pie(z, TF, UTM, sube)["HORAS"].iloc[0]
+        > geo.ruta_a_pie(z, TF, UTM, baja)["HORAS"].iloc[0]
+    )
 
     z[:, 10] = np.nan
     with pytest.raises(ValueError, match="no hay paso"):
@@ -1703,7 +1721,10 @@ def test_interpolar_mde_en_grados_falla_aunque_nada_mida():
     pendiente de 1e7 % sin reventar."""
     curvas = gpd.GeoDataFrame(
         {"cota": [0.0, 20.0, 40.0]},
-        geometry=[LineString([(-103.5, 20.5 + i * 1e-4), (-103.4997, 20.5 + i * 1e-4)]) for i in range(3)],
+        geometry=[
+            LineString([(-103.5, 20.5 + i * 1e-4), (-103.4997, 20.5 + i * 1e-4)])
+            for i in range(3)
+        ],
         crs=4326,
     )
     kw = dict(resolucion=5e-5, intervalo_muestreo=5e-5, lambda_m=1e-4, metodo="tin")

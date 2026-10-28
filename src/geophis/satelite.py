@@ -466,7 +466,9 @@ def imagen_sentinel2(
             else alinear_rasters(ref, (m[0], m[1], crs_sal), metodo=Resampling.nearest)[0]
             for k, m in mos.items()
         }
-        (lim_al,) = alinear_rasters(ref, (lim, tf_lim, crs_sal), metodo=Resampling.nearest)
+        (lim_al,) = alinear_rasters(
+            ref, (lim, tf_lim, crs_sal), metodo=Resampling.nearest
+        )
         toma = libre & (lim_al == 1)
         for a in alineadas.values():
             toma &= np.isfinite(a)
@@ -519,6 +521,8 @@ def imagen_sentinel2(
         )
     # FUERA de `geo.MOSTRAR`: la licencia la exige en el entregable, no es reporte
     anios = sorted({f[:4] for f, a in aporta.items() if a > 0})
-    print(f"Cita obligatoria: Contains modified Copernicus Sentinel data {', '.join(anios)}")
+    print(
+        f"Cita obligatoria: Contains modified Copernicus Sentinel data {', '.join(anios)}"
+    )
     tf_ref = ref[1]
     return salida, tf_ref, crs_sal, abs(tf_ref.a), informe, origen

@@ -225,7 +225,9 @@ def test_detectar_campo_sin_vocabulario_falla(gdf, cuadrado):
 def test_guardar_puntos_con_longitud_geografica_no_avisa(tmp_path, capsys):
     # LONGITUD en una capa de puntos es la coordenada, no un largo
     pts = gpd.GeoDataFrame(
-        {"LATITUD": [20.6], "LONGITUD": [-103.4]}, geometry=[Point(650000, 2280000)], crs=32613
+        {"LATITUD": [20.6], "LONGITUD": [-103.4]},
+        geometry=[Point(650000, 2280000)],
+        crs=32613,
     )
     geo.guardar(pts, tmp_path / "p.gpkg")
     assert "no cuadra" not in capsys.readouterr().out

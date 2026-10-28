@@ -59,7 +59,9 @@ def _redondear_limpio(x: float, hacia: str = "cerca") -> float:
     return min(candidatos, key=lambda c: abs(c - x))
 
 
-def _paso_escalera(cotas: npt.ArrayLike, regularidad_min: float = 0.9) -> tuple[float, float]:
+def _paso_escalera(
+    cotas: npt.ArrayLike, regularidad_min: float = 0.9
+) -> tuple[float, float]:
     """(paso, regularidad) de la escalera que forman las cotas únicas.
 
     Cada salto observado entre cotas únicas consecutivas se prueba como paso
@@ -78,6 +80,7 @@ def _paso_escalera(cotas: npt.ArrayLike, regularidad_min: float = 0.9) -> tuple[
     u = u[~np.isnan(u)]
     d = np.round(np.diff(u), 3)
     d = d[d > 0]
+
     # ponytail: pasos < 1 m descartados; una capa con equidistancia 0.5 m
     # (escala muy grande) no se detecta. Techo conocido: bajar la guarda a 0.5
     # si algun dia llega una capa asi.

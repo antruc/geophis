@@ -136,7 +136,9 @@ def cargar_raster(ruta: str | PathLike[str]) -> tuple[FloatArray, Affine, CRS, f
         crs = src.crs
         res = abs(src.transform[0])
     if _mostrar():
-        print(f"cargar_raster: '{ruta}' {arr.shape[1]}x{arr.shape[0]} px | {_paso(res, crs)}")
+        print(
+            f"cargar_raster: '{ruta}' {arr.shape[1]}x{arr.shape[0]} px | {_paso(res, crs)}"
+        )
     return arr, tf, crs, res
 
 
@@ -901,8 +903,15 @@ class _Multimalla:
     SPD de la placa. Escala casi lineal: ~1 M nodos en ~40 s con un nucleo,
     donde un LU directo sobre 40 000 nodos ya tardaba 79 s."""
 
-    def __init__(self, M: Any, alto: int, ancho: int, minimo: int = 48,
-                 omega: float = 0.6, barridos: int = 3) -> None:
+    def __init__(
+        self,
+        M: Any,
+        alto: int,
+        ancho: int,
+        minimo: int = 48,
+        omega: float = 0.6,
+        barridos: int = 3,
+    ) -> None:
         self.M, self.omega, self.barridos = M, omega, barridos
         self.niveles: list[tuple[Any, FloatArray, Any]] = []  # (M, 1/diag, P)
         while min(alto, ancho) > minimo:
@@ -924,7 +933,9 @@ class _Multimalla:
             x += self.omega * dinv * (b - M @ x)
         return x
 
-    def resolver(self, b: FloatArray, tol: float, max_iter: int) -> tuple[FloatArray, int]:
+    def resolver(
+        self, b: FloatArray, tol: float, max_iter: int
+    ) -> tuple[FloatArray, int]:
         """PCG, `tol` relativa sobre el residuo. Devuelve (x, iteraciones)."""
         x = np.zeros_like(b)
         r = b.copy()
@@ -968,7 +979,9 @@ def _interp_placa(
     c0, f0 = np.floor(c).astype(np.int64), np.floor(f).astype(np.int64)
     tc, tf = c - c0, f - f0
     nodo = f0 * nx + c0
-    pesos = np.column_stack([(1 - tc) * (1 - tf), tc * (1 - tf), (1 - tc) * tf, tc * tf]).ravel()
+    pesos = np.column_stack(
+        [(1 - tc) * (1 - tf), tc * (1 - tf), (1 - tc) * tf, tc * tf]
+    ).ravel()
     filas = np.repeat(np.arange(c.size), 4)
     cols = np.column_stack([nodo, nodo + 1, nodo + nx, nodo + nx + 1]).ravel()
     A = sparse.csr_matrix((pesos, (filas, cols)), shape=(c.size, nx * ny))
@@ -980,7 +993,11 @@ def _interp_placa(
         return sparse.diags([-1.0, 1.0], [0, 1], shape=(n - 1, n))
 
     Ix, Iy = sparse.identity(nx), sparse.identity(ny)
-    Dxx, Dyy, Dxy = sparse.kron(Iy, d2(nx)), sparse.kron(d2(ny), Ix), sparse.kron(d1(ny), d1(nx))
+    Dxx, Dyy, Dxy = (
+        sparse.kron(Iy, d2(nx)),
+        sparse.kron(d2(ny), Ix),
+        sparse.kron(d1(ny), d1(nx)),
+    )
     M = (A.T @ A + _LAM_MALLA * (Dxx.T @ Dxx + 2 * Dxy.T @ Dxy + Dyy.T @ Dyy)).tocsr()
     # tol 1e-10: ~1 mm contra el LU directo, nada para la pendiente
     z, it = _Multimalla(M, ny, nx).resolver(A.T @ d, tol=1e-10, max_iter=1000)
@@ -989,7 +1006,7 @@ def _interp_placa(
             "Aviso interpolar_mde: la malla no convergió en 1000 iteraciones; la superficie puede "
             "quedar cruda. Sube `resolucion` o usa metodo='spline'"
         )
-    return z.reshape(ny, nx)[m:m + alto, m:m + ancho].ravel()
+    return z.reshape(ny, nx)[m : m + alto, m : m + ancho].ravel()
 
 
 def _resolver_parametros(
@@ -1167,7 +1184,9 @@ def _interpolar_malla(
         # el TIN no tiene ninguno de los dos; ignorarlos en silencio sería una
         # trampa, el usuario creería estar suavizando
         if suavizado or vecinos is not None:
-            print("Aviso interpolar_mde: 'tin' ignora suavizado y vecinos (no son parámetros suyos)")
+            print(
+                "Aviso interpolar_mde: 'tin' ignora suavizado y vecinos (no son parámetros suyos)"
+            )
         try:
             z = LinearNDInterpolator(pts, zs)(malla)
         except QhullError:
@@ -1177,11 +1196,15 @@ def _interpolar_malla(
         z = _interp_spline(pts, zs, malla, suavizado=suavizado, **kw)
     elif metodo == "idw":
         if suavizado:
-            print("Aviso interpolar_mde: 'idw' ignora suavizado (no es un parámetro suyo)")
+            print(
+                "Aviso interpolar_mde: 'idw' ignora suavizado (no es un parámetro suyo)"
+            )
         z = _interp_idw(pts, zs, malla, **kw)
     elif metodo == "malla":
         if suavizado or vecinos is not None:
-            print("Aviso interpolar_mde: 'malla' ignora suavizado y vecinos (no son parámetros suyos)")
+            print(
+                "Aviso interpolar_mde: 'malla' ignora suavizado y vecinos (no son parámetros suyos)"
+            )
         z = _interp_placa(pts, zs, gx[0], gy[0], resolucion, ancho, alto)
     else:
         raise ValueError(
@@ -1241,7 +1264,9 @@ def planos_de_curva(
     niveles = np.unique(curvas[campo].to_numpy(dtype=float))
     # solo las celdas planas, que son pocas: celdas x niveles cabe en memoria.
     # 1 mm: la interpolación baricéntrica suma pesos y no da la cota al bit
-    distancia = np.abs(np.asarray(mde, dtype=float)[plano][:, None] - niveles[None, :]).min(axis=1)
+    distancia = np.abs(
+        np.asarray(mde, dtype=float)[plano][:, None] - niveles[None, :]
+    ).min(axis=1)
     plano[plano] = distancia < 1e-3
     return plano
 
@@ -1462,8 +1487,14 @@ def _preparar_mde(
     if xs.size == 0:
         raise ValueError("las curvas no produjeron puntos; revisa las geometrías")
     return (
-        (minx, miny, maxx, maxy), resolucion, equidistancia, intervalo_muestreo,
-        separacion, metodo, vecinos, (xs, ys, zs, origen),
+        (minx, miny, maxx, maxy),
+        resolucion,
+        equidistancia,
+        intervalo_muestreo,
+        separacion,
+        metodo,
+        vecinos,
+        (xs, ys, zs, origen),
     )
 
 
@@ -1618,9 +1649,28 @@ def interpolar_mde(
 
     Devuelve (array 2D con NaN de nodata, transform), como remuestrear.
     """
-    (minx, miny, maxx, maxy), resolucion, equidistancia, intervalo_muestreo, separacion, metodo, vecinos, (xs, ys, zs, _) = _preparar_mde(
-        curvas, campo, resolucion, equidistancia, intervalo_muestreo, cuadro,
-        metodo, vecinos, lambda_m, amplitud_rizo, parametros, quiebres,
+    (
+        (minx, miny, maxx, maxy),
+        resolucion,
+        equidistancia,
+        intervalo_muestreo,
+        separacion,
+        metodo,
+        vecinos,
+        (xs, ys, zs, _),
+    ) = _preparar_mde(
+        curvas,
+        campo,
+        resolucion,
+        equidistancia,
+        intervalo_muestreo,
+        cuadro,
+        metodo,
+        vecinos,
+        lambda_m,
+        amplitud_rizo,
+        parametros,
+        quiebres,
     )
 
     if quiebres is not None:
@@ -1745,9 +1795,27 @@ def validar_mde(
     """
     if not 0 < porcentaje_reserva < 1:
         raise ValueError(f"porcentaje_reserva {porcentaje_reserva} fuera de (0, 1)")
-    (minx, miny, maxx, maxy), resolucion, equidistancia, intervalo_muestreo, _, metodo, vecinos, (xs, ys, zs, origen) = _preparar_mde(
-        curvas, campo, resolucion, equidistancia, intervalo_muestreo, cuadro,
-        metodo, vecinos, lambda_m, amplitud_rizo, parametros,
+    (
+        (minx, miny, maxx, maxy),
+        resolucion,
+        equidistancia,
+        intervalo_muestreo,
+        _,
+        metodo,
+        vecinos,
+        (xs, ys, zs, origen),
+    ) = _preparar_mde(
+        curvas,
+        campo,
+        resolucion,
+        equidistancia,
+        intervalo_muestreo,
+        cuadro,
+        metodo,
+        vecinos,
+        lambda_m,
+        amplitud_rizo,
+        parametros,
     )
 
     n_total = int(xs.size)
@@ -1904,7 +1972,9 @@ def rasterizar(
         cauces), no un paso intermedio.
     """
     if isinstance(valor, bool) or not isinstance(valor, (int, np.integer)):
-        raise TypeError(f"valor debe ser un entero de 0 a 255, no {valor!r}: rasterizar quema un solo valor")
+        raise TypeError(
+            f"valor debe ser un entero de 0 a 255, no {valor!r}: rasterizar quema un solo valor"
+        )
     if not 0 <= valor <= 255:
         raise ValueError(f"valor {valor} no cabe en uint8 (0 a 255)")
     return _rasterize(
@@ -2111,7 +2181,9 @@ def _fuera_horn(
         return fuera
     invalidar = np.asarray(invalidar, dtype=bool)
     if invalidar.shape != fuera.shape:
-        raise ValueError(f"invalidar {invalidar.shape} no cuadra con el MDE {fuera.shape}")
+        raise ValueError(
+            f"invalidar {invalidar.shape} no cuadra con el MDE {fuera.shape}"
+        )
     return fuera | invalidar
 
 
@@ -2168,7 +2240,9 @@ def calcular_orientacion(
     # azimut compass del descenso: componente este = -dzdx, norte = +dzdy
     # (dzdy es respecto a la fila, que crece hacia el sur)
     deg = np.degrees(np.arctan2(-dzdx, dzdy)) % 360
-    sin_orientacion = _fuera_horn(valido, n_vecinos, invalidar) | (np.hypot(dzdx, dzdy) < 1e-9)
+    sin_orientacion = _fuera_horn(valido, n_vecinos, invalidar) | (
+        np.hypot(dzdx, dzdy) < 1e-9
+    )
 
     if unidad == "grados":
         return np.where(sin_orientacion, np.nan, deg).astype(np.float32)
@@ -2248,7 +2322,10 @@ def calcular_pendiente(
 
 
 def _extremos_ruta(
-    transform: Affine, crs: Any, puntos: gpd.GeoDataFrame, transitable: npt.NDArray[np.bool_]
+    transform: Affine,
+    crs: Any,
+    puntos: gpd.GeoDataFrame,
+    transitable: npt.NDArray[np.bool_],
 ) -> tuple[CRS, FloatArray, tuple[int, int], tuple[int, int]]:
     """Valida lo común a las rutas y devuelve (crs, xy, celda origen, celda destino)."""
     crs = CRS.from_user_input(crs)
@@ -2341,8 +2418,14 @@ def ruta_a_pie(
         for dc in (-1, 0, 1):
             if df == dc == 0:
                 continue
-            a = (slice(max(0, -df), alto - max(0, df)), slice(max(0, -dc), ancho - max(0, dc)))
-            b = (slice(max(0, df), alto + min(0, df)), slice(max(0, dc), ancho + min(0, dc)))
+            a = (
+                slice(max(0, -df), alto - max(0, df)),
+                slice(max(0, -dc), ancho - max(0, dc)),
+            )
+            b = (
+                slice(max(0, df), alto + min(0, df)),
+                slice(max(0, dc), ancho + min(0, dc)),
+            )
             ok = ~(np.isnan(mde[a]) | np.isnan(mde[b]))
             dist = math.hypot(df * res_y, dc * res_x)
             s = (mde[b][ok] - mde[a][ok]) / dist
@@ -2402,11 +2485,15 @@ def ruta_costo_minimo(
     # ponytail: MCP carga la malla entera, ~80 bytes/px medido (5.4 Mpx = 0.42
     # GB). Si un MDE LiDAR no cabe, recortar el costo a la caja de los puntos
     # con margen antes de llamar.
-    mcp = MCP_Geometric(costo, fully_connected=True, sampling=(abs(transform.e), transform.a))
+    mcp = MCP_Geometric(
+        costo, fully_connected=True, sampling=(abs(transform.e), transform.a)
+    )
     acumulado, _ = mcp.find_costs([inicio], [fin])
     total = float(acumulado[fin])
     if not np.isfinite(total):
-        raise ValueError("no hay paso entre los dos puntos: el costo intransitable los separa")
+        raise ValueError(
+            "no hay paso entre los dos puntos: el costo intransitable los separa"
+        )
     return _capa_ruta(transform, crs, xy, mcp.traceback(fin), "COSTO", total)
 
 

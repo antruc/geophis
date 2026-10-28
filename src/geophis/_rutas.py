@@ -92,7 +92,9 @@ def _exigir_archivo(ruta: Any, carpeta_ok: bool = False) -> None:
     absoluta = os.path.abspath(ruta)
     carpeta, nombre = os.path.split(absoluta)
     if not os.path.isdir(carpeta):
-        raise FileNotFoundError(f"no existe el archivo '{ruta}': no existe la carpeta '{carpeta}'")
+        raise FileNotFoundError(
+            f"no existe el archivo '{ruta}': no existe la carpeta '{carpeta}'"
+        )
     parecidos = difflib.get_close_matches(nombre, os.listdir(carpeta), n=3, cutoff=0.6)
     donde = "" if os.path.isabs(ruta) else f" (se buscó en '{absoluta}')"
     detalle = f"; ¿quisiste decir {parecidos}?" if parecidos else ""
@@ -111,7 +113,9 @@ def _exigir_salida(ruta: Any, extensiones: Iterable[str], que: str = "el archivo
     ejemplo = f"'{que}{extensiones[0]}'"
     texto = str(ruta)
     if not texto.strip():
-        raise ValueError(f"ruta de salida vacía: falta el nombre del archivo, p. ej. {ejemplo}")
+        raise ValueError(
+            f"ruta de salida vacía: falta el nombre del archivo, p. ej. {ejemplo}"
+        )
     nombre = os.path.basename(texto.rstrip("/\\"))
     if os.path.isdir(texto) or texto.endswith(("/", "\\")):
         raise IsADirectoryError(

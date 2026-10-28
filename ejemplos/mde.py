@@ -32,16 +32,28 @@ import geophis as geo
 ENTRADA_CURVAS = Path(r"C:\SIG\proyecto\datos\curvas_nivel.shp")
 ENTRADA_CAUCES = Path(r"C:\SIG\proyecto\datos\hidrologia.shp")
 ENTRADA_PREDIO = Path(r"C:\SIG\proyecto\datos\predio.shp")
-SALIDA_MDE_BASE = Path(r"C:\SIG\proyecto\salidas\MDE_BASE.tif")  # terreno sin deformar, para pendientes
-SALIDA_MDE_HIDRO = Path(r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif")  # relleno + quemado, entrada de acondicionar_mde
+SALIDA_MDE_BASE = Path(
+    r"C:\SIG\proyecto\salidas\MDE_BASE.tif"
+)  # terreno sin deformar, para pendientes
+SALIDA_MDE_HIDRO = Path(
+    r"C:\SIG\proyecto\salidas\MDE_HIDRO.tif"
+)  # relleno + quemado, entrada de acondicionar_mde
 
 ESCALA = 25_000  # compromiso de entrega; la UMM y la resolución son consecuencia
 RANGOS = [
-    ("0-5", 0, 5), ("5-10", 5, 10), ("10-15", 10, 15), ("15-25", 15, 25),
-    ("25-35", 25, 35), ("35-45", 35, 45), ("45-60", 45, 60), ("60-100", 60, 100),
+    ("0-5", 0, 5),
+    ("5-10", 5, 10),
+    ("10-15", 10, 15),
+    ("15-25", 15, 25),
+    ("25-35", 25, 35),
+    ("35-45", 35, 45),
+    ("45-60", 45, 60),
+    ("60-100", 60, 100),
     (">100", 100, float("inf")),
 ]  # declarado: rangos legales de pendiente, en %. De aquí sale p_max
-PROFUNDIDAD_QUEMA = 5  # m; basta con superar el error local del MDE (ver el RMS del hold-out)
+PROFUNDIDAD_QUEMA = (
+    5  # m; basta con superar el error local del MDE (ver el RMS del hold-out)
+)
 
 # metros extra alrededor del predio en el extent de SALIDA, ADEMÁS de las dos
 # celdas que pide Horn. 0 = solo el predio. Súbelo hasta cubrir la cuenca aguas

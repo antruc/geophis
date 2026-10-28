@@ -27,7 +27,17 @@ _DRIVERS_GEO = {".gpx": "GPX", ".kml": "LIBKML", ".kmz": "LIBKML"}
 
 # Lo que `guardar` sabe escribir. Otra extensión no falla en GDAL: crea una
 # CARPETA con ese nombre y un .shp dentro, así que se corta antes.
-_EXT_VECTOR = {".shp", ".gpkg", ".geojson", ".json", ".fgb", ".gml", ".dxf", ".tab", ".csv"}
+_EXT_VECTOR = {
+    ".shp",
+    ".gpkg",
+    ".geojson",
+    ".json",
+    ".fgb",
+    ".gml",
+    ".dxf",
+    ".tab",
+    ".csv",
+}
 
 # Formatos de tabla: solo atributos, sin geometría.
 _EXT_TABLA = {".csv", ".xlsx"}
@@ -316,10 +326,14 @@ def _avisar_medida_obsoleta(gdf: gpd.GeoDataFrame, quien: str) -> None:
     medidas = (
         []
         if tipos <= {"Point", "MultiPoint"}
-        else [(gdf.geometry.length * k, _COLS_LONGITUD, _UNIDADES_LONGITUD, "la longitud")]
+        else [
+            (gdf.geometry.length * k, _COLS_LONGITUD, _UNIDADES_LONGITUD, "la longitud")
+        ]
     )
     if poligonal:
-        medidas.insert(0, (gdf.geometry.area * k**2, _COLS_AREA, _UNIDADES_AREA, "el área"))
+        medidas.insert(
+            0, (gdf.geometry.area * k**2, _COLS_AREA, _UNIDADES_AREA, "el área")
+        )
 
     for viva, columnas, unidades, que in medidas:
         for col in gdf.columns:
@@ -331,9 +345,9 @@ def _avisar_medida_obsoleta(gdf: gpd.GeoDataFrame, quien: str) -> None:
             # solo las filas con dato: NaN compara False y haría fallar .all()
             ok = guardada.notna()
             cuadra = any(
-                (
-                    (guardada - viva / f).abs() <= (viva / f).abs() * 1e-3 + _TOL_REDONDEO
-                )[ok].all()
+                ((guardada - viva / f).abs() <= (viva / f).abs() * 1e-3 + _TOL_REDONDEO)[
+                    ok
+                ].all()
                 for f in unidades.values()
             )
             if not cuadra:
@@ -398,7 +412,9 @@ def comprobar_nombres_shp(gdf: gpd.GeoDataFrame) -> dict[str, str]:
             )
 
     if _mostrar() and problemas:
-        print(f"comprobar_nombres_shp: {len(problemas)} columna(s) no sobreviven a un .shp")
+        print(
+            f"comprobar_nombres_shp: {len(problemas)} columna(s) no sobreviven a un .shp"
+        )
         for col, motivo in problemas.items():
             print(f"   '{col}': {motivo}")
     return problemas
@@ -717,9 +733,7 @@ def convertir(
     return guardar(gdf, salida, gpx_como=gpx_como)
 
 
-def _cargar_gpx_limpio(
-    ruta: str | PathLike[str], capa: str | None
-) -> gpd.GeoDataFrame:
+def _cargar_gpx_limpio(ruta: str | PathLike[str], capa: str | None) -> gpd.GeoDataFrame:
     """Carga un GPX con la tabla de atributos limpia.
 
     Waypoints -> cargar_waypoints; tracks -> cargar_tracks. Si no se indica
@@ -777,7 +791,9 @@ def _poligono_a_borde(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def _multipunto_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """GPX no admite MultiPoint; lo separa en un waypoint por punto."""
     if (gdf.geom_type == "MultiPoint").any():
-        print("Aviso guardar: GPX no admite multipuntos; se exporta un waypoint por punto")
+        print(
+            "Aviso guardar: GPX no admite multipuntos; se exporta un waypoint por punto"
+        )
         gdf = gdf.explode(index_parts=False).reset_index(drop=True)
     return gdf
 
@@ -818,9 +834,7 @@ def cargar_waypoints(ruta: str | PathLike[str]) -> gpd.GeoDataFrame:
     return salida
 
 
-def cargar_tracks(
-    ruta: str | PathLike[str], utc_offset: int = -6
-) -> gpd.GeoDataFrame:
+def cargar_tracks(ruta: str | PathLike[str], utc_offset: int = -6) -> gpd.GeoDataFrame:
     """Carga los tracks de un GPX en una tabla de atributos limpia, una linea por tramo.
 
     Una línea por tramo (<trkseg>). Columnas: NAME, LAYER (constante
@@ -997,8 +1011,12 @@ def detectar_cota(
         cobertura = float(pd.to_numeric(curvas[col], errors="coerce").notna().mean())
         if cobertura < regularidad_min:
             filas.append(
-                (col, min(mejor_reg, cobertura), mejor_paso,
-                 f"cota solo en el {cobertura:.0%} de las curvas")
+                (
+                    col,
+                    min(mejor_reg, cobertura),
+                    mejor_paso,
+                    f"cota solo en el {cobertura:.0%} de las curvas",
+                )
             )
             continue
         filas.append(
@@ -1029,9 +1047,7 @@ def detectar_cota(
 
     col, reg, paso, _ = filas[0]
     if _mostrar():
-        print(
-            f"detectar_cota: '{col}' (regularidad {reg:.2f}), equidistancia {paso:g} m"
-        )
+        print(f"detectar_cota: '{col}' (regularidad {reg:.2f}), equidistancia {paso:g} m")
         v = np.sort(pd.to_numeric(curvas[col], errors="coerce").dropna().unique())
         d = np.round(np.diff(v), 3)
         pasos, cuentas = np.unique(d[d > 0], return_counts=True)
@@ -1090,9 +1106,7 @@ def _avisar_fuera_de_escalera(cotas: pd.Series, col: str, paso: float) -> None:
     )
 
 
-def detectar_campo(
-    gdf: gpd.GeoDataFrame, vocabulario: set[str]
-) -> str:
+def detectar_campo(gdf: gpd.GeoDataFrame, vocabulario: set[str]) -> str:
     """Columna cuyos valores contienen todo `vocabulario`.
 
     El nombre de columna cambia con cada capa de origen; las categorías
@@ -1144,9 +1158,7 @@ def listar_capas(ruta: str | PathLike[str]) -> list[str]:
     return nombres
 
 
-def describir(
-    objeto: Any, capa: str | None = None
-) -> dict[str, Any]:
+def describir(objeto: Any, capa: str | None = None) -> dict[str, Any]:
     """Ficha de una capa: CRS, extension, entidades, campos, nulos y geometria rota.
 
     Acepta un GeoDataFrame ya cargado o la ruta de un archivo (que carga con

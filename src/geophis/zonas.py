@@ -17,7 +17,12 @@ import numpy.typing as npt
 from pyproj import CRS
 from rasterio import Affine
 
-from .geometria import calcular_superficie, disolver_por_grupo, recortar, separar_multipartes
+from .geometria import (
+    calcular_superficie,
+    disolver_por_grupo,
+    recortar,
+    separar_multipartes,
+)
 from .proyeccion import _a_crs
 from .raster import limpiar_moteado, poligonizar, rasterizar, reclasificar_rangos
 
@@ -72,7 +77,9 @@ def zonificar(
     vacia = np.isnan(np.asarray(arr, dtype=float))
     if invalidar is not None:
         if invalidar.shape != codigos.shape:
-            raise ValueError(f"invalidar {invalidar.shape} y arr {codigos.shape} no son la misma malla")
+            raise ValueError(
+                f"invalidar {invalidar.shape} y arr {codigos.shape} no son la misma malla"
+            )
         codigos[invalidar] = -1
         vacia &= ~invalidar
     mascara = codigos > 0
@@ -85,7 +92,9 @@ def zonificar(
     por_etiqueta = {et: c for c, et in etiquetas.items()}
     desconocidas = [e for e in exentos or () if e not in por_etiqueta]
     if desconocidas:
-        raise ValueError(f"exentos {desconocidas} no están en rangos: {list(por_etiqueta)}")
+        raise ValueError(
+            f"exentos {desconocidas} no están en rangos: {list(por_etiqueta)}"
+        )
     cod_exentos = [por_etiqueta[e] for e in exentos or ()]
 
     codigos = limpiar_moteado(codigos, min_pixeles, mascara=mascara, exentos=cod_exentos)

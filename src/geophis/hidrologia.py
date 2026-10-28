@@ -520,7 +520,9 @@ def _pendiente_en_cauce(z: FloatArray, cauce: npt.NDArray[np.bool_]) -> int:
     zp = np.pad(fuera, 1, constant_values=np.inf)
     fuera_min = np.full(z.shape, np.inf)
     for df, dc in vecinos:
-        fuera_min = np.minimum(fuera_min, zp[1 + df : 1 + df + alto, 1 + dc : 1 + dc + ancho])
+        fuera_min = np.minimum(
+            fuera_min, zp[1 + df : 1 + df + alto, 1 + dc : 1 + dc + ancho]
+        )
     borde = np.zeros(z.shape, dtype=bool)
     borde[0, :] = borde[-1, :] = borde[:, 0] = borde[:, -1] = True
     semilla = cauce & (borde | (fuera_min < z))
@@ -1020,12 +1022,20 @@ def altura_sobre_cauce(
     vista = fdir.viewfinder
     cauce = rasterizar(c, mde.shape, vista.affine) == 1  # la de quemar_cauces
     if not cauce.any():
-        raise ValueError("ninguna celda de cauce cae en el raster: revisa el CRS o el predio")
+        raise ValueError(
+            "ninguna celda de cauce cae en el raster: revisa el CRS o el predio"
+        )
 
     sin_dato = np.isnan(mde)
     # relleno solo para que un NaN sobre el cauce no corte el HAND aguas arriba
-    z = rellenar_nodata(mde).astype(np.float64) if sin_dato.any() else mde.astype(np.float64)
-    hand = np.asarray(grid.compute_hand(fdir, Raster(z, vista), Raster(cauce, vista)), dtype=float)
+    z = (
+        rellenar_nodata(mde).astype(np.float64)
+        if sin_dato.any()
+        else mde.astype(np.float64)
+    )
+    hand = np.asarray(
+        grid.compute_hand(fdir, Raster(z, vista), Raster(cauce, vista)), dtype=float
+    )
     hand[sin_dato] = np.nan
 
     sueltas = np.isnan(hand) & ~sin_dato

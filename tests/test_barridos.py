@@ -78,7 +78,9 @@ def test_barrer_vecinos_la_rodilla_no_depende_de_donde_acabe_enes():
     cifra no se mueve con `n`, asi que converge en el primer par.
     """
     kw = dict(resolucion=5, intervalo_terreno=5, s_vacio=20, zigzag=1.0, p_max=0.5)
-    filas_c, n_c = geo.barrer_vecinos(_curvas_rampa(), "cota", _zona_rampa(), enes=(8, 16), **kw)
+    filas_c, n_c = geo.barrer_vecinos(
+        _curvas_rampa(), "cota", _zona_rampa(), enes=(8, 16), **kw
+    )
     filas_l, n_l = geo.barrer_vecinos(
         _curvas_rampa(), "cota", _zona_rampa(), enes=(8, 16, 32, 64), **kw
     )
@@ -675,6 +677,7 @@ def test_mapear_no_lanza_mas_procesos_de_los_que_caben(monkeypatch, capsys):
             class _Hecha:
                 def result(self):
                     return fn(tarea)
+
             return _Hecha()
 
         def shutdown(self, cancel_futures=False):
@@ -684,7 +687,12 @@ def test_mapear_no_lanza_mas_procesos_de_los_que_caben(monkeypatch, capsys):
     gb = 2**30
 
     monkeypatch.setattr(barridos, "_memoria_libre", lambda: 10 * gb)
-    assert list(barridos._mapear(abs, [-1, -2, -3, -4], 4, bytes_por_tarea=3 * gb)) == [1, 2, 3, 4]
+    assert list(barridos._mapear(abs, [-1, -2, -3, -4], 4, bytes_por_tarea=3 * gb)) == [
+        1,
+        2,
+        3,
+        4,
+    ]
     assert lanzados == [2] and "caben 2 procesos" in capsys.readouterr().out
 
     monkeypatch.setattr(barridos, "_memoria_libre", lambda: 1 * gb)
@@ -692,7 +700,11 @@ def test_mapear_no_lanza_mas_procesos_de_los_que_caben(monkeypatch, capsys):
     assert lanzados == [2]  # cabe uno: en serie, sin pool
 
     monkeypatch.setattr(barridos, "_memoria_libre", lambda: float("inf"))
-    assert list(barridos._mapear(abs, [-1, -2, -3], 4, bytes_por_tarea=3 * gb)) == [1, 2, 3]
+    assert list(barridos._mapear(abs, [-1, -2, -3], 4, bytes_por_tarea=3 * gb)) == [
+        1,
+        2,
+        3,
+    ]
     assert lanzados == [2, 3]
 
 
@@ -736,5 +748,9 @@ def test_mapear_solo_manda_nucleos_tareas_en_vuelo(monkeypatch):
     monkeypatch.setattr(geo, "NUCLEOS", 3)
     mandadas.clear()
     chica = barridos._bytes_tarea(14_100, "spline")
-    assert list(barridos._mapear(abs, [-1, -2, -3], None, bytes_por_tarea=chica)) == [1, 2, 3]
+    assert list(barridos._mapear(abs, [-1, -2, -3], None, bytes_por_tarea=chica)) == [
+        1,
+        2,
+        3,
+    ]
     assert mandadas == []

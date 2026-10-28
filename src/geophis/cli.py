@@ -76,7 +76,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: tipo '{args.tipo}' no válido. Usa uno de: {', '.join(TIPOS)}.")
         return 2
 
-    from . import convertir  # diferido sin efecto: main ya importa geophis/__init__, que carga todo
+    from . import (
+        convertir,
+    )  # diferido sin efecto: main ya importa geophis/__init__, que carga todo
 
     ok = fallo = 0
     for archivo in args.archivos:

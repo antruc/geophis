@@ -231,7 +231,9 @@ def test_imagen_margen_nube_ensancha_la_nube(tmp_path):
     # margen 2 (default): pixeles 3..7 de 20 m -> celdas 4..13 de 10 m
     assert np.isnan(rojo[4:14, 4:14]).all()
     assert not np.isnan(rojo[3, :]).any() and not np.isnan(rojo[:, 14]).any()
-    rojo0 = geo.imagen_sentinel2(PREDIO, escenas=[e], limpio_min=0, margen_nube=0)[0]["rojo"]
+    rojo0 = geo.imagen_sentinel2(PREDIO, escenas=[e], limpio_min=0, margen_nube=0)[0][
+        "rojo"
+    ]
     assert np.isnan(rojo0).sum() == 4  # solo el pixel de 20 m
 
 
@@ -253,7 +255,9 @@ def test_imagen_rellena_con_la_fecha_cercana_no_con_la_limpia(tmp_path):
     assert informe["usada"].tolist() == [True, False, True]
     assert informe["dias"].tolist() == [0, 90, 5]
     # con max_dias=3 ninguna rellena: queda el hueco y se avisa
-    *_, informe, _ = geo.imagen_sentinel2(PREDIO, escenas=escenas, margen_nube=0, max_dias=3)
+    *_, informe, _ = geo.imagen_sentinel2(
+        PREDIO, escenas=escenas, margen_nube=0, max_dias=3
+    )
     assert informe["usada"].tolist() == [True, False, False]
 
 

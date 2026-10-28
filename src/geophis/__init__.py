@@ -156,7 +156,14 @@ from .hidrologia import (
 )
 from .satelite import buscar_sentinel2, imagen_sentinel2
 from .zonas import zonificar
-from .lamina import panel_rgb, panel_continuo, panel_clases, lamina, rotulo_escenas, cita_sentinel2
+from .lamina import (
+    panel_rgb,
+    panel_continuo,
+    panel_clases,
+    lamina,
+    rotulo_escenas,
+    cita_sentinel2,
+)
 from .metrologia import (
     resolucion_regla,
     min_pixeles_umm,

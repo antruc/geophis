@@ -167,8 +167,10 @@ def separar_multipartes(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def _avisar_geografico(gdf: gpd.GeoDataFrame, quien: str, que: str) -> None:
     """Aviso (no error) para funciones que documentan "unidades del CRS"."""
     if gdf.crs is None:
-        print(f"Aviso {quien}: la capa no tiene CRS: la medida va en unidades desconocidas. "
-              "Asígnalo al cargar, p. ej. cargar(ruta, crs=32613)")
+        print(
+            f"Aviso {quien}: la capa no tiene CRS: la medida va en unidades desconocidas. "
+            "Asígnalo al cargar, p. ej. cargar(ruta, crs=32613)"
+        )
     elif gdf.crs.is_geographic:
         print(f"Aviso {quien}: CRS geográfico (grados); {que}. Usa UTM.")
 
@@ -441,7 +443,9 @@ def puntos_a_linea(gdf: gpd.GeoDataFrame, campo: str | None = None) -> gpd.GeoDa
 
     _exigir_puntos(gdf, "gdf", None)
     if campo is not None and campo not in gdf.columns:
-        raise ValueError(f"la capa no tiene el campo '{campo}'; columnas: {list(gdf.columns)}")
+        raise ValueError(
+            f"la capa no tiene el campo '{campo}'; columnas: {list(gdf.columns)}"
+        )
 
     def _linea(sub: gpd.GeoDataFrame) -> LineString:
         coords = [(p.x, p.y) for p in sub.geometry]
@@ -496,7 +500,9 @@ def puntos_a_poligono(
     if forma == "concava":
         _exigir_proyectado(gdf, "gdf")
     elif lado_max:
-        raise ValueError(f"lado_max es solo para forma='concava'; llegó con forma='{forma}'")
+        raise ValueError(
+            f"lado_max es solo para forma='concava'; llegó con forma='{forma}'"
+        )
 
     def _poligono(sub: gpd.GeoDataFrame, que: str) -> BaseGeometry:
         pts = list(sub.geometry)
@@ -514,12 +520,18 @@ def puntos_a_poligono(
                 )
             return pol
         nube = shapely.multipoints(pts)
-        aristas = shapely.length(shapely.get_parts(shapely.delaunay_triangles(nube, only_edges=True)))
+        aristas = shapely.length(
+            shapely.get_parts(shapely.delaunay_triangles(nube, only_edges=True))
+        )
         if len(aristas) == 0:
             raise ValueError(f"{que}: los puntos están repetidos, no encierran área")
         corta, larga = aristas.min(), aristas.max()
         # el umbral relativo de GEOS es la fracción entre la arista más corta y la más larga
-        ratio = 1.0 if larga == corta else float(np.clip((lado_max - corta) / (larga - corta), 0, 1))
+        ratio = (
+            1.0
+            if larga == corta
+            else float(np.clip((lado_max - corta) / (larga - corta), 0, 1))
+        )
         if _mostrar():
             rejilla = np.sqrt(nube.convex_hull.area / len(pts))
             print(
@@ -529,7 +541,9 @@ def puntos_a_poligono(
             )
         pol = shapely.concave_hull(nube, ratio=ratio)
         if pol.geom_type != "Polygon":
-            raise ValueError(f"{que}: los puntos están en línea o repetidos, no encierran área")
+            raise ValueError(
+                f"{que}: los puntos están en línea o repetidos, no encierran área"
+            )
         return pol
 
     if campo is None:
@@ -673,7 +687,9 @@ _GEOD = Geod(ellps="WGS84")
 
 def _factor_unidad(unidad: str, tabla: dict[str, float], que: str) -> float:
     if unidad not in tabla:
-        raise ValueError(f"unidad de {que} {unidad!r} no válida; usa una de {list(tabla)}")
+        raise ValueError(
+            f"unidad de {que} {unidad!r} no válida; usa una de {list(tabla)}"
+        )
     return tabla[unidad]
 
 
@@ -1025,11 +1041,14 @@ def bloques_ajedrez(zona: gpd.GeoDataFrame, lado: float) -> gpd.GeoDataFrame:
     i0, j0 = int(np.floor(minx / lado)), int(np.floor(miny / lado))
     i1, j1 = int(np.ceil(maxx / lado)), int(np.ceil(maxy / lado))
     filas, cols = (
-        m.ravel() for m in np.meshgrid(np.arange(j0, j1), np.arange(i0, i1), indexing="ij")
+        m.ravel()
+        for m in np.meshgrid(np.arange(j0, j1), np.arange(i0, i1), indexing="ij")
     )
     cuadros = gpd.GeoDataFrame(
         {"fila": filas, "col": cols, "pliegue": (filas + cols) % 2},
-        geometry=shapely.box(cols * lado, filas * lado, (cols + 1) * lado, (filas + 1) * lado),
+        geometry=shapely.box(
+            cols * lado, filas * lado, (cols + 1) * lado, (filas + 1) * lado
+        ),
         crs=zona.crs,
     )
     return limpiar_vacias(recortar(cuadros, zona)).reset_index(drop=True)
@@ -1716,8 +1735,12 @@ def vertices_a_puntos(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
                 vertices += range(1, n + 1)
     medidas = [c for c in gdf.columns if str(c).upper() in _COLS_AREA | _COLS_LONGITUD]
     if medidas and _mostrar():
-        print(f"vertices_a_puntos: sin {medidas}, son medidas de la entidad, no del vértice")
-    atributos = gdf.drop(columns=[gdf.geometry.name, *medidas]).iloc[filas].reset_index(drop=True)
+        print(
+            f"vertices_a_puntos: sin {medidas}, son medidas de la entidad, no del vértice"
+        )
+    atributos = (
+        gdf.drop(columns=[gdf.geometry.name, *medidas]).iloc[filas].reset_index(drop=True)
+    )
     for campo, valores in (("PARTE", partes), ("ANILLO", anillos), ("VERTICE", vertices)):
         atributos[nombre_campo_libre(atributos, campo)] = valores
     puntos = shapely.points(np.vstack(xy)) if xy else []
@@ -2254,11 +2277,15 @@ def rellenar_huecos(
     if area_max is not None:
         _exigir_proyectado(gdf, "gdf")
     salida = gdf.copy()
-    antes = int(shapely.get_num_interior_rings(shapely.get_parts(salida.geometry.values)).sum())
+    antes = int(
+        shapely.get_num_interior_rings(shapely.get_parts(salida.geometry.values)).sum()
+    )
     salida[salida.geometry.name] = [_sin_anillos(g, area_max) for g in salida.geometry]
     if _mostrar():
         despues = int(
-            shapely.get_num_interior_rings(shapely.get_parts(salida.geometry.values)).sum()
+            shapely.get_num_interior_rings(
+                shapely.get_parts(salida.geometry.values)
+            ).sum()
         )
         limite = "todos" if area_max_ha is None else f"<= {area_max_ha:g} ha"
         print(
@@ -2428,7 +2455,9 @@ _TOL_NODO = 0.01
 _SENTIDO_IDA = {"yes", "true"}
 
 
-def _sentidos(caminos: gpd.GeoDataFrame, campo_sentido: str | None) -> npt.NDArray[np.int_]:
+def _sentidos(
+    caminos: gpd.GeoDataFrame, campo_sentido: str | None
+) -> npt.NDArray[np.int_]:
     """Por vía: 1 = solo en el sentido del dibujo, -1 = solo al revés, 0 = los dos."""
     if campo_sentido is None:
         return np.zeros(len(caminos), dtype=int)
@@ -2754,8 +2783,16 @@ def isocronas(
             p1 = ini[hay] + (fin[hay] - ini[hay]) * f1[hay, None]
             trozos.append(shapely.linestrings(np.stack([p0, p1], axis=1)))
         trozos = np.concatenate(trozos)
-        linea = shapely.line_merge(shapely.multilinestrings(trozos)) if len(trozos) else None
-        filas.append({"MIN_DESDE": desde, "MIN_HASTA": corte, "KM": shapely.length(trozos).sum() / 1000})
+        linea = (
+            shapely.line_merge(shapely.multilinestrings(trozos)) if len(trozos) else None
+        )
+        filas.append(
+            {
+                "MIN_DESDE": desde,
+                "MIN_HASTA": corte,
+                "KM": shapely.length(trozos).sum() / 1000,
+            }
+        )
         geoms.append(linea if linea is not None else LineString())
         previo = (np.maximum(pu, fu), np.maximum(pv, fv))
 
@@ -2769,7 +2806,9 @@ def isocronas(
         geoms = poligonos
 
     if _mostrar():
-        bandas = ", ".join(f"{f['MIN_DESDE']:g}-{f['MIN_HASTA']:g} min {f['KM']:.1f} km" for f in filas)
+        bandas = ", ".join(
+            f"{f['MIN_DESDE']:g}-{f['MIN_HASTA']:g} min {f['KM']:.1f} km" for f in filas
+        )
         print(
             f"isocronas: {bandas} | red de {red.metros.sum() / 1000:.1f} km | {len(cerca)} origen(es), "
             f"enganche máximo {enganche.max():.0f} m"

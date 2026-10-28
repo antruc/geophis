@@ -364,14 +364,22 @@ def derivar_parametros(
     if medidos is not None:
         # la ruta no cuenta (`attrs` no sobrevive a toda operacion); la huella si
         for capa, gdf in (("curvas", curvas), ("zona", zona)):
-            antes = {k: v for k, v in medidos.get("insumos", {}).get(capa, {}).items() if k != "ruta"}
-            ahora = {k: v for k, v in _huella(gdf, "").items() if k not in ("ruta", "medida")}
+            antes = {
+                k: v
+                for k, v in medidos.get("insumos", {}).get(capa, {}).items()
+                if k != "ruta"
+            }
+            ahora = {
+                k: v for k, v in _huella(gdf, "").items() if k not in ("ruta", "medida")
+            }
             antes.pop("medida", None)
             if antes != ahora:
                 raise ValueError(
                     f"`medidos` se midió sobre otra capa de {capa}: {antes} contra {ahora}"
                 )
-        equidistancia = medidos["equidistancia"] if equidistancia is None else equidistancia
+        equidistancia = (
+            medidos["equidistancia"] if equidistancia is None else equidistancia
+        )
         lambda_m = medidos["lambda_m"] if lambda_m is None else lambda_m
         zigzag = medidos["zigzag"] if zigzag is None else zigzag
         if ancho_medido is None and medir_ancho:
@@ -497,7 +505,11 @@ def derivar_parametros(
     if ancho_medido is not None:
         w = float(ancho_medido)
         p["ancho_w"] = _de_fuera(ancho_medido, "dado a mano (medido aparte)")
-        if medidos is not None and ancho_medido is medidos.get("ancho_w") and "blanco_carta_ha" in medidos:
+        if (
+            medidos is not None
+            and ancho_medido is medidos.get("ancho_w")
+            and "blanco_carta_ha" in medidos
+        ):
             p["blanco_carta_ha"] = medidos["blanco_carta_ha"]
     elif medir_ancho:
         _exigir_capas("el ancho `w` de la clase alta")
@@ -770,7 +782,7 @@ def tabla_procedencia(params: dict[str, Any]) -> str:
         )
         lineas.append(
             '   Sacalos de `metodo="malla"` a la `h` del TIN (GEOPHIS.md, receta P3). '
-            'Umbral de un solo predio: compara contra la carta.'
+            "Umbral de un solo predio: compara contra la carta."
         )
     esp = params.get("pendiente_espuria_pct")
     if esp is not None:

@@ -56,7 +56,10 @@ def test_ops_no_crean_una_columna_geometry_paralela(op):
 def test_zona_de_influencia_sobre_columna_renombrada_si_cambia_el_area():
     """La mitad que de verdad importa: que el resultado no sea el de la entrada."""
     capa = _renombrada(box(0, 0, 100, 100))
-    assert geo.superficie_total_ha(geo.zona_de_influencia(capa, 10)) > geo.superficie_total_ha(capa) * 1.4
+    assert (
+        geo.superficie_total_ha(geo.zona_de_influencia(capa, 10))
+        > geo.superficie_total_ha(capa) * 1.4
+    )
 
 
 def test_intersecar_acepta_columna_renombrada_y_geometria_suelta():
@@ -487,7 +490,10 @@ def test_detectar_cota_avisa_de_curvas_sin_cota(capsys):
     """Una columna buena con unas pocas curvas vacias pasa, pero lo dice."""
     cotas = [float(z) for z in range(0, 400, 20)] + [None]
     capa = gpd.GeoDataFrame(
-        {"geometry": [LineString([(0, y), (10, y)]) for y in range(len(cotas))], "COTA": cotas},
+        {
+            "geometry": [LineString([(0, y), (10, y)]) for y in range(len(cotas))],
+            "COTA": cotas,
+        },
         crs=UTM,
     )
     assert geo.detectar_cota(capa) == ("COTA", 20)
@@ -625,8 +631,12 @@ def test_subdividir_por_area_conserva_superficie():
 
 
 def test_campo_seguro_es_determinista():
-    g = gpd.GeoDataFrame({"tipo": ["a"], "tipo_1": ["b"]}, geometry=[box(0, 0, 1, 1)], crs=UTM)
-    assert geo.nombre_campo_libre(g, "tipo") == geo.nombre_campo_libre(g, "tipo") == "tipo_2"
+    g = gpd.GeoDataFrame(
+        {"tipo": ["a"], "tipo_1": ["b"]}, geometry=[box(0, 0, 1, 1)], crs=UTM
+    )
+    assert (
+        geo.nombre_campo_libre(g, "tipo") == geo.nombre_campo_libre(g, "tipo") == "tipo_2"
+    )
 
 
 # ---- pies, equidistancia con huecos, áreas en grados ----------------------
@@ -655,7 +665,9 @@ def test_equidistancia_con_curvas_faltantes_es_el_paso_no_la_moda():
 )
 def test_areas_por_fila_en_geografico_fallan(op):
     """Solo avisaban y seguían con grados2/10000 como si fueran ha."""
-    g = gpd.GeoDataFrame({"superficie_ha": [0.5]}, geometry=[box(0, 0, 0.01, 0.01)], crs=4326)
+    g = gpd.GeoDataFrame(
+        {"superficie_ha": [0.5]}, geometry=[box(0, 0, 0.01, 0.01)], crs=4326
+    )
     with pytest.raises(ValueError, match="geográficas"):
         op(g)
 
