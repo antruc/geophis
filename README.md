@@ -1,14 +1,36 @@
 # geophis
 
+**Una función en español por tarea SIG, del shapefile y las curvas de nivel a
+las hectáreas por clase de una memoria técnica. Scripts que se leen como la
+tarea y que una IA puede escribir por ti**
+
 [![PyPI](https://img.shields.io/pypi/v/geophis)](https://pypi.org/project/geophis/)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
+![geopandas + rasterio](https://img.shields.io/badge/base-geopandas%20%2B%20rasterio-139C5A)
+![Idioma: español](https://img.shields.io/badge/API-en%20espa%C3%B1ol-red)
+[![Licencia: GPL v3+](https://img.shields.io/badge/licencia-GPL--3.0--or--later-blue)](LICENSE)
 
 Funciones en español para tareas SIG forestales y territoriales: de shapefiles y curvas de nivel a rásters, clases y superficies listas para una memoria técnica. Por debajo usa geopandas y shapely (vector), rasterio (raster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis en cada script
 
 ![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.svg)
 
+## Contenido
+
+- [Para qué sirve](#para-qué-sirve)
+- [Scripts hechos con IA](#scripts-hechos-con-ia)
+- [Instalación](#instalación)
+- [Ejemplo básico](#ejemplo-básico)
+- [Qué hace](#qué-hace)
+- [Comando de consola](#comando-de-consola)
+- [Documentación](#documentación)
+- [Convenciones](#convenciones)
+- [Desarrollo](#desarrollo)
+- [Licencia](#licencia)
+- [Créditos](#créditos)
+
 ## Para qué sirve
 
-Para el trabajo técnico forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie para una memoria técnica. En vez de repetir clics, escribes un script que se lee como la tarea que hace (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y que se vuelve a correr cuando cambia un dato
+Para el trabajo técnico forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie para una memoria técnica. En vez de repetir clics en QGIS o ArcGIS, automatizas la tarea en Python con un script que se lee como la tarea que hace (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y que se vuelve a correr cuando cambia un dato
 
 **Tareas sueltas, en pocas líneas:**
 
@@ -30,6 +52,8 @@ Para el trabajo técnico forestal y territorial que termina en un entregable: sh
 **Cifras que se pueden defender.** Los números que el script no decide (resolución del MDE, umbrales, superficie mínima de una mancha) se miden desde tus propios datos o se derivan de lo que tú declaras (la escala, los rangos), no se copian de otro predio. Si alguno quedó sin elegir, el script se detiene, y la librería imprime en consola de dónde salió cada número para revisarlo
 
 ## Scripts hechos con IA
+
+**¿Se puede automatizar el trabajo SIG con una IA, en español?** Sí: le pides la tarea a Claude, ChatGPT u otro asistente en lenguaje normal, y te devuelve un script de geophis que corres en tu equipo con tus propios datos.
 
 La librería está documentada para que una IA escriba los scripts por ti. [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) trae todas las funciones con su firma y sus trampas, más las reglas de trabajo, y basta con cargarlo como contexto:
 
@@ -114,3 +138,50 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 - Avisos y reportes por consola con `print`; los errores con `raise ValueError` de mensaje claro
 
 El detalle de cada convención, con la medición que la justifica, está en [`docs/DECISIONES.md`](https://github.com/antruc/geophis/blob/main/docs/DECISIONES.md)
+
+## Desarrollo
+
+```bash
+git clone https://github.com/antruc/geophis.git
+cd geophis && pip install -e ".[dev]"
+pytest                 # pruebas
+ruff check src tests   # linter
+ruff format src tests  # formateo
+```
+
+| Ruta | Qué hace |
+|---|---|
+| [src/geophis/archivo.py](src/geophis/archivo.py) | Cargar y guardar capas: shp, gpkg, geojson, gpx, kml, kmz, CSV y Excel |
+| [src/geophis/geometria.py](src/geophis/geometria.py) | Recortar, disolver, zona de influencia, fusionar, solapes, superficies |
+| [src/geophis/tabla.py](src/geophis/tabla.py) | Tabla de atributos: seleccionar, resumir, unir y editar campos |
+| [src/geophis/proyeccion.py](src/geophis/proyeccion.py) | CRS, reproyección y detección de la zona UTM |
+| [src/geophis/raster.py](src/geophis/raster.py) | E/S ráster, remuestreo, MDE desde curvas, pendiente y rutas |
+| [src/geophis/zonas.py](src/geophis/zonas.py) | De un ráster continuo a polígonos por rangos (reclasificar, sieve, poligonizar) |
+| [src/geophis/hidrologia.py](src/geophis/hidrologia.py) | Flujo D8, red de drenaje y cuencas (único módulo que usa pysheds) |
+| [src/geophis/satelite.py](src/geophis/satelite.py) | Sentinel-2 L2A por Earth Search y lectura por ventana |
+| [src/geophis/parametros.py](src/geophis/parametros.py), [metrologia.py](src/geophis/metrologia.py) | Parámetros con procedencia y las reglas que los derivan |
+| [src/geophis/barridos.py](src/geophis/barridos.py) | Cadenas completas sobre el MDE y barridos de parámetros |
+| [src/geophis/lamina.py](src/geophis/lamina.py) | PNG de revisión de varios paneles |
+| [src/geophis/cli.py](src/geophis/cli.py) | El comando `geophis` de conversión entre formatos |
+
+## Licencia
+
+Copyright (C) 2026 antruc
+
+geophis es software libre: puedes redistribuirlo y modificarlo bajo los
+términos de la [Licencia Pública General de GNU](LICENSE) publicada por la
+Free Software Foundation, versión 3 o (a tu elección) cualquier posterior
+(`GPL-3.0-or-later`). Se entrega sin garantía
+
+La fuente DejaVu Sans que usa `lamina` va incluida sin cambios, con su propia
+licencia en [src/geophis/fuentes/LICENSE_DEJAVU.txt](src/geophis/fuentes/LICENSE_DEJAVU.txt).
+Las imágenes Sentinel-2 son datos Copernicus: `lamina` e `imagen_sentinel2`
+incluyen la cita obligatoria
+
+## Créditos
+
+- [geopandas](https://geopandas.org) y [shapely](https://shapely.readthedocs.io): vector
+- [rasterio](https://rasterio.readthedocs.io) y [pyproj](https://pyproj4.github.io/pyproj/): ráster y proyecciones
+- [scipy](https://scipy.org), [scikit-image](https://scikit-image.org) y [contourpy](https://contourpy.readthedocs.io): interpolación, rutas y curvas
+- [pysheds](https://github.com/mdbartos/pysheds): hidrología
+- [Earth Search](https://element84.com/earth-search/) de Element 84 y [Copernicus](https://www.copernicus.eu): imágenes Sentinel-2

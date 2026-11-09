@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "geophis"
 # una sola fuente: src/geophis/__init__.py
 dynamic = ["version"]
-description = "Wrapper simple en español sobre geopandas/shapely/rasterio/pyproj para tareas de SIG."
+description = "Librería SIG en español para trabajo forestal y territorial: de shapefiles y curvas de nivel a pendientes, cuencas y hectáreas por clase, en scripts que una IA puede escribir por ti."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Antruc" }]
