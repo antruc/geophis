@@ -10,7 +10,7 @@ tarea y que una IA puede escribir por ti**
 ![Idioma: español](https://img.shields.io/badge/API-en%20espa%C3%B1ol-red)
 [![Licencia: GPL v3+](https://img.shields.io/badge/licencia-GPL--3.0--or--later-blue)](LICENSE)
 
-Funciones en español para tareas SIG forestales y territoriales: de shapefiles y curvas de nivel a rásters, clases y superficies listas para una memoria técnica. Por debajo usa geopandas y shapely (vector), rasterio (raster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis en cada script
+Por debajo usa geopandas y shapely (vector), rasterio (raster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis en cada script
 
 ![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.svg)
 
@@ -30,7 +30,7 @@ Funciones en español para tareas SIG forestales y territoriales: de shapefiles 
 
 ## Para qué sirve
 
-Para el trabajo técnico forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie para una memoria técnica. En vez de repetir clics en QGIS o ArcGIS, automatizas la tarea en Python con un script que se lee como la tarea que hace (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y que se vuelve a correr cuando cambia un dato
+Para el trabajo forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie. En vez de repetir clics en QGIS o ArcGIS, automatizas la tarea en Python con un script que se lee como la tarea que hace (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y que se vuelve a correr cuando cambia un dato
 
 **Tareas sueltas, en pocas líneas:**
 
@@ -53,9 +53,7 @@ Para el trabajo técnico forestal y territorial que termina en un entregable: sh
 
 ## Scripts hechos con IA
 
-**¿Se puede automatizar el trabajo SIG con una IA, en español?** Sí: le pides la tarea a Claude, ChatGPT u otro asistente en lenguaje normal, y te devuelve un script de geophis que corres en tu equipo con tus propios datos.
-
-La librería está documentada para que una IA escriba los scripts por ti. [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) trae todas las funciones con su firma y sus trampas, más las reglas de trabajo, y basta con cargarlo como contexto:
+**¿Se puede automatizar el trabajo SIG con una IA, en español?** Sí: le pides la tarea a Claude, ChatGPT u otro asistente en lenguaje normal, y te devuelve un script de geophis que corres en tu equipo con tus propios datos. Basta con cargar [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) como contexto: trae todas las funciones con su firma y sus trampas, más las reglas de trabajo
 
 1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) como contexto del proyecto
 2. Pide la tarea en lenguaje normal: "recorta las curvas al predio, saca el MDE y clasifica la pendiente en 0 a 15, 15 a 30 y más de 30 %". Lo que decides tú (los rangos, la escala) va en el pedido; lo que se puede medir, como la resolución del MDE, lo mide el script. Si falta una decisión, la IA pregunta antes de escribir código
@@ -146,7 +144,7 @@ git clone https://github.com/antruc/geophis.git
 cd geophis && pip install -e ".[dev]"
 pytest                 # pruebas
 ruff check src tests   # linter
-ruff format src tests  # formateo
+ruff format src tests ejemplos  # formateo
 ```
 
 | Ruta | Qué hace |
