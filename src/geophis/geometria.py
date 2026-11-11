@@ -131,7 +131,8 @@ def disolver_por_grupo(gdf: gpd.GeoDataFrame, campo: str) -> gpd.GeoDataFrame:
     """
     if campo not in gdf.columns:
         raise ValueError(f"la capa no tiene el campo '{campo}'")
-    return gdf.dissolve(by=campo, as_index=False)
+    # dropna=False: sin el, las filas con `campo` nulo desaparecen con su superficie
+    return gdf.dissolve(by=campo, as_index=False, dropna=False)
 
 
 def separar_multipartes(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -565,6 +566,11 @@ def linea_a_poligono(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     def _poligono(g: BaseGeometry) -> Polygon:
         # ponytail: asume LineString simple; MultiLineString usa el primer tramo.
+        if g.geom_type == "MultiLineString" and len(g.geoms) > 1:
+            print(
+                f"Aviso linea_a_poligono: línea de {len(g.geoms)} tramos, solo se "
+                "cierra el primero. Pasa antes separar_multipartes(gdf)"
+            )
         coords = (
             list(g.geoms[0].coords)
             if g.geom_type == "MultiLineString"
@@ -1335,7 +1341,10 @@ def ancho_banda(
     # y siempre trae `s_max`, así que su último elemento ES este alcance.
     alcance = escalera[-1]
     recortadas = recortar(curvas, zona_de_influencia(zona, alcance * 1.01))
-    por_cota = {c: recortadas[recortadas[campo] == c] for c in cotas}
+    # en numero, como `cotas`: con la columna en texto ('1200') nada casaba y
+    # salia SinBanda, o sea 0 ha "medido" en un predio que si tiene la clase
+    cota_num = pd.to_numeric(recortadas[campo], errors="coerce")
+    por_cota = {c: recortadas[cota_num == c] for c in cotas}
 
     if _mostrar():
         print(

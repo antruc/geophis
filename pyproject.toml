@@ -36,7 +36,8 @@ dependencies = [
     # geopandas, pero no se depende de lo que arrastre otra libreria. Piso de
     # geopandas 1.1
     "pyproj>=3.5",
-    "pandas>=1.5",
+    # `calcular_fecha_hora` usa `format="mixed"`, de pandas 2.0
+    "pandas>=2.0",
     "numpy>=1.24",
     "rasterio>=1.3",
     # `transform @ (x, y)`: el operador `@` es de affine 3.0 (`*` queda obsoleto)
@@ -104,17 +105,17 @@ select = ["E", "F", "W"]
 ignore = ["E501"]
 
 # Fuera a proposito, no por descuido. Con `I` (orden de imports), `B` y `UP` el
-# repo saca 17 avisos sobre `src` y `tests`: 11 de I001, 3 de B905 (`zip` sin
+# repo saca 38 avisos sobre `src` y `tests`: 20 de I001, 15 de B905 (`zip` sin
 # `strict`) y 3 de B028 (`warnings.warn` sin `stacklevel`). Ninguno es un
 # defecto:
-#   - I001 es reordenar imports en 11 archivos, cambios de forma que ensucian el historial sin ganancia.
-#   - B905: los tres `zip` de la libreria son de longitud DISTINTA a proposito
-#     (`zip(cotas, cotas[1:])` recorre pares contiguos); `strict=True` ahi
-#     reventaria.
+#   - I001 es reordenar imports en 20 archivos, cambios de forma que ensucian el historial sin ganancia.
+#   - B905: varios `zip` son de longitud DISTINTA a proposito
+#     (`zip(cotas, cotas[1:])` recorre pares contiguos) y `strict=True` ahi
+#     reventaria; los demas habria que revisarlos uno a uno.
 #   - B028: el `warnings.warn` de la libreria es el reemitido de
 #     `_traducir_avisos`, que reenvia un aviso ya capturado y no tiene pila
 #     propia que señalar; los otros dos los emiten los tests a proposito.
-# Se activan cuando alguien decida pagar esos 17, no antes. Lo que esta
+# Se activan cuando alguien decida pagar esos 38, no antes. Lo que esta
 # seleccionado es lo que el repo cumple HOY y en verde, que es el punto de
 # fijarlo: que se note el dia que deje de cumplirse. La cifra se vuelve a medir
 # con `ruff check --select I,B,UP --ignore E501 src tests`.

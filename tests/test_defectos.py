@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 import rasterio
 from rasterio import Affine
-from shapely.geometry import box, LineString, Polygon
+from shapely.geometry import box, LineString, MultiLineString, Polygon
 
 import geophis as geo
 
@@ -677,3 +677,98 @@ def test_guardar_en_pies_no_da_aviso_falso_de_sup(tmp_path, capsys):
     g = gpd.GeoDataFrame(geometry=[box(0, 0, 1000, 1000)], crs=2229)
     geo.guardar(geo.calcular_superficie(g, campo="SUP"), tmp_path / "pies.gpkg")
     assert "no cuadra" not in capsys.readouterr().out
+
+
+# --- auditoria: un test por defecto ---------------------------------------------
+
+
+def _ladera(cotas):
+    """Veinte curvas E-W cada 10 m, con la cota tal como venga (numero o texto)."""
+    lineas = [LineString([(0, 100 + 10 * i), (500, 100 + 10 * i)]) for i in range(20)]
+    return gpd.GeoDataFrame({"COTA": cotas}, geometry=lineas, crs=UTM)
+
+
+def test_ancho_banda_con_la_cota_en_texto_mide_lo_mismo():
+    """La cota en texto no casaba con ningún nivel y salía SinBanda: 0 ha 'medido'."""
+    zona = gpd.GeoDataFrame(geometry=[box(50, 50, 450, 350)], crs=UTM)
+    cotas = [1000 + 20 * i for i in range(20)]
+    _, numero = geo.ancho_banda(_ladera(cotas), "COTA", zona, 20, 1.0)
+    _, texto = geo.ancho_banda(_ladera([str(c) for c in cotas]), "COTA", zona, 20, 1.0)
+    assert texto == numero
+    assert numero["area_ha"] > 0
+
+
+def test_planos_de_curva_ignora_la_curva_sin_cota():
+    """Una curva sin cota volvía NaN el mínimo de todas las celdas: máscara vacía."""
+    lineas = [LineString([(0, y), (60, y)]) for y in (5, 25, 45, 55)]
+    curvas = gpd.GeoDataFrame(
+        {"COTA": [100.0, 120.0, 140.0, np.nan]}, geometry=lineas, crs=UTM
+    )
+    mde = np.full((12, 12), 120.0)
+    # el anillo del borde no tiene ventana 3x3 completa: quedan las 10x10 de dentro
+    plano = geo.planos_de_curva(mde, Affine(5, 0, 0, 0, -5, 60), curvas, "COTA")
+    assert plano.sum() == 100
+
+
+def test_disolver_por_grupo_conserva_la_clase_nula():
+    """`dissolve` tiraba las filas con el campo nulo, y con ellas su superficie."""
+    g = gpd.GeoDataFrame(
+        {"CLASE": ["A", "A", None]},
+        geometry=[box(0, 0, 10, 10), box(10, 0, 20, 10), box(20, 0, 30, 10)],
+        crs=UTM,
+    )
+    salida = geo.disolver_por_grupo(g, "CLASE")
+    assert len(salida) == 2
+    assert salida.area.sum() == pytest.approx(g.area.sum())
+
+
+def test_guardar_anchos_no_cambia_un_entero_grande(tmp_path):
+    """Por float, 2**53 + 1 se leía de vuelta como 2**53."""
+    valor = 2**53 + 1
+    g = gpd.GeoDataFrame(
+        {"ID": np.array([valor], dtype="int64")}, geometry=[box(0, 0, 1, 1)], crs=UTM
+    )
+    geo.guardar(g, tmp_path / "grande.shp", anchos={"ID": 18})
+    assert int(gpd.read_file(tmp_path / "grande.shp")["ID"].iloc[0]) == valor
+
+
+def test_cargar_puntos_fila_sin_coordenada_queda_nula(tmp_path, capsys):
+    """Salía POINT (nan nan), que ni `limpiar_vacias` ni `describir` veían."""
+    ruta = tmp_path / "p.csv"
+    ruta.write_text("x,y,n\n1,2,a\n,,b\n")
+    puntos = geo.cargar_puntos(ruta, epsg=UTM)
+    assert "1 fila(s) sin coordenada" in capsys.readouterr().out
+    assert len(geo.limpiar_vacias(puntos)) == 1
+
+
+def test_listar_campos_da_el_ancho_de_un_campo_con_enie(tmp_path):
+    """El nombre se leía en latin-1 y GDAL lo escribe en UTF-8: 'AÑO' sin ancho."""
+    g = gpd.GeoDataFrame({"AÑO": [2024]}, geometry=[box(0, 0, 1, 1)], crs=UTM)
+    geo.guardar(g, tmp_path / "anio.shp")
+    tabla = geo.listar_campos(tmp_path / "anio.shp")
+    assert tabla["ancho"].notna().all()
+
+
+def test_vista_previa_y_lamina_crean_la_carpeta(tmp_path):
+    """Fallaban con el error crudo; `guardar` y `guardar_raster` ya la creaban."""
+    arr, tf = np.arange(100.0).reshape(10, 10), Affine(1, 0, 0, 0, -1, 10)
+    geo.vista_previa(arr, tmp_path / "a" / "v.png")
+    panel = geo.panel_continuo(arr, tf, UTM, "t", "gris", "m")
+    geo.lamina([panel], tmp_path / "b" / "l.png", cita=None)
+    assert (tmp_path / "a" / "v.png").exists() and (tmp_path / "b" / "l.png").exists()
+
+
+def test_linea_a_poligono_avisa_de_los_tramos_que_no_cierra(capsys):
+    """Una multilínea se cerraba por su primer tramo sin decir nada."""
+    multi = MultiLineString([[(0, 0), (10, 0), (10, 10)], [(50, 50), (60, 50), (60, 60)]])
+    geo.linea_a_poligono(gpd.GeoDataFrame(geometry=[multi], crs=UTM))
+    assert "solo se cierra el primero" in capsys.readouterr().out
+
+
+def test_cli_sin_tipo_lo_dice_en_espanol(capsys):
+    """Salía el texto de argparse en inglés dentro del mensaje en español."""
+    from geophis.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["solo.shp"])
+    assert "falta el TIPO" in capsys.readouterr().err

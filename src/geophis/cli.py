@@ -41,6 +41,8 @@ class _Parser(argparse.ArgumentParser):
     """Error breve y en español en vez del volcado tecnico de argparse."""
 
     def error(self, message: str) -> None:
+        if "required" in message:  # el unico de argparse que sale con uso normal
+            message = f"falta el TIPO de salida ({', '.join(TIPOS)})"
         sys.stderr.write(
             f"Error: {message}\nEscribe 'geophis ayuda' para ver como se usa.\n"
         )

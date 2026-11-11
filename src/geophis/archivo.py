@@ -269,6 +269,15 @@ def cargar_puntos(
         geometry=gpd.points_from_xy(df[x], df[y]),
         crs=f"EPSG:{epsg}" if epsg else None,
     )
+    # una fila sin coordenada saldria como POINT (nan nan): ni nula ni vacia, asi
+    # que `limpiar_vacias` y `describir` no la verian. Nula si la ven.
+    sin_xy = (df[x].isna() | df[y].isna()).to_numpy()
+    if sin_xy.any():
+        gdf.loc[sin_xy, "geometry"] = None
+        print(
+            f"Aviso cargar_puntos: {int(sin_xy.sum())} fila(s) sin coordenada en "
+            f"'{x}' o '{y}': quedan con geometría nula. Quítalas con limpiar_vacias"
+        )
     if _mostrar():
         print(f"cargar_puntos: '{ruta}' {len(gdf)} puntos | CRS: {_crs_corto(gdf.crs)}")
     if epsg is None:
@@ -436,7 +445,13 @@ def _leer_dbf(ruta: str) -> tuple[bytes, list[tuple[str, str, int, int]], bytes]
         d = datos[i : i + 32]
         if d[0] == 0x0D:
             break
-        nombre = d[:11].split(b"\0")[0].decode("latin-1")
+        crudo = d[:11].split(b"\0")[0]
+        # GDAL escribe UTF-8; latin-1 solo para un .dbf viejo de otro programa.
+        # Con latin-1 a secas, 'AÑO' no casaba con la columna y salia sin ancho
+        try:
+            nombre = crudo.decode("utf-8")
+        except UnicodeDecodeError:
+            nombre = crudo.decode("latin-1")
         campos.append((nombre, chr(d[11]), d[16], d[17]))
     return datos[:largo_cab], campos, datos[largo_cab:]
 
@@ -487,9 +502,13 @@ def _fijar_anchos_dbf(ruta: str, anchos: dict[int, tuple[int, int]]) -> None:
             if not v or v.startswith(b"*"):  # nulo numerico
                 salida.append(b" " * a)
                 continue
-            x = float(v)
-            texto = f"{x:.{d}f}"
-            redondeados += float(texto) != x
+            if d == 0 and v.lstrip(b"-").isdigit():
+                # entero: tal cual. Por float, un ID mayor que 2**53 cambia de valor
+                texto = v.decode("ascii")
+            else:
+                x = float(v)
+                texto = f"{x:.{d}f}"
+                redondeados += float(texto) != x
             if len(texto) > a:
                 largos.append((len(texto), texto))
             salida.append(texto.rjust(a).encode("ascii"))
@@ -662,7 +681,8 @@ def exportar_tabla(
         geo.exportar_tabla(geo.cargar("predio.shp"), "atributos.xlsx")
 
     Avisa igual que `guardar` si una columna de área quedó obsoleta. Acepta
-    también un DataFrame sin geometría (`gdf[cols]`, `resumir`), sin ese aviso.
+    también un DataFrame sin geometría (`gdf[cols]`, `estadisticas_de_resumen`),
+    sin ese aviso.
 
     En .xlsx la deja lista para leer: `hoja` es el nombre de la pestaña, el
     encabezado queda fijo, cada columna toma el ancho de su texto más largo y
@@ -670,7 +690,7 @@ def exportar_tabla(
     """
     ext = _exigir_salida(ruta, _EXT_TABLA, "tabla")
     os.makedirs(os.path.dirname(os.path.abspath(ruta)), exist_ok=True)
-    # Sin geometría (`gdf[cols]` sin ella, o la salida de `resumir`) ya es
+    # Sin geometría (`gdf[cols]` sin ella, o `estadisticas_de_resumen`) ya es
     # tabla: no hay nada contra qué comprobar el área ni qué quitar.
     if isinstance(gdf, gpd.GeoDataFrame):
         _avisar_medida_obsoleta(gdf, "exportar_tabla")

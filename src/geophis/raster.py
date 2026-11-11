@@ -1262,6 +1262,11 @@ def planos_de_curva(
     dzdx, dzdy, valido, n_vecinos = _derivadas_horn(mde, transform)
     plano = valido & (n_vecinos >= 7) & (np.hypot(dzdx, dzdy) < 1e-9)
     niveles = np.unique(curvas[campo].to_numpy(dtype=float))
+    # sin los NaN: una sola curva sin cota volvia NaN el minimo de TODAS las
+    # celdas y la mascara salia vacia, o sea el aviso de planos apagado
+    niveles = niveles[~np.isnan(niveles)]
+    if not niveles.size:
+        return np.zeros_like(plano)
     # solo las celdas planas, que son pocas: celdas x niveles cabe en memoria.
     # 1 mm: la interpolación baricéntrica suma pesos y no da la cota al bit
     distancia = np.abs(
@@ -2894,6 +2899,7 @@ def vista_previa(
     if ancho_px < 2:
         raise ValueError(f"ancho_px {ancho_px} debe ser >= 2")
     _exigir_salida(ruta, {".png"}, "vista")
+    os.makedirs(os.path.dirname(os.path.abspath(ruta)), exist_ok=True)
 
     arr, capa = None, None
     if isinstance(capa_o_array, gpd.GeoDataFrame):

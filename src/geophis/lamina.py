@@ -552,6 +552,7 @@ def lamina(
         d.text((m, y), linea, font=f_ley, fill=negro)
         y += int(t_ley * 1.4)
 
+    os.makedirs(os.path.dirname(os.path.abspath(ruta)), exist_ok=True)
     lienzo.save(ruta, format="PNG")
     salida = {
         "ruta": os.fspath(ruta),
