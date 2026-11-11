@@ -1215,50 +1215,38 @@ def ancho_banda(
 ):
     """Ancho transversal MEDIDO `w` de la clase más alta, por escalera de cortes.
 
-    Es la medición que `resolucion_regla(..., ancho_medido=w)` no puede hacer y
-    sin la cual su techo de `trazado` cae al ancho GEOMÉTRICO `equidistancia /
-    p_max`. La diferencia no es cosmética: mueve `h` un 30 % en el predio de
-    referencia.
+    Es la medición que pide `resolucion_regla(..., ancho_medido=w)`; sin ella
+    su techo de `trazado` cae al ancho GEOMÉTRICO `equidistancia / p_max`. Mide
+    sobre la cartografía, no sobre el MDE (el porqué: docs/DECISIONES.md §3).
 
-    También es EXTERNA al MDE, que es el punto entero: la clase alta del MDE se
-    juzga contra la cartografía, no contra un sombreado del mismo ráster que la
-    produjo.
-
-    Cómo mide, en dos partes:
+    Cómo mide:
 
     1. **Reconstruye la banda.** Un tramo de la curva de cota `b` pertenece a la
        clase si su nivel contiguo `a` pasa a menos de `s_max = equidistancia /
-       (pendiente_pct/100)`: esa es la separación horizontal a la que el terreno
-       sostiene esa pendiente. Con `pendiente_pct` = 100 (default), `s_max` = la
-       equidistancia.
+       (pendiente_pct/100)`, la separación a la que el terreno sostiene esa
+       pendiente.
     2. **Escalera de cortes.** Repite el recorte a cada `x` de `cortes`. El
-       largo que APARECE entre `x_previo` y `x` está a esa distancia de su
-       vecina, así que aporta una franja de ancho medio `(x + x_previo)/2`.
-       Sumadas, esas franjas son el área que la carta sostiene en la clase, y
-       `w = area / largo_efectivo` es la banda media.
+       largo que APARECE entre `x_previo` y `x` aporta una franja de ancho
+       medio `(x + x_previo)/2`. La suma de franjas es el área de la clase, y
+       `w = area / largo_efectivo`.
 
-    Los largos van SIN zigzag (divididos entre `zigzag`): el trazo de la carta
-    es más largo que la banda que describe.
-
-    OJO, y es contraintuitivo: **el zigzag se CANCELA en `w`**, porque divide el
-    área y el largo efectivo por igual. Sí manda en `area_ha` y en
-    `largo_efectivo_m`, y `area_ha` es el blanco cartográfico contra el que se
-    compara la clase del MDE, o sea una cifra que se cita. Pasar `zigzag=1.0`
-    cuando el trazo zigzaguea no mueve `w`, pero infla ese blanco por el factor
-    entero.
+    TRAMPA del zigzag: los largos van divididos entre `zigzag`, así que **se
+    cancela en `w`** pero manda en `area_ha` y en `largo_efectivo_m`. Pasar
+    `zigzag=1.0` cuando el trazo zigzaguea no mueve `w` e infla `area_ha`, el
+    blanco cartográfico que se cita, por el factor entero.
 
     Parámetros
     ----------
     curvas : capa de curvas de nivel, con una fila (o varias) por cota. No hace
-        falta recortarla: se recorta aquí a `zona`.
+        falta recortarla: se recorta aquí a `zona` engordada `max(cortes)`, que
+        es exacto.
     campo : columna con la cota.
     zona : polígono contra el que se mide (el predio). Mismo CRS, proyectado.
     equidistancia : salto de cota, en unidades del CRS.
     zigzag : `factor_zigzag` de `separacion_media`, medido sobre `zona`. Se pasa
-        y no se recalcula, igual que en `separaciones`. No cambia `w` (se
-        cancela); sí cambia `area_ha`, que es el blanco cartográfico.
+        y no se recalcula, igual que en `separaciones`.
     pendiente_pct : límite inferior de la clase que se mide (default 100, la
-        clase `>100 %`). Fija `s_max = equidistancia / (pendiente_pct/100)`.
+        clase `>100 %`, con la que `s_max` = la equidistancia).
     cortes : distancias (m) de la escalera. None (default) = `s_max` por
         (0.4, 0.6, 0.8, 1.0), que con equidistancia 20 da los 8/12/16/20 con que
         se midió `w` = 15.5 m. `s_max` se añade siempre si no está: el último
@@ -1267,15 +1255,8 @@ def ancho_banda(
     `geo.MOSTRAR` : imprime la escalera y `w`.
 
     COSTO: `len(cortes) x (nº de cotas - 1)` buffer + recorte vectoriales. Con
-    59 cotas y 4 cortes son ~236 pasadas: segundos a minutos, no horas, pero no
-    es gratis. Se mide UNA vez por predio.
-
-    NO hace falta recortar `curvas` antes de llamar: se recorta aquí a `zona`
-    engordada `max(cortes)`, que es exacto (más allá de ese alcance ninguna
-    geometría puede cambiar el resultado) y es lo que hace la función usable con
-    cartografía estatal. Sin ese recorte, el buffer se aplica a la multilínea
-    completa de cada nivel y con una carta estatal eso agota la memoria y el
-    sistema mata el proceso sin traza.
+    59 cotas y 4 cortes son ~236 pasadas: segundos a minutos. Se mide UNA vez
+    por predio.
 
     Devuelve `(tabla, resumen)`, como `separaciones`:
     - `tabla` : un dict por corte con `distancia`, `largo_nuevo_m` (el que
@@ -1284,33 +1265,24 @@ def ancho_banda(
       clase), `largo_efectivo_m`, `separacion_max` y `ancho_geometrico`
       (= `s_max`, con el que hay que contrastar `w`).
 
-    Sin banda medible dentro de `zona` levanta `SinBanda` (un ValueError): eso
-    es un resultado ("la clase no existe en este predio"), no un cero que se
-    pueda seguir usando sin decirlo. Si `zona` no tiene ninguna curva, levanta
-    `ValueError` llano: eso es un error de CRS o de capas, no un resultado.
+    Sin banda medible dentro de `zona` levanta `SinBanda` (un ValueError): es
+    un resultado ("la clase no existe en este predio"). Si `zona` no tiene
+    ninguna curva, levanta `ValueError` llano: es un error de CRS o de capas.
 
     Con `devolver_banda=True` devuelve `(tabla, resumen, banda)`. `banda` son
-    los TRAMOS DE CURVA de la clase al último corte, ya recortados a `zona`: la
-    misma geometría con la que se contó `largo_efectivo_m`, no una reconstruida
-    aparte. Es lo que hace falta para la cifra que el resumen numérico NO puede
-    dar, del tipo *"el MDE ve el 56 % del escarpe cartográfico (10 436 m
-    efectivos)"*. Ese porcentaje es el largo de la banda
-    que cae DENTRO de la clase del MDE sobre el largo total, y sin la geometría
-    no sale:
+    los TRAMOS DE CURVA (líneas) de la clase al último corte, ya recortados a
+    `zona`: la geometría con la que se contó `largo_efectivo_m`. Sirve para la
+    cifra *"el MDE ve el 56 % del escarpe cartográfico"*:
 
         _, resumen, banda = ancho_banda(curvas, "COTA", predio, 20, zigzag,
                                         devolver_banda=True)
         visto = longitud_total_m(recortar(banda, alta)) / zigzag   # `alta` = clase del MDE
         print(f"el MDE ve el {100 * visto / resumen['largo_efectivo_m']:.0f} %")
 
-    OJO con el zigzag, y es la trampa de esta salida: `longitud_total_m(banda)` es el
-    largo del TRAZO, con zigzag dentro, mientras que `largo_efectivo_m` ya viene
-    dividido entre él. Dividir el largo medido sobre `banda` antes de compararlo
-    NO es cosmética: en un predio con zigzag 1.408 son 40 puntos porcentuales.
-
-    Son líneas, no polígono, porque es lo que ya se calcula por dentro y lo que
-    la cifra necesita. El polígono es `zona_de_influencia(banda, w/2)` en la llamada, y sale
-    con el `w` que esta misma función acaba de devolver.
+    TRAMPA: `longitud_total_m(banda)` es largo de TRAZO, con zigzag dentro, y
+    `largo_efectivo_m` ya viene dividido entre él. Sin dividir, con zigzag
+    1.408 son 40 puntos porcentuales. Para el polígono de la banda:
+    `zona_de_influencia(banda, w/2)`.
     """
     _exigir_proyectado(curvas, "curvas")
     _exigir_proyectado(zona, "zona")

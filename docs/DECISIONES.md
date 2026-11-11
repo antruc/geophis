@@ -95,7 +95,9 @@ La solución es una sola pasada con la clase alta exenta: ni absorbe ni es absor
 
 ### El ancho de la cinta se mide
 
-Sin medirlo, el ancho de la clase alta se calcula como equidistancia entre pendiente (20 m para 100 %). Medido sobre la carta, reconstruyendo la banda donde las curvas están más juntas que esa separación, dio **15.5 m**, y con eso el tamaño de píxel bajó de 6.67 a 5.17 m. La medición también da el área que la carta sostiene en esa clase: el **blanco cartográfico** contra el que se compara el MDE.
+Sin medirlo, el ancho de la clase alta se calcula como equidistancia entre pendiente (20 m para 100 %). Medido sobre la carta, reconstruyendo la banda donde las curvas están más juntas que esa separación, dio **15.5 m**, y con eso el tamaño de píxel bajó de 6.67 a 5.17 m. La medición también da el área que la carta sostiene en esa clase: el **blanco cartográfico** contra el que se compara el MDE. La medición es externa al MDE a propósito: la clase alta del MDE se juzga contra la cartografía, no contra un derivado del mismo ráster que la produjo. En el predio de referencia, usar el ancho medido en vez del geométrico mueve `h` un 30 %.
+
+`ancho_banda` recorta las curvas por dentro a la zona engordada con el corte mayor. Es exacto (más allá de ese alcance ninguna geometría cambia el resultado) y es lo que la hace usable con cartografía estatal: sin ese recorte, el buffer se aplica a la multilínea completa de cada nivel, agota la memoria y el sistema mata el proceso sin traza.
 
 Dos cuidados: el zigzag del trazo se cancela en el ancho pero manda en el área (pasar zigzag 1.0 por descuido infla el blanco por el factor entero), y el largo de los tramos de la banda es largo de trazo, que hay que dividir entre el zigzag (con zigzag 1.408, olvidarlo son 40 puntos porcentuales de "escarpe visto"). Y la escalera de cotas se toma de las curvas completas, antes del recorte: si no, dos niveles separados 2e quedan como contiguos y aparece una banda que no existe.
 
