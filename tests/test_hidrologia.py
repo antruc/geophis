@@ -59,18 +59,22 @@ def _rampa_al_este(filas=12, columnas=12):
 # ---- el parche de compatibilidad y su TECHO -------------------------------
 
 
-def test_parche_repone_in1d_con_la_semantica_correcta():
+def test_parche_repone_in1d_solo_dentro_de_pysheds():
     # `in1d` es `isin` aplanando la entrada. pysheds la llama SIEMPRE sobre un
     # `.ravel()`, asi que el alias es exacto para este uso. Si algun dia se
     # llamara con un array 2D, `isin` conservaria la forma y `in1d` no.
+    sgrid = pytest.importorskip("pysheds.sgrid")
     geo.hidrologia._parchear_pysheds_numpy2()
     plano = np.array([1, 2, 64, 7])
-    assert np.in1d(plano, [1, 2, 4, 8, 16, 32, 64, 128]).tolist() == [
+    assert sgrid.np.in1d(plano, [1, 2, 4, 8, 16, 32, 64, 128]).tolist() == [
         True,
         True,
         True,
         False,
     ]
+    assert sgrid.np.zeros is np.zeros  # lo demas pasa a numpy tal cual
+    # numpy queda intacto: con numpy >= 2 sigue sin `in1d` fuera de pysheds
+    assert hasattr(np, "in1d") == (int(np.__version__.split(".")[0]) < 2)
 
 
 def test_el_parche_de_pysheds_sigue_haciendo_falta():
@@ -82,9 +86,8 @@ def test_el_parche_de_pysheds_sigue_haciendo_falta():
     `np.in1d`, y entonces la accion es BORRAR el parche, su llamada en
     `acondicionar_mde` y estos dos tests.
 
-    Se lee el fuente en vez de llamar a la funcion porque el parche, una vez
-    aplicado, hace que numpy tenga `in1d` otra vez: preguntarle a numpy no
-    distingue "pysheds ya no la usa" de "el parche ya corrio".
+    Se lee el fuente en vez de llamar a la funcion: ejecutar pysheds no
+    distingue "ya no la usa" de "el parche ya corrio".
     """
     sgrid = pytest.importorskip("pysheds.sgrid")
     fuente = Path(sgrid.__file__).read_text(encoding="utf-8", errors="replace")

@@ -13,7 +13,7 @@ import geophis as geo
 | Función | Qué hace |
 |---|---|
 | [`cargar`](GEOPHIS.md#archivopy-es-de-capas) | Lee capa vectorial (.shp/.gpkg/.geojson/.gpx/.dxf) → GeoDataFrame; `crs=` asigna el CRS si el archivo no lo trae |
-| [`cargar_puntos`](GEOPHIS.md#archivopy-es-de-capas) | Puntos desde CSV/Excel a GeoDataFrame; `epsg` fija el CRS |
+| [`cargar_puntos`](GEOPHIS.md#archivopy-es-de-capas) | Puntos desde CSV/Excel a GeoDataFrame; `epsg` fija el CRS y es obligatorio |
 | [`convertir`](GEOPHIS.md#archivopy-es-de-capas) | `cargar`+`guardar` en una línea |
 | [`guardar`](GEOPHIS.md#archivopy-es-de-capas) | Formato por extensión. .gpx/.kml/.kmz reproyecta a EPSG:4326 automáticamente; en .gpx la geometría decide waypoint o track (no pases `gpx_como`); `anchos=` fija el ancho de campo en .shp |
 | [`comprobar_nombres_shp`](GEOPHIS.md#archivopy-es-de-capas) | Devuelve dict `{columna: motivo}` con las columnas que NO sobreviven a un `.shp`; vacío = todas pasan |
@@ -117,7 +117,7 @@ import geophis as geo
 |---|---|
 | [`cargar_raster`](GEOPHIS.md#rasterpy-trabajan-sobre-arrays-2d-numpy-transformcrs) | Devuelve `(array, transform, crs, resolucion_m)` |
 | [`cargar_bandas`](GEOPHIS.md#rasterpy-trabajan-sobre-arrays-2d-numpy-transformcrs) | Devuelve la misma tupla de 4, con el array en 3D `(banda, y, x)` en el orden pedido |
-| [`guardar_raster`](GEOPHIS.md#rasterpy-trabajan-sobre-arrays-2d-numpy-transformcrs) | Array 2D, 3D o lista de 2D → GeoTIFF float32 con NoData NaN; `nombres=` por banda |
+| [`guardar_raster`](GEOPHIS.md#rasterpy-trabajan-sobre-arrays-2d-numpy-transformcrs) | Array 2D, 3D o lista de 2D → GeoTIFF float32 (float64 si hay valores sobre 2**24) con NoData NaN; `nombres=` por banda |
 | [`recortar_raster`](GEOPHIS.md#rasterpy-trabajan-sobre-arrays-2d-numpy-transformcrs) | Devuelve `(array, transform, crs, resolucion_m)` |
 | [`mosaico`](GEOPHIS.md#rasterpy-trabajan-sobre-arrays-2d-numpy-transformcrs) | Junta varios rásters de una banda (rutas o URL de COG) leyendo solo el rectángulo del predio; el orden es la prioridad |
 | [`rellenar_nodata`](GEOPHIS.md#rasterpy-trabajan-sobre-arrays-2d-numpy-transformcrs) | NaN ← píxel válido más cercano |

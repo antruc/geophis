@@ -240,8 +240,9 @@ def cargar_puntos(
         Nombres de las columnas con la coordenada X (este/lon) e Y (norte/lat).
     epsg : int, opcional
         CRS de esas coordenadas (p.ej. 32613 para UTM 13N, 4326 para lon/lat).
-        El archivo de texto no lo trae, así que se define aquí. Sin él la capa
-        queda sin CRS y no podrás reproyectar ni medir áreas.
+        El archivo de texto no lo trae, así que se define aquí. Sin él falla,
+        igual que `cargar` y `crear_capa`: una capa sin CRS no se puede
+        reproyectar ni medir.
     orden : str, opcional
         Columna de secuencia por la que ordenar las filas antes de armar la
         capa. Si es None se respeta el orden del archivo. Solo importa si luego
@@ -252,6 +253,11 @@ def cargar_puntos(
     GeoDataFrame de puntos con todas las columnas del archivo como atributos.
     """
     _exigir_archivo(ruta)
+    if epsg is None:
+        raise ValueError(
+            "cargar_puntos: falta `epsg`, el CRS de las coordenadas: un CSV o Excel "
+            "no lo trae. Ej.: epsg=32613 para UTM 13N, epsg=4326 para lon/lat"
+        )
     ext = os.path.splitext(str(ruta))[1].lower()
     leer = pd.read_excel if ext in (".xlsx", ".xls") else pd.read_csv
     df = leer(ruta)
@@ -267,7 +273,7 @@ def cargar_puntos(
     gdf = gpd.GeoDataFrame(
         df,
         geometry=gpd.points_from_xy(df[x], df[y]),
-        crs=f"EPSG:{epsg}" if epsg else None,
+        crs=f"EPSG:{epsg}",
     )
     # una fila sin coordenada saldria como POINT (nan nan): ni nula ni vacia, asi
     # que `limpiar_vacias` y `describir` no la verian. Nula si la ven.
@@ -280,11 +286,6 @@ def cargar_puntos(
         )
     if _mostrar():
         print(f"cargar_puntos: '{ruta}' {len(gdf)} puntos | CRS: {_crs_corto(gdf.crs)}")
-    if epsg is None:
-        print(
-            "Aviso cargar_puntos: capa sin CRS (no se pasó epsg); no podrás reproyectar ni "
-            "medir áreas. Ej.: epsg=32613 para UTM 13N"
-        )
     if len(gdf) == 0:
         print(f"Aviso cargar_puntos: '{ruta}' no tiene filas")
     return gdf

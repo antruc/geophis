@@ -30,6 +30,8 @@ CITA OBLIGATORIA en todo entregable: `Contains modified Copernicus Sentinel
 data AAAA` (el año de la imagen). La licencia la exige.
 """
 
+import contextlib
+import io
 import json
 import time
 import urllib.error
@@ -380,6 +382,12 @@ def imagen_sentinel2(
     # ponytail: 20 m = el pixel mas grueso de BANDAS_S2; una banda de 60 m pide 60
     holgura = gpd.GeoDataFrame(geometry=zona.buffer(20 * (1 + margen_nube)), crs=crs_sal)
 
+    def _mosaico_mudo(*args: Any) -> tuple[FloatArray, Affine, CRS, float]:
+        # el "sin dato" de `mosaico` va sobre la holgura y saldria por banda y
+        # por fecha; el del predio lo da UNA vez el aviso de esta funcion
+        with contextlib.redirect_stdout(io.StringIO()):
+            return mosaico(*args)
+
     def _dentro(forma: tuple[int, ...], tf: Affine) -> npt.NDArray[np.bool_]:
         d = rasterizar(zona, forma, tf, valor=1) == 1
         if not d.any():
@@ -387,7 +395,7 @@ def imagen_sentinel2(
         return d
 
     def _revisar(e: dict[str, Any]) -> tuple[dict[str, Any], float, FloatArray, Affine]:
-        scl, tf, _, _ = _callado(mosaico)(e["urls"]["scl"], holgura, crs_sal)
+        scl, tf, _, _ = _mosaico_mudo(e["urls"]["scl"], holgura, crs_sal)
         limpia = _limpio(scl, margen_nube)
         limpio = float(100 * limpia[_dentro(scl.shape, tf)].mean())
         return e, limpio, limpia.astype(float), tf
@@ -447,7 +455,7 @@ def imagen_sentinel2(
     aporta: dict[str, float] = {}
     for i in usadas:
         e, _, lim, tf_lim = revisadas[i]
-        mos = {k: _callado(mosaico)(e["urls"][k], holgura, crs_sal) for k in bandas}
+        mos = {k: _mosaico_mudo(e["urls"][k], holgura, crs_sal) for k in bandas}
         if ref is None:
             # malla de la banda mas fina, recortada a las celdas del predio (la
             # holgura solo sirve para leer)

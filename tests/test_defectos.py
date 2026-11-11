@@ -796,3 +796,42 @@ def test_subdividir_por_area_avisa_si_el_tope_de_niveles_no_alcanza(capsys):
     capsys.readouterr()
     geo.subdividir_por_area(g, area_max_ha=30)
     assert "Aviso" not in capsys.readouterr().out
+
+
+# ---- auditoria, pendiente 4: los menores ----------------------------------
+
+
+def test_acondicionar_mde_ruta_mala_falla_en_espanol(tmp_path):
+    """Salía el error crudo de pysheds, en inglés."""
+    with pytest.raises(FileNotFoundError, match="no existe"):
+        geo.acondicionar_mde(tmp_path / "no_esta.tif")
+
+
+def test_cargar_puntos_sin_epsg_falla_como_cargar(tmp_path):
+    """Solo avisaba y devolvía una capa sin CRS; `cargar` y `crear_capa` fallan."""
+    ruta = tmp_path / "p.csv"
+    ruta.write_text("x,y\n1,2\n")
+    with pytest.raises(ValueError, match="falta `epsg`"):
+        geo.cargar_puntos(ruta)
+
+
+def test_guardar_raster_no_redondea_enteros_mayores_que_2_24(tmp_path):
+    """En float32, 16 777 217 se guardaba como 16 777 216."""
+    tf = Affine(1, 0, 0, 0, -1, 2)
+    grande = np.array([[2.0**24 + 1, 1.0], [2.0, np.nan]])
+    with rasterio.open(geo.guardar_raster(grande, tmp_path / "g.tif", tf, UTM)) as f:
+        assert f.dtypes[0] == "float64" and f.read(1)[0, 0] == 2**24 + 1
+    with rasterio.open(
+        geo.guardar_raster(grande / 1e6, tmp_path / "c.tif", tf, UTM)
+    ) as f:
+        assert f.dtypes[0] == "float32"
+
+
+def test_reclasificar_rangos_avisa_de_los_valores_en_un_hueco(capsys):
+    """15.5 con rangos 0-15 y 16-30 quedaba en -1 sin decir nada."""
+    arr = np.array([[5.0, 15.5], [20.0, np.nan]])
+    cod, _ = geo.reclasificar_rangos(arr, [("a", 0, 15), ("b", 16, 30)])
+    assert cod.tolist() == [[1, -1], [2, -1]]
+    assert "1 celda(s) con valor quedan sin rango" in capsys.readouterr().out
+    geo.reclasificar_rangos(arr, [("a", 0, 15), ("b", 15, 30)])
+    assert "Aviso" not in capsys.readouterr().out  # el NaN no cuenta

@@ -193,6 +193,10 @@ def guardar_raster(
 ) -> str:
     """Escribe un array a un GeoTIFF float32, de una banda o de varias.
 
+    Pasa a float64 si algún valor supera 2**24 (16.7 millones): por encima,
+    float32 ya no distingue enteros consecutivos y una acumulación de flujo
+    grande se guardaría redondeada.
+
     `transform` y `crs` son los que devolvió `interpolar_mde`, `cargar_raster`
     o `mosaico`. El NoData se declara NaN, que es como el módulo lo marca.
 
@@ -209,7 +213,7 @@ def guardar_raster(
     nombre es lo único que viaja con el archivo.
     """
     _exigir_salida(ruta, {".tif", ".tiff"}, "raster")
-    # ponytail: siempre float32, un categórico uint8 se guarda como float.
+    # ponytail: siempre flotante, un categórico uint8 se guarda como float.
     # Agrega parámetro dtype si algún día pesa el tamaño de archivo.
     if isinstance(arr, (list, tuple)):
         formas = {np.shape(a) for a in arr}
@@ -223,7 +227,10 @@ def guardar_raster(
     nombres = None if nombres is None else tuple(nombres)
     if nombres is not None and len(nombres) != arr.shape[0]:
         raise ValueError(f"{len(nombres)} nombres para {arr.shape[0]} banda(s)")
-    # `nodata=NaN` siempre: se escribe float32 y el módulo marca el NoData con
+    finitos = arr[np.isfinite(arr)]
+    grande = finitos.size > 0 and float(np.abs(finitos).max()) > 2**24
+    dtype = "float64" if grande else "float32"
+    # `nodata=NaN` siempre: se escribe en flotante y el módulo marca el NoData con
     # NaN, así que el archivo tiene que DECLARAR NaN. Un .tif que dice -9999 y
     # trae NaN lo relee bien geophis, pero otros SIG leen esos NaN como dato.
     perfil = {
@@ -231,14 +238,14 @@ def guardar_raster(
         "crs": crs,
         "transform": transform,
         "count": arr.shape[0],
-        "dtype": "float32",
+        "dtype": dtype,
         "nodata": np.nan,
         "height": arr.shape[1],
         "width": arr.shape[2],
     }
     os.makedirs(os.path.dirname(os.path.abspath(ruta)), exist_ok=True)
     with _traducir_errores(ruta), rasterio.open(ruta, "w", **perfil) as dst:
-        dst.write(arr.astype(np.float32))
+        dst.write(arr.astype(dtype))
         for i, nombre in enumerate(nombres or (), start=1):
             dst.set_band_description(i, nombre)
     if _mostrar():
@@ -400,7 +407,7 @@ def mosaico(
     if dentro.any():
         hueco = 100 * np.isnan(arr[dentro]).mean()
         if hueco > 0:
-            print(f"mosaico: {hueco:.1f} % de la mascara sin dato")
+            print(f"Aviso mosaico: {hueco:.1f} % de la máscara sin dato")
     res = abs(tf.a)
     if _mostrar():
         print(
@@ -2535,6 +2542,7 @@ def reclasificar_rangos(
     rangos : lista de (etiqueta, minimo, maximo). Se asumen contiguos y
         ordenados; usa `float('inf')` para un rango abierto por arriba.
     nodata_valor : código para las celdas sin rango / NoData (default -1).
+        AVISA si una celda con valor se queda sin rango.
 
     Devuelve (array_codigos int32, dict {codigo: etiqueta}). El diccionario
     permite mapear luego los códigos a una columna de texto sin repetir la
@@ -2546,6 +2554,15 @@ def reclasificar_rangos(
         etiquetas[codigo] = etiqueta
         dentro = (arr >= mn) if codigo == 1 else (arr > mn)
         codigos[dentro & (arr <= mx)] = codigo
+    # NaN no cuenta: es NoData de entrada, no un valor que se quedo sin rango
+    sueltas = int(((codigos == nodata_valor) & ~np.isnan(arr)).sum())
+    if sueltas:
+        print(
+            f"Aviso reclasificar_rangos: {sueltas} celda(s) con valor quedan sin "
+            f"rango (código {nodata_valor}): hay un hueco entre rangos o valores "
+            "fuera de ellos. Haz contiguos los rangos (el máximo de uno = el "
+            "mínimo del siguiente)"
+        )
     return codigos, etiquetas
 
 

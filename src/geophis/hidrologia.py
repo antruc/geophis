@@ -1,8 +1,8 @@
 """Hidrologia: acondicionado del MDE, flujo D8, red de drenaje y cuencas.
 
 **pysheds esta confinado aqui.** Estas funciones son las unicas del paquete que
-lo tocan, y con ellas viaja `_parchear_pysheds_numpy2`, un parche global sobre
-numpy que no tiene por que vivir en el modulo de E/S raster.
+lo tocan, y con ellas viaja `_parchear_pysheds_numpy2`, un parche sobre pysheds
+que no tiene por que vivir en el modulo de E/S raster.
 
 CAPA 2, junto a `geometria` y sin importarse con el: solo necesita tres cosas
 de `raster` (`rellenar_nodata`, `poligonizar`, `rasterizar`), las tres publicas
@@ -44,6 +44,7 @@ from scipy.ndimage import (
 
 from .proyeccion import _a_crs
 from .raster import FloatArray, poligonizar, rasterizar, rellenar_nodata
+from ._rutas import _exigir_archivo, _traducir_errores
 from ._salida import _mostrar
 
 if TYPE_CHECKING:
@@ -64,14 +65,24 @@ def _parchear_pysheds_numpy2() -> None:
     El alias es exacto para este uso: `in1d` es `isin` aplanando la entrada, y
     aquí la entrada ya viene de un `.ravel()`, así que la forma coincide.
 
-    # ponytail: es un parche global sobre numpy, y por eso va condicionado y
-    # llamado desde el único sitio por el que se entra a la rama (no se puede
-    # tener un `grid` sin pasar por `acondicionar_mde`). Techo: el día que
-    # pysheds publique una versión que no llame a `in1d`, esta función deja de
-    # hacer nada sola y se puede borrar junto con su llamada.
+    # ponytail: el alias se pone SOLO en `pysheds.sgrid`, el único módulo de
+    # pysheds que llama a `in1d`, cambiando su `np` por un envoltorio; numpy
+    # queda intacto para el resto del proceso. Va condicionado y llamado desde
+    # el único sitio por el que se entra a la rama (no se puede tener un `grid`
+    # sin pasar por `acondicionar_mde`). Techo: el día que pysheds publique una
+    # versión que no llame a `in1d`, se borra junto con su llamada.
     """
-    if not hasattr(np, "in1d"):
-        np.in1d = np.isin  # type: ignore[attr-defined]
+    if hasattr(np, "in1d"):
+        return
+    import pysheds.sgrid
+
+    class _NumpyConIn1d:
+        in1d = staticmethod(np.isin)
+
+        def __getattr__(self, nombre: str) -> Any:
+            return getattr(np, nombre)
+
+    pysheds.sgrid.np = _NumpyConIn1d()
 
 
 def _borde(forma: tuple[int, ...]) -> npt.NDArray[np.bool_]:
@@ -127,6 +138,7 @@ def acondicionar_mde(mde_path: str | PathLike[str]) -> tuple["Grid", "Raster"]:
     no es 0, la respuesta es dar más curvas (ampliar `cuadro_recorte` y volver
     a recortar del shapefile completo), no aceptar el relleno.
     """
+    _exigir_archivo(mde_path)
     _parchear_pysheds_numpy2()
     from pysheds.grid import Grid
     from pysheds.sview import Raster
@@ -134,8 +146,9 @@ def acondicionar_mde(mde_path: str | PathLike[str]) -> tuple["Grid", "Raster"]:
     # pysheds hace `isinstance(data, str)` y revienta con un Path, que la firma
     # de esta funcion sí acepta (y es lo que devuelve `guardar_raster`)
     mde_path = os.fspath(mde_path)
-    grid = Grid.from_raster(mde_path)
-    dem = grid.read_raster(mde_path)
+    with _traducir_errores(mde_path):
+        grid = Grid.from_raster(mde_path)
+        dem = grid.read_raster(mde_path)
 
     arr = np.asarray(dem, dtype=float)
     sin_dato = int(np.isnan(arr).sum())

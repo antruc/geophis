@@ -201,7 +201,10 @@ def test_imagen_rellena_la_nube_con_la_segunda(tmp_path):
 def test_imagen_cita_la_licencia_aunque_mostrar_false(tmp_path, capsys):
     e = _escena(tmp_path, "2026-04-24", np.full((10, 10), 4), 2000)
     geo.imagen_sentinel2(PREDIO, escenas=[e])
-    assert "Copernicus Sentinel data 2026" in capsys.readouterr().out
+    salida = capsys.readouterr().out
+    assert "Copernicus Sentinel data 2026" in salida
+    # el "sin dato" de `mosaico` no se repite por banda y por fecha
+    assert "mosaico" not in salida
 
 
 def test_imagen_max_revisar_corta_la_lectura_y_avisa(tmp_path, capsys):
