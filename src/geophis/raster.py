@@ -846,10 +846,10 @@ def _separacion_horizontal(
         return float(lam)
     # respaldo: sin curvas dentro de la zona, G'(0) no mide. El cociente
     # global sesga, pero es preferible a no tener parámetros.
-    return _separacion_media(curvas)
+    return _separacion_por_caja(curvas)
 
 
-def _separacion_media(curvas: gpd.GeoDataFrame) -> float | None:
+def _separacion_por_caja(curvas: gpd.GeoDataFrame) -> float | None:
     """Separación HORIZONTAL media entre curvas (área/longitud). RESPALDO.
 
     Sesgada a la baja por el zigzag del trazo; la usa `_separacion_horizontal`
@@ -1949,6 +1949,17 @@ def _celdas(
     return filas, cols, dentro
 
 
+def _tinta_de_contorno(
+    capa: gpd.GeoDataFrame, forma: tuple[int, int], transform: Affine
+) -> npt.NDArray[np.bool_]:
+    """Celdas que pisa el trazo de `capa`: el borde de los polígonos, el resto tal cual."""
+    trazos = capa.geometry.map(
+        lambda g: g.boundary if g.geom_type in ("Polygon", "MultiPolygon") else g
+    )
+    capa_trazos = gpd.GeoDataFrame(geometry=trazos, crs=capa.crs)
+    return rasterizar(capa_trazos, forma, transform, valor=1, todo_tocado=True) == 1
+
+
 def rasterizar(
     gdf: gpd.GeoDataFrame,
     forma: tuple[int, int],
@@ -2942,13 +2953,7 @@ def vista_previa(
         img = np.where(np.isnan(z), 0, 1 + 254 * np.clip(escala, 0, 1)).astype(np.uint8)
 
     if capa is not None:
-        trazos = capa.geometry.map(
-            lambda g: g.boundary if g.geom_type in ("Polygon", "MultiPolygon") else g
-        )
-        tinta = rasterizar(
-            gpd.GeoDataFrame(geometry=trazos), img.shape, tf, valor=1, todo_tocado=True
-        )
-        img[tinta == 1] = 255
+        img[_tinta_de_contorno(capa, img.shape, tf)] = 255
 
     # un PNG sin georreferencia es a proposito: es para verlo, no para SIG
     with warnings.catch_warnings():

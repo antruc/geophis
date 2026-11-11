@@ -43,14 +43,12 @@ from scipy.ndimage import (
 )
 
 from .proyeccion import _a_crs
-from .raster import poligonizar, rasterizar, rellenar_nodata
+from .raster import FloatArray, poligonizar, rasterizar, rellenar_nodata
 from ._salida import _mostrar
 
 if TYPE_CHECKING:
     from pysheds.grid import Grid
     from pysheds.sview import Raster
-
-FloatArray = npt.NDArray[np.floating[Any]]
 
 
 def _parchear_pysheds_numpy2() -> None:
@@ -76,6 +74,13 @@ def _parchear_pysheds_numpy2() -> None:
         np.in1d = np.isin  # type: ignore[attr-defined]
 
 
+def _borde(forma: tuple[int, ...]) -> npt.NDArray[np.bool_]:
+    """Máscara con True en las celdas del marco del raster."""
+    borde = np.zeros(forma, dtype=bool)
+    borde[0, :] = borde[-1, :] = borde[:, 0] = borde[:, -1] = True
+    return borde
+
+
 def _sin_salida(fdir: "Raster") -> tuple[npt.NDArray[np.bool_], npt.NDArray[np.bool_]]:
     """Separa las celdas sin salida de flujo en (interiores, de borde).
 
@@ -86,8 +91,7 @@ def _sin_salida(fdir: "Raster") -> tuple[npt.NDArray[np.bool_], npt.NDArray[np.b
     """
     d = np.asarray(fdir)
     fuera = d <= 0
-    borde = np.zeros(d.shape, dtype=bool)
-    borde[0, :] = borde[-1, :] = borde[:, 0] = borde[:, -1] = True
+    borde = _borde(d.shape)
     return fuera & ~borde, fuera & borde
 
 
@@ -523,9 +527,7 @@ def _pendiente_en_cauce(z: FloatArray, cauce: npt.NDArray[np.bool_]) -> int:
         fuera_min = np.minimum(
             fuera_min, zp[1 + df : 1 + df + alto, 1 + dc : 1 + dc + ancho]
         )
-    borde = np.zeros(z.shape, dtype=bool)
-    borde[0, :] = borde[-1, :] = borde[:, 0] = borde[:, -1] = True
-    semilla = cauce & (borde | (fuera_min < z))
+    semilla = cauce & (_borde(z.shape) | (fuera_min < z))
 
     visto = semilla.copy()
     cola = [(float(z[f, c]), int(f), int(c)) for f, c in zip(*np.nonzero(semilla))]

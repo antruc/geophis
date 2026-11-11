@@ -943,13 +943,12 @@ def detectar_utm(gdf: gpd.GeoDataFrame) -> int:
     """
     # sin CRS, el error de geopandas no dice qué capa
     _exigir_crs(gdf, "gdf")
-    x0, y0, x1, y1 = gdf.to_crs(4326).total_bounds
+    x0, _, x1, _ = gdf.to_crs(4326).total_bounds
     if int((x0 + 180) // 6) != int((x1 + 180) // 6):
         raise ValueError(
             f"la capa cruza dos husos UTM ({x0:.2f} a {x1:.2f}): elige uno a mano"
         )
-    zona = int(((x0 + x1) / 2 + 180) // 6) + 1
-    epsg = (32600 if (y0 + y1) / 2 >= 0 else 32700) + zona
+    epsg = int(gdf.estimate_utm_crs().to_epsg())
     if _mostrar():
         print(f"detectar_utm: EPSG:{epsg}")
     return epsg

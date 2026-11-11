@@ -38,7 +38,7 @@ from rasterio.enums import Resampling
 from ._salida import _mostrar
 from ._rutas import _exigir_salida
 from .proyeccion import _a_crs
-from .raster import rasterizar, remuestrear
+from .raster import _tinta_de_contorno, rasterizar, remuestrear
 
 # anclas de cada paleta, repartidas de 0 a 1
 PALETAS: dict[str, list[tuple[int, int, int]]] = {
@@ -404,17 +404,7 @@ def lamina(
         dentro, donde = np.ones(forma, dtype=bool), "de la malla"
         if p["contorno"] is not None:
             c = _a_crs(p["contorno"], crs, "contorno")
-            trazos = c.geometry.map(
-                lambda g: g.boundary if g.geom_type in ("Polygon", "MultiPolygon") else g
-            )
-            tinta = rasterizar(
-                gpd.GeoDataFrame(geometry=trazos, crs=crs),
-                img.shape[:2],
-                tf_img,
-                valor=1,
-                todo_tocado=True,
-            )
-            img[tinta == 1] = CONTORNO
+            img[_tinta_de_contorno(c, img.shape[:2], tf_img)] = CONTORNO
             poligonos = c[c.geom_type.isin(["Polygon", "MultiPolygon"])]
             if not poligonos.empty:
                 interior = rasterizar(poligonos, forma, tf) == 1

@@ -319,7 +319,7 @@ def test_separacion_se_mide_por_gp0_sobre_el_extent():
     from geophis.raster import (
         _resolver_parametros,
         _separacion_horizontal,
-        _separacion_media,
+        _separacion_por_caja,
     )
 
     curvas = _curvas_rampa()
@@ -331,7 +331,7 @@ def test_separacion_se_mide_por_gp0_sobre_el_extent():
     ancho = (bounds[0] - 100, bounds[1] - 100, bounds[2] + 100, bounds[3] + 100)
     _, _, _, sep_ancho = _resolver_parametros(curvas, "cota", 1.0, None, None, ancho)
     assert sep_ancho != pytest.approx(sep)
-    assert _separacion_media(curvas) == pytest.approx(7.5)  # el respaldo, intacto
+    assert _separacion_por_caja(curvas) == pytest.approx(7.5)  # el respaldo, intacto
 
 
 def test_muestreo_default_no_se_redondea():
@@ -1001,12 +1001,12 @@ def test_defaults_salen_de_la_separacion_horizontal():
     from geophis.raster import (
         _redondear_limpio,
         _resolver_parametros,
-        _separacion_media,
+        _separacion_por_caja,
     )
 
     curvas = _curvas_rampa()
     bounds = tuple(curvas.total_bounds)
-    assert _separacion_media(curvas) == pytest.approx(7.5)  # el respaldo viejo
+    assert _separacion_por_caja(curvas) == pytest.approx(7.5)  # el respaldo viejo
     resolucion, _, muestreo, sep = _resolver_parametros(
         curvas, "cota", None, None, None, bounds
     )
