@@ -772,3 +772,22 @@ def test_cli_sin_tipo_lo_dice_en_espanol(capsys):
     with pytest.raises(SystemExit):
         main(["solo.shp"])
     assert "falta el TIPO" in capsys.readouterr().err
+
+
+def test_eliminar_menores_avisa_de_los_que_no_pudo_absorber(capsys):
+    """Un polígono chico sin vecino se quedaba bajo el mínimo sin decir nada."""
+    g = gpd.GeoDataFrame({"superficie_ha": [0.01]}, geometry=[box(0, 0, 10, 10)], crs=UTM)
+    r = geo.eliminar_menores(g, area_min_ha=1, area_max_ha=10)
+    assert len(r) == 1
+    assert "1 polígono(s) siguen por debajo" in capsys.readouterr().out
+
+
+def test_subdividir_por_area_avisa_si_el_tope_de_niveles_no_alcanza(capsys):
+    """100 ha a 8 niveles dan 256 piezas de 0.39 ha: mayores que el máximo pedido."""
+    g = gpd.GeoDataFrame(geometry=[box(0, 0, 1000, 1000)], crs=UTM)
+    r = geo.subdividir_por_area(g, area_max_ha=0.1)
+    assert len(r) == 256
+    assert "256 pieza(s) siguen por encima" in capsys.readouterr().out
+    capsys.readouterr()
+    geo.subdividir_por_area(g, area_max_ha=30)
+    assert "Aviso" not in capsys.readouterr().out

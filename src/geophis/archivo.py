@@ -948,7 +948,14 @@ def detectar_utm(gdf: gpd.GeoDataFrame) -> int:
         raise ValueError(
             f"la capa cruza dos husos UTM ({x0:.2f} a {x1:.2f}): elige uno a mano"
         )
-    epsg = int(gdf.estimate_utm_crs().to_epsg())
+    try:
+        epsg = int(gdf.estimate_utm_crs().to_epsg())
+    except RuntimeError:
+        # el de pyproj sale en inglés y sin decir por qué
+        raise ValueError(
+            "la capa cae fuera de UTM (más allá de 84° N o de 80° S): no hay huso "
+            "que detectar, elige un CRS a mano"
+        ) from None
     if _mostrar():
         print(f"detectar_utm: EPSG:{epsg}")
     return epsg

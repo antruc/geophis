@@ -2388,6 +2388,14 @@ def subdividir_por_area(
     nuevas = ~np.isnan(np.asarray(areas, dtype=float))
     if nuevas.any():
         salida.loc[nuevas, campo_area] = np.asarray(areas)[nuevas]
+    # cubre los dos atajos de `_bisectar`: el tope de niveles y el corte fallido
+    grandes = sum(p.area / 10000 > area_max_ha for p in piezas)
+    if grandes:
+        print(
+            f"Aviso subdividir_por_area: {grandes} pieza(s) siguen por encima de "
+            f"{area_max_ha:g} ha: la bisección para a 8 niveles o shapely no pudo "
+            "partirlas. Vuelve a pasar la capa por subdividir_por_area"
+        )
     return salida
 
 
@@ -2455,6 +2463,13 @@ def eliminar_menores(
             break
         gdf = gdf.drop(index=list(fusionados)).reset_index(drop=True)
 
+    quedan = int((gdf[campo_area] < area_min_ha).sum())
+    if quedan:
+        print(
+            f"Aviso eliminar_menores: {quedan} polígono(s) siguen por debajo de "
+            f"{area_min_ha:g} ha: sin vecino con el que fundirse sin pasar de "
+            f"{area_max_ha:g} ha, o se agotaron las 30 pasadas"
+        )
     return gdf
 
 

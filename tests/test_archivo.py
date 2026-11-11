@@ -152,6 +152,12 @@ def test_detectar_utm_dos_husos_falla():
         geo.detectar_utm(dos)
 
 
+def test_detectar_utm_fuera_de_utm_falla_en_espanol():
+    polo = gpd.GeoDataFrame(geometry=[Point(10, 89)], crs=4326)
+    with pytest.raises(ValueError, match="fuera de UTM"):
+        geo.detectar_utm(polo)
+
+
 # ---- detectar_cota ----------------------------------------------------------
 
 
