@@ -130,7 +130,7 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 
 - Una función por tarea SIG, con nombre en español. Las simples envuelven una operación de la librería base; las de MDE, pendiente, zonificación y rutas encadenan varias
 - La lógica de dominio (claves de rodal, umbrales del predio) se queda en los scripts; la librería solo aporta operaciones SIG genéricas
-- Distancias y márgenes en unidades del CRS activo; usar UTM para metros. Lo que mide en metros sin decirlo en la firma falla con un CRS en grados o en pies
+- Distancias y márgenes en unidades del CRS activo; usar UTM para metros. `zona_de_influencia` y `crear_cuadro` fallan con un CRS en grados si la distancia o el margen no son 0. Lo que mide en metros sin decirlo en la firma falla con un CRS en grados o en pies
 - Las funciones que devuelven capa trabajan sobre una copia y no mutan la entrada. Excepción: `reproyectar` devuelve la misma capa si ya está en el CRS pedido
 - `recortar`, `intersecar`, `borrar` y `union_espacial` alinean el CRS solos, reproyectando el segundo argumento. `fusionar` no lo hace, a propósito
 - Avisos y reportes por consola con `print`; los errores con `raise ValueError` de mensaje claro

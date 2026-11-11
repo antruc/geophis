@@ -1,6 +1,6 @@
 # geophis: documentación de referencia
 
-**Versión:** 1.5.0 | **Paquete:** `geophis` (Python >= 3.11)
+**Versión:** 1.6.0 | **Paquete:** `geophis` (Python >= 3.11)
 
 Wrapper en español sobre geopandas/shapely (vector), rasterio (raster) y pyproj (proyecciones), con scipy para el análisis espacial. Una función clara por operación SIG. Distancias en unidades del CRS (metros si es UTM).
 
@@ -662,14 +662,14 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 ### archivo.py: E/S de capas
 
 - `cargar(ruta, capa=None, bbox=None, crs=None)` → GeoDataFrame (.shp/.gpkg/.geojson/.gpx/.dxf/.osm/.pbf). `capa` elige en multicapa (`listar_capas`). `bbox` (capa, geometría o tupla, en cualquier CRS) lee SOLO las entidades que tocan esa ventana: no recorta, `recortar` sigue haciendo falta. Con cartografía estatal es memoria, no comodidad (33.1 s / 763 MB contra 7.1 s / 164 MB). `crs` ASIGNA el CRS cuando el archivo no lo trae (DXF nunca: `cargar("plano.dxf", crs=32613)`; la capa de CAD va en la columna `Layer`). FALLA si no hay CRS y no se pasa, o si lo trae distinto. VER: R4.
-- `cargar_puntos(ruta, x="x", y="y", epsg=None, orden=None)` → puntos desde CSV/Excel. `epsg` fija el CRS (sin él no reproyecta ni mide: AVISA). `orden` ordena filas antes de convertir a línea o polígono.
+- `cargar_puntos(ruta, x="x", y="y", epsg=None, orden=None)` → puntos desde CSV/Excel. `epsg` fija el CRS (sin él no reproyecta ni mide: AVISA). Una fila sin coordenada queda con geometría nula y AVISA. `orden` ordena filas antes de convertir a línea o polígono.
 - `convertir(entrada, salida, capa=None, gpx_como=None)`: `cargar` + `guardar` en una línea; autodetecta la capa GPX con datos.
 - `guardar(gdf, ruta, gpx_como=None, anchos=None)`: formato por extensión; .gpx/.kml/.kmz reproyectan a EPSG:4326. **A GPX no elijas el tipo: lo decide la geometría.** Puntos → waypoints (multipuntos, uno por punto), líneas → track, polígonos → contorno como track. Los atributos viajan tal cual (`NAME` → `<name>`, el resto como extensiones): no recortes ni renombres campos. No pases `gpx_como`; solo `gpx_como="route"` y solo si se piden rutas (AVISA si la capa no tiene líneas). `anchos` (solo .shp) fija el ancho del campo en el .dbf: `{"CLASE": 50}`, `{"SUP": (12, 4)}`. AVISA si una columna de área o longitud ya no cuadra con la geometría (R2). FALLA si un valor no cabe en `anchos` (el texto cuenta BYTES: una letra acentuada ocupa 2).
 - `comprobar_nombres_shp(gdf)` → dict `{columna: motivo}` de las que no sobreviven a un .shp (corte a 10 caracteres o colisión); vacío = pasan. Aviso anticipado, no renombra: elige tú un nombre corto con sentido.
 - `exportar_tabla(gdf, ruta, hoja="Hoja1")`: tabla sin geometría a .csv (UTF-8 con BOM) o .xlsx. En .xlsx: pestaña `hoja`, encabezado fijo, ancho por contenido, fechas DD/MM/AAAA. AVISA de área obsoleta como `guardar`.
 - `cargar_waypoints(ruta)`: waypoints GPX con tabla limpia (NAME, LAYER, ELEVATION, time ISO UTC, sym).
 - `cargar_tracks(ruta, utc_offset=-6)`: tracks GPX, una línea por `<trkseg>` (START_TIME y END_TIME en hora local).
-- `detectar_utm(gdf)` → EPSG del huso UTM (WGS84) del centroide. FALLA si la capa cruza dos husos.
+- `detectar_utm(gdf)` → EPSG del huso UTM (WGS84) del centroide. FALLA si la capa cruza dos husos o cae fuera de UTM (más allá de 84° N o de 80° S).
 - `detectar_cota(curvas, regularidad_min=0.9)` → `(campo, equidistancia)`: la columna cuyos valores caen en escalera, con el paso más grueso que pasa `regularidad_min`. La columna tiene que traer cota en al menos esa fracción de las curvas. AVISA siempre de cotas fuera de escalera o con salto de más de 2 pasos (una curva mal capturada hace un pico falso) y de curvas sin cota. VER: R4.
 - `detectar_campo(gdf, vocabulario)`: la columna cuyos valores contienen todo `vocabulario` (`{'PERENNE','INTERMITENTE'}`). VER: R4.
 - `listar_capas(ruta)` → nombres de capa sin cargar ninguna, con su tipo de geometría (un GPX lista siempre cinco).
@@ -707,17 +707,17 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 
 - `recortar(gdf, mascara)`: clip por capa o geometría; reproyecta `mascara` (R3). Conserva solo el tipo de geometría de entrada.
 - `disolver(gdf, campo=None, valor=None)`: todo en una geometría, opcional `campo=valor`. Pierde los demás atributos (`disolver_por_grupo` los conserva). FALLA si la unión sale vacía.
-- `disolver_por_grupo(gdf, campo)`: una geometría por valor de `campo` (p. ej. `gridcode`). VER: R5.
+- `disolver_por_grupo(gdf, campo)`: una geometría por valor de `campo` (p. ej. `gridcode`); las filas con `campo` nulo forman su propio grupo. VER: R5.
 - `separar_multipartes(gdf)`: una fila por pieza, atributos copiados. La inversa de `disolver_por_grupo`. No recalcula áreas. VER: R5.
-- `zona_de_influencia(gdf, distancia)`: buffer en unidades del CRS; copia.
+- `zona_de_influencia(gdf, distancia)`: buffer en unidades del CRS; copia. FALLA con CRS geográfico salvo con distancia 0.
 - `borrar(gdf, otro)`: resta lo que pise `otro` (gana `otro`); alinea CRS. Mueve la geometría (R2).
 - `resolver_por_prioridad(capas)`: lista de mayor a menor prioridad → una capa sin encimados; cada una se recorta contra la unión de TODAS las anteriores. Mueve la geometría (R2).
 - `repartir_por_cercania(gdf_a, gdf_b, resolucion=1.0, nombres=("A","B"))` → `(gdf_a, gdf_b, conflicto)`: dos capas sin jerarquía; cada pedazo del solape va al núcleo más cercano (empate → A). Una entidad por capa (`disolver` antes). FALLA si la malla pasa de 20 M píxeles: el tope mide el rectángulo envolvente, sube `resolucion` a 2 o 5.
 - `fusionar(capas)`: concatena (CRS de la primera). FALLA si alguna viene en otro CRS (R3).
 - `puntos_a_linea(gdf, campo=None)`: en orden de filas; `campo` = una línea por grupo; ≥2 puntos.
 - `puntos_a_poligono(gdf, campo=None, forma="orden", lado_max=0.0)`: ≥3 puntos; con `campo`, uno por grupo. `forma`: `"orden"` (vértices en orden de filas; AVISA si sale en moño y lo devuelve), `"convexa"` (convex hull, no depende del orden) o `"concava"` (Delaunay erosionado desde el borde: quita los triángulos de borde con algún lado > `lado_max` m; siempre una pieza, sin huecos, con todos los puntos dentro). `lado_max` solo con `"concava"`: 0 = lo más ajustado; ≥ la arista más larga = la convexa. Es un supuesto; imprime la rejilla uniforme `sqrt(area convexa / n)` (de 2 a 4 veces, referencia) y el umbral relativo 0-1 equivalente, que son metros distintos en cada archivo. Con margen `d` después, por encima de `2d` rellena vacíos que el margen no uniría. FALLA con `lado_max` en otra forma, con puntos en línea o con CRS en grados.
-- `linea_a_poligono(gdf)`: cierra cada línea en polígono.
-- `crear_cuadro(gdf, margen=0)`: bounding box ampliado `margen`. VER: R4.
+- `linea_a_poligono(gdf)`: cierra cada línea en polígono. De una multilínea solo cierra el primer tramo y AVISA.
+- `crear_cuadro(gdf, margen=0)`: bounding box ampliado `margen`. FALLA con CRS geográfico salvo con margen 0. VER: R4.
 - `cuadros_mde(predio, resolucion=None, margen_borde_celdas=None, margen_salida=0.0, parametros=None)` → `(cuadro_recorte, cuadro_salida)`. `cuadro_salida` = el extent del MDE; `cuadro_recorte` = salida ampliada `margen_borde_celdas × resolucion`, al que se recortan curvas y cauces. Con `parametros=p` toma los dos del dict. TRAMPA: sin `margen_salida=2*h` la ventana de Horn deja NaN el anillo del borde. VER: P1.
 - `limpiar_vacias(gdf)`: quita geometrías vacías o nulas.
 - `reparar_geometrias(gdf)`: `make_valid` y descarta vacías y esquirlas. No `buffer(0)` (en un moño se queda con media superficie).
@@ -751,8 +751,8 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 - `simplificar(gdf, tolerancia, conservar_topologia=True)`: con polígonos simplifica la cobertura (los vecinos siguen encajando); la tolerancia es por área, usa el tamaño de píxel. FALLA si la capa de polígonos no es una partición; las juntas en T de `poligonizar` las noda sola.
 - `cerrar_microhuecos(gdf, distancia)`: cada rendija entre 2+ polígonos va al vecino de borde más largo. No conoce la zona: `recortar` otra vez después. Tras `poligonizar` no hace falta.
 - `rellenar_huecos(gdf, area_max_ha=None)`: quita anillos interiores ≤ `area_max_ha` (ponle la UMM); `None` los quita todos, también el claro real. Antes de `calcular_superficie`.
-- `subdividir_por_area(gdf, area_max_ha, campo_area="superficie_ha", min_esquirla=100)`: parte polígonos grandes por bisección.
-- `eliminar_menores(gdf, area_min_ha, area_max_ha, campo_area="superficie_ha")`: absorbe los polígonos chicos en su mejor vecino. Razona por fila (R5).
+- `subdividir_por_area(gdf, area_max_ha, campo_area="superficie_ha", min_esquirla=100)`: parte polígonos grandes por bisección. AVISA si quedan piezas por encima del máximo.
+- `eliminar_menores(gdf, area_min_ha, area_max_ha, campo_area="superficie_ha")`: absorbe los polígonos chicos en su mejor vecino. AVISA si quedan polígonos por debajo del mínimo. Razona por fila (R5).
 - `ruta_red(caminos, puntos, velocidades, campo=None, campo_sentido=None, nodar=False)` → línea con `METROS` y `MINUTOS` sobre una red de LÍNEAS (se conectan donde comparten vértice). `velocidades`: número o `{valor de campo: km/h}`. `puntos`: origen y destino, en ese orden. `nodar=True` parte en cada cruce (CAD). TRAMPA: las velocidades deciden la ruta, no solo los minutos; las capas de calles de CAD son contornos, no ejes. FALLA sin velocidad para un tipo, con red partida o sentidos que lo impiden.
 - `isocronas(caminos, origenes, velocidades, cortes, campo=None, campo_sentido=None, nodar=False, hacia=False, ancho=None)` → una fila por banda con `MIN_DESDE`, `MIN_HASTA`, `KM`. Misma red que `ruta_red`. `hacia=True` mide llegando. `ancho` (m) da polígonos en vez de líneas y es un supuesto que se declara.
 - `nombre_campo_libre(gdf, campo)`: nombre de columna sin colisión.

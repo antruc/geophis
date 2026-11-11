@@ -1,6 +1,6 @@
 # geophis: índice de la API pública
 
-**Versión:** 1.5.0 | todas las funciones de `__all__`
+**Versión:** 1.6.0 | todas las funciones de `__all__`
 
 Índice para buscar por nombre. Cada fila es una línea y el enlace lleva a la entrada completa en `GEOPHIS.md`, donde están la firma, lo que devuelve y la trampa que la rodea. **Este archivo no documenta: apunta.** Si algo de aquí contradice a `GEOPHIS.md`, manda `GEOPHIS.md`.
 
@@ -63,7 +63,7 @@ import geophis as geo
 | [`disolver`](GEOPHIS.md#geometriapy-vector) | Une todo en una geometría; opcional etiqueta `campo=valor` |
 | [`disolver_por_grupo`](GEOPHIS.md#geometriapy-vector) | Un polígono por cada valor único de `campo` (dissolve por grupo, p. ej. por `gridcode`); `campo` agrupa, no solo etiqueta |
 | [`separar_multipartes`](GEOPHIS.md#geometriapy-vector) | Multiparte → una fila por pieza (*multipart to singlepart*) |
-| [`zona_de_influencia`](GEOPHIS.md#geometriapy-vector) | *Zona de influencia* (Buffer), en unidades del CRS; devuelve copia |
+| [`zona_de_influencia`](GEOPHIS.md#geometriapy-vector) | *Zona de influencia* (Buffer), en unidades del CRS; falla en grados salvo con distancia 0; devuelve copia |
 | [`borrar`](GEOPHIS.md#geometriapy-vector) | *Borrar* (Erase): resta lo que pise `otro` (capa o geometría shapely suelta; prioridad a `otro`) |
 | [`resolver_por_prioridad`](GEOPHIS.md#geometriapy-vector) | Lista ordenada de mayor a menor prioridad → una sola capa sin encimados |
 | [`repartir_por_cercania`](GEOPHIS.md#geometriapy-vector) | Dos capas que se solapan sin jerarquía entre sí (asignación euclidiana: cada pedazo a la más cercana) |
@@ -71,7 +71,7 @@ import geophis as geo
 | [`puntos_a_linea`](GEOPHIS.md#geometriapy-vector) | Puntos→línea en orden de filas; `campo` = una línea por grupo. ≥2 puntos |
 | [`puntos_a_poligono`](GEOPHIS.md#geometriapy-vector) | Puntos→polígono: `forma="orden"` (avisa del moño), `"convexa"` o `"concava"` (una pieza, todos los puntos dentro; `lado_max` en m). ≥3 puntos |
 | [`linea_a_poligono`](GEOPHIS.md#geometriapy-vector) | Cierra cada línea en polígono |
-| [`crear_cuadro`](GEOPHIS.md#geometriapy-vector) | Bounding box ampliado `margen` |
+| [`crear_cuadro`](GEOPHIS.md#geometriapy-vector) | Bounding box ampliado `margen`; en grados solo con margen 0 |
 | [`cuadros_mde`](GEOPHIS.md#geometriapy-vector) | `(cuadro_recorte, cuadro_salida)`, el par de extents que pide `interpolar_mde` (práctica de ANUDEM) |
 | [`limpiar_vacias`](GEOPHIS.md#geometriapy-vector) | Quita geometrías vacías/nulas |
 | [`reparar_geometrias`](GEOPHIS.md#geometriapy-vector) | `make_valid` + descarta vacías e inválidas; no `buffer(0)`, que pierde la mitad de un polígono en moño |
