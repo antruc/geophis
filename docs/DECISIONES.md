@@ -80,6 +80,12 @@ Una capa que pasó por una malla de celdas tiene el borde en escalera, y discrep
 - **Reparar geometrías con `make_valid`, no con `buffer(0)`**: en un polígono en forma de moño, `buffer(0)` se queda con media superficie.
 - **El más cercano, sin duplicar.** El join al más cercano devuelve una fila por empate, y una capa pasó de **61 a 2 413 filas** sin avisar. `cercano` deja una fila por entidad y cuenta los empates.
 - **Seleccionar por ubicación no es un join.** El join espacial duplica la fila si dos entidades la tocan; para filtrar, inflaba el total en silencio.
+- **`separar_multipartes` envuelve dos argumentos de `explode`.** `index_parts=False` evita la columna de índice de parte y `reset_index(drop=True)` deshace el MultiIndex que `explode` deja puesto. Sin los dos, el `iloc[[k]]` o el `.loc` de la línea siguiente se comporta de otra forma, y ese es el patrón que sigue (elegir la pieza mayor, recorrerlas por índice).
+- **`fusionar` comprueba también el nombre de la columna de geometría.** Con nombres distintos (`geometry` y `geom`), `concat` alinea por nombre y saca una capa con dos columnas de geometría, cada una medio llena de nulos: la mitad de las entidades queda fuera de la columna activa y `superficie_total_ha` devuelve la de media capa. Es el mismo modo de fallo que escribir el literal `"geometry"` en vez de `gdf.geometry.name`.
+- **El default `superficie_ha` no se acorta** aunque no sobreviva a un .shp: el nombre largo es el correcto en GeoPackage y en `exportar_tabla`, que es donde el default se lee.
+- **`superficie_total_ha` y `longitud_total_m` miden en plano y no se funden con `superficie_total` y `longitud_total`.** Las guardas que las usan (`comprobar_particion`) las restan del `.area` de shapely, que es plana; una medida geodésica de un solo lado daría un hueco falso.
+- **`margen_salida` de `cuadros_mde` sigue en 0** aunque para pendiente haga falta `2 * resolucion`: cambiar el default movería el extent, y con él las cifras, de todo lo que ya llama sin el argumento.
+- **`partir_por_linea` parte con líneas, no poligonizando.** Poligonizar bordes y líneas juntos pierde los atributos y obliga a recuperarlos en un paso aparte.
 
 ## 3. Clases de pendiente
 

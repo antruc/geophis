@@ -138,10 +138,10 @@ def disolver_por_grupo(gdf: gpd.GeoDataFrame, campo: str) -> gpd.GeoDataFrame:
 def separar_multipartes(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Parte cada entidad multiparte en una fila por pieza (multipart to singlepart).
 
-    La INVERSA de `disolver_por_grupo`, que deja una fila multiparte por clase.
-    Después de disolver, la capa tiene una entidad por valor de campo y sus
-    piezas sueltas ya no se pueden contar, medir ni indexar por separado: eso es
-    lo que devuelve esta función. Los atributos se copian a cada pieza.
+    La INVERSA de `disolver_por_grupo`, que deja una fila multiparte por clase:
+    después de disolver, las piezas sueltas ya no se pueden contar, medir ni
+    indexar por separado. Los atributos se copian a cada pieza. Conserva el CRS
+    y el nombre de la columna de geometría.
 
     Va casi siempre pegada a una medición:
 
@@ -149,18 +149,11 @@ def separar_multipartes(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         alta = separar_multipartes(alta[alta["clase"] == ">100"])
         alta = calcular_superficie(alta, campo="AREA_HA")   # ahora por PIEZA
 
-    Los dos argumentos que envuelve no son adorno, son la trampa:
-    `index_parts=False` evita la columna de índice de parte, y
-    `reset_index(drop=True)` deshace el MultiIndex que `explode` deja puesto.
-    Sin los dos, el `iloc[[k]]` o el `.loc` de la línea siguiente se comporta de
-    otra forma, y ese es justo el patrón que sigue (elegir la pieza mayor,
-    recorrerlas por índice).
+    El índice sale limpio (0..n-1, sin MultiIndex), así que `iloc[[k]]` y
+    `.loc` sobre las piezas se comportan como en cualquier capa.
 
-    NO recalcula áreas: `calcular_superficie` es la otra mitad y se llama
-    aparte, porque el área va detrás del ÚLTIMO paso que mueva la geometría y
-    esta función no sabe si es el último.
-
-    Conserva el CRS y el nombre de la columna de geometría.
+    NO recalcula áreas: `calcular_superficie` se llama aparte, detrás del
+    ÚLTIMO paso que mueva la geometría.
     """
     return gdf.explode(index_parts=False).reset_index(drop=True)
 
@@ -259,13 +252,10 @@ def fusionar(capas: Iterable[gpd.GeoDataFrame]) -> gpd.GeoDataFrame:
     `capas` es una lista de GeoDataFrames. Toma el CRS y el nombre de la columna
     de geometría de la primera.
 
-    Comprueba las dos cosas que tienen que coincidir, no solo el CRS. Con
-    nombres de columna de geometría distintos ('geometry' y 'geom'), `concat`
-    no falla: alinea por nombre y saca una capa con DOS columnas de geometría,
-    cada una medio llena de nulos. La mitad de las entidades queda con la
-    geometría en la columna que no es la activa, así que `superficie_total_ha`
-    devuelve la de solo media capa y nada avisa. Es el mismo modo de fallo que
-    el literal "geometry" del resto del módulo, una capa más arriba.
+    Falla si las capas difieren en el CRS o en el nombre de la columna de
+    geometría ('geometry' y 'geom'): con nombres distintos `concat` no falla,
+    saca DOS columnas de geometría medio vacías y las mediciones dan la de
+    media capa sin avisar.
     """
     capas = list(capas)
     if not capas:
@@ -359,13 +349,9 @@ def repartir_por_cercania(
     Para capas que en teoría no deberían solaparse y no tienen jerarquía entre
     sí. En vez de que una gane entera (`borrar`, `resolver_por_prioridad`),
     la zona en conflicto se parte y cada pedazo se le asigna a la capa cuyo
-    NÚCLEO (su parte no conflictiva) esté más cerca.
-
-    Es una asignación euclidiana (cada celda a la fuente más cercana)
-    con dos matices: las fuentes son solo dos (los dos núcleos) y la asignación
-    se aplica solo dentro del solape, no a todo el ráster. El resultado equivale
-    a partir la zona en conflicto con polígonos de Thiessen respecto a los dos
-    núcleos; la malla temporal (`resolucion`) es lo que aproxima ese borde.
+    NÚCLEO (su parte no conflictiva) esté más cerca. Equivale a partir el
+    solape con polígonos de Thiessen respecto a los dos núcleos; la malla
+    temporal (`resolucion`) es lo que aproxima ese borde.
 
     Ambas capas deben traer una sola entidad (disuélvelas antes): con varias no
     hay a qué fila asignarle lo ganado.
@@ -384,8 +370,7 @@ def repartir_por_cercania(
     columna 'gana' diciendo a quién le tocó cada pedazo: guárdala para revisar el
     reparto a ojo. Sin solape sale vacía y las capas salen intactas.
 
-    En empate exacto gana `gdf_a`, así que el orden de los argumentos sigue
-    siendo una jerarquía; solo que es la que casi nunca se aplica.
+    En empate exacto gana `gdf_a`.
     """
     gdf_b = _alinear(gdf_a, gdf_b, "gdf_b")
     if len(gdf_a) != 1 or len(gdf_b) != 1:
@@ -623,22 +608,15 @@ def cuadros_mde(
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """Genera (cuadro_recorte, cuadro_salida) según la práctica de ANUDEM.
 
-    Replica la práctica de ANUDEM (Hutchinson): el extent de SALIDA debe
-    quedar al menos ~10 celdas DENTRO de la extensión de los datos de entrada,
-    para que las celdas de borde se interpolen con datos a ambos lados y no con
-    la mitad (equivalente a su parámetro Margin, cuyo default son 20 celdas).
-    Ver la doc del parámetro `extent`/`Margin` de la herramienta.
-
-    En este flujo se traduce a dos rectángulos derivados del predio:
+    ANUDEM (Hutchinson) pide que el extent de SALIDA quede al menos ~10 celdas
+    DENTRO de los datos de entrada, para que las celdas de borde se interpolen
+    con datos a ambos lados (su parámetro Margin). Aquí son dos rectángulos:
 
     - `cuadro_salida`  = predio ampliado `margen_salida` (unidades del CRS). Es el
       ráster que se conserva; pásalo como `cuadro` a interpolar_mde / validar_mde.
     - `cuadro_recorte` = `cuadro_salida` ampliado `margen_borde_celdas * resolucion`.
-      A él se recortan curvas y cauces, de modo que la ENTRADA sobresale ese borde
-      respecto a la SALIDA (los puntos de fuera sostienen la interpolación del borde).
-
-    El borde escala con la resolución: con `resolucion=20` y `margen_borde_celdas=10`
-    el borde de datos extra es 200 m; con `resolucion=10`, 100 m.
+      A él se recortan curvas y cauces: los puntos de fuera sostienen la
+      interpolación del borde. Con `resolucion=20` y 10 celdas son 200 m.
 
     Parámetros
     ----------
@@ -654,12 +632,12 @@ def cuadros_mde(
         **Para PENDIENTE, `2 * resolucion` como mínimo.** La ventana 3x3 de
         Horn deja NaN la celda del borde del ráster, y con 0 la capa de clases
         pierde ese anillo allí donde el predio toca su bbox (en una ladera
-        rectangular, más de un tercio de la superficie). En un predio irregular
-        el hueco es menor pero no cero. El default no se cambia: movería el extent, y con él las cifras,
-        de todo lo que ya llama sin el argumento.
+        rectangular, más de un tercio de la superficie; en un predio irregular
+        menos, pero no cero).
 
     parametros : el dict de `derivar_parametros`. Lo que se deje en None se
-        toma de ahí (`resolucion` y `margen_borde_celdas`); lo que se pase a mano manda sobre el dict.
+        toma de ahí (`resolucion` y `margen_borde_celdas`); lo que se pase a
+        mano manda sobre el dict.
 
     Devuelve (cuadro_recorte, cuadro_salida), ambos GeoDataFrame de una entidad.
     """
@@ -764,21 +742,16 @@ def calcular_superficie(
     resultado se redondea a `decimales` (2 por defecto: 0.01 ha = 100 m²).
     Devuelve copia.
 
-    VA AL FINAL, y "al final" significa detrás del ÚLTIMO paso que toque la
-    geometría, no solo detrás del recorte y la reproyección. En la cadena de
-    pendientes el último es `resolver_por_prioridad`, que recorta cada capa
-    contra la unión de las anteriores: calcular el área dentro del helper que
-    arma cada capa cumple "después de recortar" y aun así sale obsoleta, porque
-    las clases que ceden pierden geometría después. `guardar` y
-    `exportar_tabla` avisan si no cuadra.
+    VA AL FINAL: detrás del ÚLTIMO paso que toque la geometría, no solo detrás
+    del recorte y la reproyección. En la cadena de pendientes el último es
+    `resolver_por_prioridad`: el área calculada antes sale obsoleta, porque las
+    clases que ceden pierden geometría después. `guardar` y `exportar_tabla`
+    avisan si no cuadra.
 
     **El default `superficie_ha` son 13 caracteres y NO sobrevive a un .shp**,
-    que corta a 10. Pasa `campo="SUP"` (o el nombre corto que quieras) cuando la
-    capa vaya a shapefile, y no se ha cambiado el default por eso porque el
-    nombre largo es el correcto en GeoPackage y en `exportar_tabla`, que es
-    donde el default se lee. Es la única función de la librería que añade una
-    columna justo antes de guardar, así que es de donde salen las colisiones
-    (`superfic_1`). `comprobar_nombres_shp` lo dice ANTES de escribir.
+    que corta a 10 y produce colisiones (`superfic_1`). Pasa `campo="SUP"` (o
+    el nombre corto que quieras) cuando la capa vaya a shapefile.
+    `comprobar_nombres_shp` lo dice ANTES de escribir.
     """
     factor = _factor_unidad(unidad, _UNIDADES_AREA, "área")
     salida = gdf.copy()
@@ -797,20 +770,14 @@ def superficie_total(gdf: gpd.GeoDataFrame, unidad: str = "ha") -> float:
 def superficie_total_ha(gdf: gpd.GeoDataFrame) -> float:
     """Superficie total de la capa, en hectáreas y SIN redondear.
 
-    El escalar con que se compara contra una tolerancia y se imprime, no una
-    columna: `calcular_superficie` es la otra mitad del par y redondea a 2
-    decimales, justo el orden de la tolerancia típica (0.01 ha), así que no
-    puede reusarse para cuadrar totales.
+    El escalar con que se cuadran totales contra una tolerancia:
+    `calcular_superficie` redondea a 2 decimales, el orden de la tolerancia
+    típica (0.01 ha), y no sirve para eso. De una capa vacía sale 0.0.
 
-    De una capa vacía sale 0.0, no error: sumar nada es cero, y quien necesite
-    distinguir "vacía" de "cero" ya tiene `len(gdf)`.
-
-    Falla con un CRS geográfico: el nombre promete hectáreas, y en grados
-    saldría un número sin unidad con nombre de hectáreas. Se queda plana y
-    estricta a propósito, no se pasa a `superficie_total`: las guardas que la
-    usan (`comprobar_particion`) la restan de `.area` de shapely, que es plana,
-    y una geodésica de un lado daría hueco falso. Para cualquier CRS o unidad:
-    `superficie_total`.
+    Falla con un CRS geográfico: en grados saldría un número sin unidad con
+    nombre de hectáreas. Mide en PLANO, igual que el `.area` de shapely que
+    usan las guardas (`comprobar_particion`). Para cualquier CRS o unidad:
+    `superficie_total`, que en geográfico mide sobre el elipsoide.
     """
     _exigir_proyectado(gdf, "gdf")
     return float(gdf.geometry.area.sum()) / 10_000
@@ -832,27 +799,21 @@ def comprobar_particion(
     Con UNA capa comprueba que sus propias filas parten la zona (el caso del
     entregable de pendientes); con varias, que la cascada de prioridades cerró.
 
-    **Tres cifras: dos diferencias geométricas y una resta.** El hueco es la
-    zona menos la unión de las capas (lo que ninguna cubre); el exceso, la unión
-    menos la zona (lo que cubren fuera). El doble conteo sale de restar: la
-    suma de las áreas cuenta el solape tantas veces como capas lo pisen y la
-    unión lo cuenta una. Hueco y exceso van SEPARADOS a propósito: una cifra
-    NETA (`zona - unión` en superficie) compensa, y una capa que deja 0.5 ha
-    sin cubrir dentro y se sale 0.5 ha fuera daría 0.0 y pasaría con cualquier
-    tolerancia. Si falla, el mensaje dice dónde está lo más grande: número de piezas y
-    centroide de la pieza mayor del hueco o del exceso.
+    Las tres cifras: el hueco es la zona menos la unión de las capas; el
+    exceso, la unión menos la zona; el doble conteo, la suma de las áreas menos
+    el área de la unión. Hueco y exceso van SEPARADOS porque una cifra neta
+    compensa: 0.5 ha sin cubrir dentro y 0.5 ha fuera darían 0.0. Si falla, el
+    mensaje dice dónde está lo más grande: número de piezas y centroide de la
+    pieza mayor del hueco o del exceso.
 
-    Es la única guarda que ve un hueco de la cadena: desde
-    `resolver_por_prioridad` es invisible (lo que ésa recorta es el solape) y
-    desde `limpiar_moteado` también (reasignar es lo que hace un sieve).
+    Es la única guarda de la cadena que ve un hueco: `resolver_por_prioridad`
+    y `limpiar_moteado` no lo ven.
 
     Parámetros
     ----------
-    tolerancia_ha : SIN default, a propósito. Es un `declarado` y se escribe con
-        su razón al lado, no heredado de otro predio: un número que nadie eligió
-        es justo lo que la REGLA DE LOS NUMEROS prohíbe. Y el orden importa:
-        todas las capas van recortadas contra la misma `zona`, así que el borde
-        exterior es idéntico y el residuo legítimo es de reparación de
+    tolerancia_ha : SIN default, a propósito: se declara con su razón al lado,
+        no se hereda de otro predio. Todas las capas van recortadas contra la
+        misma `zona`, así que el residuo legítimo es de reparación de
         geometría, no de píxel: con 1.0 ha en 1765 un hueco de 0.22 pasa por
         redondeo.
 
@@ -1036,12 +997,11 @@ def bloques_ajedrez(zona: gpd.GeoDataFrame, lado: float) -> gpd.GeoDataFrame:
         # ... MDE con quiebres=impone, red derivada ...
         geo.concordancia_lineas(red, geo.recortar(cauces, juzga), tols, zona=juzga)
 
-    **Por qué bloques y no tramos al azar:** un tramo reservado al azar queda
-    entre sus vecinos impuestos del mismo cauce, que ya fijan la vaguada; el
-    juez sale contaminado por vecindad. Con bloques, lo reservado está lejos de
-    lo impuesto salvo en las aristas, y ahí va la guarda. Los cuadros del mismo
-    pliegue solo se tocan en las esquinas, así que la `zona_de_influencia` negativa por
-    cuadro quita la franja de TODAS las aristas.
+    Bloques y no tramos al azar: un tramo reservado al azar queda entre sus
+    vecinos impuestos del mismo cauce y el juez sale contaminado. Los cuadros
+    del mismo pliegue solo se tocan en las esquinas, así que la
+    `zona_de_influencia` negativa por cuadro quita la franja de TODAS las
+    aristas.
 
     `lado` es DECLARADO: grande frente al alcance del flujo que cruza la arista
     (si no, la guarda se come el bloque) y chico frente al predio (si no, un
@@ -1080,25 +1040,16 @@ def pendiente_sostenida(
 ) -> tuple[float, float]:
     """Pendiente % que las curvas de nivel pueden sostener dentro de `zona`.
 
-    Control de la CARTOGRAFÍA de entrada, e independiente del MDE a propósito:
-    juzgar una capa de pendientes con un sombreado del mismo ráster que la
-    produjo es circular. Aquí se contrasta la separación horizontal real entre
-    curvas contra su equidistancia vertical, que es el techo de lo que el dato
-    de origen puede afirmar. Sirve sobre todo para el rango más alto, que suele
-    ser ondulación de la interpolación, no terreno.
+    Control de la CARTOGRAFÍA de entrada, independiente del MDE: contrasta la
+    separación horizontal real entre curvas contra su equidistancia vertical,
+    que es el techo de lo que el dato de origen puede afirmar. Sirve sobre todo
+    para el rango más alto, que suele ser ondulación de la interpolación, no
+    terreno.
 
-    La separación se mide con `separacion_media` (G'(0), la derivada en el
-    origen de la escalera de buffers), NO con el cociente área/largo.
-
-    Área/largo divide entre la longitud REAL del trazo, así que el zigzag de la
-    cartografía la infla y la separación sale baja por ese mismo factor.
-    Importa porque `s_sostenida` se compara contra `h` y contra el piso
-    antialias, y los dos se miden SIN ese sesgo. Comparar dos estimadores distintos es peor que un
-    estimador sesgado, porque el sesgo no se ve.
-
-    G'(0) es igual de robusta a que la zona venga troceada en muchos polígonos
-    y a las curvas que entran y salen, que es lo que rompe cualquier medición
-    vértice a vértice.
+    La separación se mide con `separacion_media` (G'(0)), NO con el cociente
+    área/largo, que el zigzag del trazo sesga a la baja: `s_sostenida` se
+    compara contra `h` y contra el piso antialias, medidos sin ese sesgo. El
+    porqué: docs/DECISIONES.md §4.
 
     Parámetros
     ----------
@@ -1109,7 +1060,7 @@ def pendiente_sostenida(
     Devuelve (separacion_m, pendiente_pct). Sin curvas dentro devuelve
     (nan, nan): no hay cartografía que sostenga NADA ahí, que es distinto de
     sostener 0% y suele significar que la zona es un artefacto. Compruébalo con
-    `sep == sep` (NaN != NaN), el mismo idioma que el resto del flujo.
+    `sep == sep` (NaN != NaN).
     """
     _exigir_proyectado(curvas, "curvas")
     if equidistancia <= 0:
@@ -1933,14 +1884,11 @@ def partir_por_linea(
 ) -> gpd.GeoDataFrame:
     """Parte cada polígono con las líneas que lo cruzan.
 
-    Parte con LÍNEAS, no con polígonos. La alternativa habitual, poligonizar
-    bordes y líneas juntos, pierde los atributos y obliga a recuperarlos en un
-    paso aparte; aquí cada pieza los conserva.
-
-    Un camino que parte un rodal. Cada polígono se corta con `shapely.ops.split`
-    contra la unión de las líneas que lo tocan; cada pieza es una fila con los
-    atributos del polígono de origen. Reproyecta `lineas` al CRS de
-    `poligonos`. MUEVE la geometría: el área va después (regla 2).
+    Un camino que parte un rodal. Cada polígono se corta contra la unión de las
+    líneas que lo tocan; cada pieza es una fila con los atributos del polígono
+    de origen (poligonizar bordes y líneas juntos los perdería). Reproyecta
+    `lineas` al CRS de `poligonos`. MUEVE la geometría: el área va después
+    (regla 2).
 
     TRAMPA: una línea que no ATRAVIESA el polígono de borde a borde (entra y se
     queda, o se corta a un metro del lindero por un error de digitalización)
@@ -2247,24 +2195,18 @@ def rellenar_huecos(
 
     Devuelve una copia; no muta la entrada.
 
-    NO es lo mismo que `cerrar_microhuecos`, y las dos hacen falta:
-    `cerrar_microhuecos` cierra las rendijas ENTRE polígonos vecinos con un
-    closing morfológico, y no toca un hueco rodeado por un solo polígono.
-    Eso es lo que hace esta. Los huecos de dentro salen a puñados de
-    `poligonizar`: cada mancha de otra clase encerrada por la clase de al lado
-    deja un anillo, y a la escala de trabajo la mayoría están por debajo de la
-    UMM y no se cartografían.
+    NO es lo mismo que `cerrar_microhuecos`, que cierra las rendijas ENTRE
+    polígonos vecinos y no toca un hueco rodeado por un solo polígono. Los
+    huecos de dentro salen a puñados de `poligonizar`: cada mancha de otra
+    clase encerrada deja un anillo, y la mayoría están por debajo de la UMM.
 
-    `area_max_ha` es el filtro y es la decisión de campo: se quitan los huecos
-    MENORES o iguales a esa superficie y se conservan los mayores. Ponle la UMM
-    y la capa queda coherente con el resto de la cadena. Con `None` (default)
-    se quitan TODOS, que es lo que hace un borrado de huecos sin
-    condición, y hay que usarlo sabiendo que un claro grande y real también
+    `area_max_ha` es la decisión de campo: se quitan los huecos MENORES o
+    iguales a esa superficie y se conservan los mayores. Ponle la UMM. Con
+    `None` (default) se quitan TODOS, y un claro grande y real también
     desaparece.
 
     Va DESPUÉS de `poligonizar` y antes de `calcular_superficie`: rellenar
-    cambia el área, así que medir antes es medir otra cosa (la misma regla que
-    `SUP`, que se calcula detrás del último paso que mueva la geometría).
+    cambia el área.
     """
     if area_max_ha is not None and area_max_ha <= 0:
         raise ValueError(f"area_max_ha {area_max_ha} debe ser > 0, o None")
