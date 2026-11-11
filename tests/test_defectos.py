@@ -592,10 +592,15 @@ def test_detectar_campo_vocabulario_en_minusculas():
     assert geo.detectar_campo(capa, {"perenne", "intermitente"}) == "tipo"
 
 
-@pytest.mark.filterwarnings("ignore::UserWarning")
-def test_zona_de_influencia_en_geografico_avisa(capsys):
-    geo.zona_de_influencia(gpd.GeoDataFrame(geometry=[box(0, 0, 1, 1)], crs=4326), 1)
-    assert "geográfico" in capsys.readouterr().out
+def test_zona_de_influencia_y_crear_cuadro_fallan_en_grados_salvo_con_cero(capsys):
+    """Solo avisaban: 20 "metros" salían como 20 grados. Con 0 no se mide nada."""
+    capa = gpd.GeoDataFrame(geometry=[box(0, 0, 1, 1)], crs=4326)
+    with pytest.raises(ValueError, match="geográficas"):
+        geo.zona_de_influencia(capa, 1)
+    with pytest.raises(ValueError, match="geográficas"):
+        geo.crear_cuadro(capa, margen=1)
+    assert len(geo.zona_de_influencia(capa, 0)) == len(geo.crear_cuadro(capa)) == 1
+    assert capsys.readouterr().out == ""
 
 
 def test_rellenar_huecos_en_geografico_falla():

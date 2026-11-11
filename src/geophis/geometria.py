@@ -165,26 +165,40 @@ def separar_multipartes(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf.explode(index_parts=False).reset_index(drop=True)
 
 
-def _avisar_geografico(gdf: gpd.GeoDataFrame, quien: str, que: str) -> None:
-    """Aviso (no error) para funciones que documentan "unidades del CRS"."""
+def _exigir_no_geografico(
+    gdf: gpd.GeoDataFrame, quien: str, que: str, valor: float
+) -> None:
+    """Falla si `valor` (una distancia en unidades del CRS) se aplicaría en grados.
+
+    Con 0 no se mide nada y pasa cualquier CRS: `zona_de_influencia(gdf, 0)`
+    repara geometrías y `crear_cuadro(gdf)` es la caja de la capa. Sin CRS solo
+    avisa, porque ahí la unidad no se sabe.
+    """
+    if valor == 0:
+        return
     if gdf.crs is None:
         print(
             f"Aviso {quien}: la capa no tiene CRS: la medida va en unidades desconocidas. "
             "Asígnalo al cargar, p. ej. cargar(ruta, crs=32613)"
         )
     elif gdf.crs.is_geographic:
-        print(f"Aviso {quien}: CRS geográfico (grados); {que}. Usa UTM.")
+        raise ValueError(
+            f"{quien}: la capa está en coordenadas geográficas ({gdf.crs.name}) y "
+            f"{que} se aplicaría en grados, no en metros. Proyecta antes: "
+            "`capa = reproyectar(capa, detectar_utm(capa))`."
+        )
 
 
 def zona_de_influencia(gdf: gpd.GeoDataFrame, distancia: float) -> gpd.GeoDataFrame:
     """Zona de influencia (buffer) alrededor de cada geometría.
 
-    La distancia va en las unidades del CRS (metros si es UTM).
-    Devuelve una copia; no modifica la capa original.
+    La distancia va en las unidades del CRS (metros si es UTM). Falla con un
+    CRS geográfico, salvo con distancia 0: un buffer en grados no es una
+    distancia. Devuelve una copia; no modifica la capa original.
     """
     if isinstance(distancia, str):
         raise TypeError(f"distancia debe ser un número, no el texto {distancia!r}")
-    _avisar_geografico(gdf, "zona_de_influencia", "la distancia se aplicará en grados")
+    _exigir_no_geografico(gdf, "zona_de_influencia", "la distancia", distancia)
     salida = gdf.copy()
     # `salida.geometry.name` y no el literal "geometry": una capa cuya columna
     # activa se llame distinto (GeoPackage con `geom`, `rename_geometry`) se
@@ -590,10 +604,11 @@ def linea_a_poligono(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 def crear_cuadro(gdf: gpd.GeoDataFrame, margen: float = 0) -> gpd.GeoDataFrame:
     """Crea un rectángulo (bounding box) alrededor de la capa.
 
-    `margen` amplía el cuadro en las unidades del CRS. Devuelve un
+    `margen` amplía el cuadro en las unidades del CRS; con un CRS geográfico
+    solo se admite margen 0. Devuelve un
     GeoDataFrame de una sola entidad, útil como máscara de recorte previo.
     """
-    _avisar_geografico(gdf, "crear_cuadro", "el margen se aplicará en grados")
+    _exigir_no_geografico(gdf, "crear_cuadro", "el margen", margen)
     minx, miny, maxx, maxy = gdf.total_bounds
     geom = box(minx - margen, miny - margen, maxx + margen, maxy + margen)
     return gpd.GeoDataFrame(geometry=[geom], crs=gdf.crs)
