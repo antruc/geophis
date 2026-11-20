@@ -127,7 +127,7 @@ def cargar(
     bbox: Any = None,
     crs: Any = None,
 ) -> gpd.GeoDataFrame:
-    """Carga una capa vectorial (.shp, .gpkg, .geojson, .gpx, .dxf...) como GeoDataFrame.
+    """Carga una capa vectorial (.shp, .gpkg, .geojson, .kml, .kmz, .gpx, .dxf...) como GeoDataFrame.
 
     Parámetros
     ----------

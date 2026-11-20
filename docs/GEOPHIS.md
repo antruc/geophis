@@ -661,7 +661,22 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 
 ### archivo.py: E/S de capas
 
-- `cargar(ruta, capa=None, bbox=None, crs=None)` → GeoDataFrame (.shp/.gpkg/.geojson/.gpx/.dxf/.osm/.pbf). `capa` elige en multicapa (`listar_capas`). `bbox` (capa, geometría o tupla, en cualquier CRS) lee SOLO las entidades que tocan esa ventana: no recorta, `recortar` sigue haciendo falta. Con cartografía estatal es memoria, no comodidad (33.1 s / 763 MB contra 7.1 s / 164 MB). `crs` ASIGNA el CRS cuando el archivo no lo trae (DXF nunca: `cargar("plano.dxf", crs=32613)`; la capa de CAD va en la columna `Layer`). FALLA si no hay CRS y no se pasa, o si lo trae distinto. VER: R4.
+**Qué formatos se leen.** `cargar` lee con GDAL (pyogrio) cualquier formato vectorial que GDAL abra; esta tabla es lo probado. Un KML o KMZ se carga DIRECTO, sin convertir antes.
+
+| Formato | Cargar con | Notas |
+|---|---|---|
+| .shp, .gpkg, .geojson/.json, .fgb, .gml, .tab | `cargar` | .gpkg puede ser multicapa: `capa=` |
+| .kml, .kmz (Google Earth) | `cargar` | Sale en EPSG:4326: `reproyectar` antes de medir. Cada carpeta (`<Folder>`) es una capa: sin `capa=` lee la primera y AVISA; `listar_capas` las enumera. El nombre va en `Name` |
+| .gpx | `cargar(ruta, capa="tracks")`, `cargar_tracks`, `cargar_waypoints` | Siempre cinco capas; EPSG:4326 |
+| .dxf | `cargar(ruta, crs=...)` | Nunca trae CRS: `crs=` obligatorio |
+| .osm, .pbf | `cargar(ruta, capa="lines")` | |
+| .gdb (carpeta de File Geodatabase) | `cargar` | Multicapa: `capa=` |
+| .csv, .xlsx con columnas X/Y | `cargar_puntos(ruta, x=, y=, epsg=)` | `cargar` no: un CSV no trae geometría ni CRS |
+| .tif, .asc, .img (ráster) | `cargar_raster`, `cargar_bandas` | Cualquier ráster que abra rasterio |
+
+Escritura (`guardar`): .shp, .gpkg, .geojson, .json, .fgb, .gml, .tab, .csv, .gpx, .kml, .kmz, y .dxf solo con la geometría (`gdf[["geometry"]]`: con columnas falla). Otra extensión FALLA antes de escribir.
+
+- `cargar(ruta, capa=None, bbox=None, crs=None)` → GeoDataFrame (formatos: tabla de arriba). `capa` elige en multicapa (`listar_capas`). `bbox` (capa, geometría o tupla, en cualquier CRS) lee SOLO las entidades que tocan esa ventana: no recorta, `recortar` sigue haciendo falta. Con cartografía estatal es memoria, no comodidad (33.1 s / 763 MB contra 7.1 s / 164 MB). `crs` ASIGNA el CRS cuando el archivo no lo trae (DXF nunca: `cargar("plano.dxf", crs=32613)`; la capa de CAD va en la columna `Layer`). FALLA si no hay CRS y no se pasa, o si lo trae distinto. VER: R4.
 - `cargar_puntos(ruta, x="x", y="y", epsg=None, orden=None)` → puntos desde CSV/Excel. `epsg` fija el CRS; FALLA sin él, como `cargar`. Una fila sin coordenada queda con geometría nula y AVISA. `orden` ordena filas antes de convertir a línea o polígono.
 - `convertir(entrada, salida, capa=None, gpx_como=None)`: `cargar` + `guardar` en una línea; autodetecta la capa GPX con datos.
 - `guardar(gdf, ruta, gpx_como=None, anchos=None)`: formato por extensión; .gpx/.kml/.kmz reproyectan a EPSG:4326. **A GPX no elijas el tipo: lo decide la geometría.** Puntos → waypoints (multipuntos, uno por punto), líneas → track, polígonos → contorno como track. Los atributos viajan tal cual (`NAME` → `<name>`, el resto como extensiones): no recortes ni renombres campos. No pases `gpx_como`; solo `gpx_como="route"` y solo si se piden rutas (AVISA si la capa no tiene líneas). `anchos` (solo .shp) fija el ancho del campo en el .dbf: `{"CLASE": 50}`, `{"SUP": (12, 4)}`. AVISA si una columna de área o longitud ya no cuadra con la geometría (R2). FALLA si un valor no cabe en `anchos` (el texto cuenta BYTES: una letra acentuada ocupa 2).
