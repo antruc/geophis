@@ -39,6 +39,9 @@ _EXT_VECTOR = {
     ".csv",
 }
 
+# Esquema fijo del driver DXF de GDAL: otra columna no se puede escribir.
+_CAMPOS_DXF = {"Layer", "PaperSpace", "SubClasses", "Linetype", "EntityHandle", "Text"}
+
 # Formatos de tabla: solo atributos, sin geometría.
 _EXT_TABLA = {".csv", ".xlsx"}
 
@@ -664,12 +667,33 @@ def guardar(
         with _traducir_avisos(), _traducir_errores(ruta):
             gdf.to_file(ruta, driver=_DRIVERS_GEO[ext], **opciones)
     else:
+        if ext == ".dxf":
+            gdf = _a_esquema_dxf(gdf, ruta)
         with _traducir_avisos(), _traducir_errores(ruta):
             gdf.to_file(ruta)
 
     if _mostrar():
         print(f"guardar: '{ruta}' {len(gdf)} entidades")
     return ruta
+
+
+def _a_esquema_dxf(gdf: gpd.GeoDataFrame, ruta: str | PathLike[str]) -> gpd.GeoDataFrame:
+    """Deja solo las columnas que DXF admite y borra el .dxf previo.
+
+    El driver DXF tiene esquema fijo: con cualquier otra columna GDAL falla con
+    "Error adding field". Y no sobrescribe: sobre un .dxf existente falla con
+    "CreateLayer() not supported". Los demás formatos sí sobrescriben.
+    """
+    fuera = [c for c in gdf.columns if c != gdf.geometry.name and c not in _CAMPOS_DXF]
+    if fuera:
+        print(
+            f"Aviso guardar: DXF no guarda atributos; se descartan {fuera}. "
+            "Lo que distinga entidades en CAD va en la columna `Layer`"
+        )
+        gdf = gdf.drop(columns=fuera)
+    if os.path.exists(ruta):
+        os.remove(ruta)
+    return gdf
 
 
 def exportar_tabla(

@@ -106,6 +106,18 @@ def test_cargar_dxf_avisa_geometrias_mezcladas(tmp_path, gdf, capsys):
     assert "mezcla geometrías" in capsys.readouterr().out
 
 
+def test_guardar_dxf_descarta_atributos_y_sobrescribe(tmp_path, gdf, capsys):
+    from shapely.geometry import LineString
+
+    ruta = tmp_path / "plano.dxf"
+    g = gdf(LineString([(0, 0), (10, 0)]), Layer=["curvas"], NOMBRE=["x"])
+    geo.guardar(g, ruta)
+    assert "se descartan ['NOMBRE']" in capsys.readouterr().out
+    geo.guardar(g, ruta)  # sobre un .dxf existente GDAL no sobrescribe solo
+    r = geo.cargar(ruta, crs=32613)
+    assert list(r["Layer"]) == ["curvas"]
+
+
 def test_cargar_no_avisa_de_polygon_con_multipolygon(tmp_path, gdf, capsys):
     from shapely.geometry import MultiPolygon, box
 

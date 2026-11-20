@@ -674,7 +674,7 @@ Plantilla de cada entrada: firma → qué devuelve. Qué hace. **TRAMPA** lo que
 | .csv, .xlsx con columnas X/Y | `cargar_puntos(ruta, x=, y=, epsg=)` | `cargar` no: un CSV no trae geometría ni CRS |
 | .tif, .asc, .img (ráster) | `cargar_raster`, `cargar_bandas` | Cualquier ráster que abra rasterio |
 
-Escritura (`guardar`): .shp, .gpkg, .geojson, .json, .fgb, .gml, .tab, .csv, .gpx, .kml, .kmz, y .dxf solo con la geometría (`gdf[["geometry"]]`: con columnas falla). Otra extensión FALLA antes de escribir.
+Escritura (`guardar`): .shp, .gpkg, .geojson, .json, .fgb, .gml, .tab, .csv, .gpx, .kml, .kmz y .dxf (DXF solo guarda `Layer` y la geometría: las demás columnas se descartan y AVISA). Otra extensión FALLA antes de escribir.
 
 - `cargar(ruta, capa=None, bbox=None, crs=None)` → GeoDataFrame (formatos: tabla de arriba). `capa` elige en multicapa (`listar_capas`). `bbox` (capa, geometría o tupla, en cualquier CRS) lee SOLO las entidades que tocan esa ventana: no recorta, `recortar` sigue haciendo falta. Con cartografía estatal es memoria, no comodidad (33.1 s / 763 MB contra 7.1 s / 164 MB). `crs` ASIGNA el CRS cuando el archivo no lo trae (DXF nunca: `cargar("plano.dxf", crs=32613)`; la capa de CAD va en la columna `Layer`). FALLA si no hay CRS y no se pasa, o si lo trae distinto. VER: R4.
 - `cargar_puntos(ruta, x="x", y="y", epsg=None, orden=None)` → puntos desde CSV/Excel. `epsg` fija el CRS; FALLA sin él, como `cargar`. Una fila sin coordenada queda con geometría nula y AVISA. `orden` ordena filas antes de convertir a línea o polígono.
