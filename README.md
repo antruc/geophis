@@ -39,7 +39,7 @@ Para el trabajo forestal y territorial que termina en un entregable: shapefiles,
 - La imagen Sentinel-2 más limpia de una temporada sobre el predio, y su NDVI
 - Pasar un predio de shapefile a KMZ para abrirlo en el celular, o un GPX de campo a shapefile (también desde la consola, ver abajo)
 
-**Flujos completos, del dato crudo al entregable.** Las recetas de [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) encadenan todo en un script: curvas de nivel, MDE, pendiente, clases sin moteado y shapefile con la superficie de cada clase; o MDE, red de drenaje y cuencas. Cambiar un rango o una capa de entrada es cambiar una línea del bloque `CONFIG` y volver a correr
+**Flujos completos, del dato crudo al entregable.** Las recetas de [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) encadenan todo en un script: curvas de nivel, MDE, pendiente, clases sin moteado y shapefile con la superficie de cada clase; o MDE, red de drenaje y cuencas. Cambiar un rango o una capa de entrada es cambiar una línea del bloque `CONFIG` y volver a correr
 
 **Lo que te ahorra frente a un script con geopandas y rasterio a secas,** donde estos errores pasan sin avisar:
 
@@ -53,18 +53,26 @@ Para el trabajo forestal y territorial que termina en un entregable: shapefiles,
 
 ## Scripts hechos con IA
 
-**¿Se puede automatizar el trabajo SIG con una IA, en español?** Sí: le pides la tarea a Claude, ChatGPT u otro asistente en lenguaje normal, y te devuelve un script de geophis que corres en tu equipo con tus propios datos. Basta con cargar [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) como contexto: trae todas las funciones con su firma y sus trampas, más las reglas de trabajo
+**¿Se puede automatizar el trabajo SIG con una IA, en español?** Sí: le pides la tarea a Claude, ChatGPT u otro asistente en lenguaje normal, y te devuelve un script de geophis que corres en tu equipo con tus propios datos. Basta con cargar [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) como contexto: trae todas las funciones con su firma y sus trampas, más las reglas de trabajo
 
-1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) como contexto del proyecto
+1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) como contexto del proyecto
 2. Pide la tarea en lenguaje normal: "recorta las curvas al predio, saca el MDE y clasifica la pendiente en 0 a 15, 15 a 30 y más de 30 %". Lo que decides tú (los rangos, la escala) va en el pedido; lo que se puede medir, como la resolución del MDE, lo mide el script. Si falta una decisión, la IA pregunta antes de escribir código
 3. Corre el script que te devuelve: `python mi_script.py`
 4. Pega la salida de consola completa en la conversación. Los avisos de la librería salen por consola, y es lo que la IA necesita para corregir
 
-Con Claude Code, u otro agente que ejecute código, los pasos 3 y 4 los hace el agente: escribe el script, lo corre y lee la salida él mismo
+**Con un agente que ejecuta código** (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot), los pasos 3 y 4 los hace el agente: escribe el script, lo corre y lee la salida él mismo. En vez de subir `GEOPHIS.md`, instala una vez el skill [`skills/geophis`](https://github.com/antruc/geophis/tree/main/skills/geophis). El skill lee el `GEOPHIS.md` que viene dentro del paquete instalado, así que siempre corresponde a tu versión de geophis y no hay que actualizarlo con cada `pip install -U geophis`:
 
-[`docs/NORMAS_PROYECTO.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS_PROYECTO.md) es un ejemplo de instrucciones para un Proyecto de Claude Desktop: dónde entregar los scripts, cómo nombrarlos y cuándo ejecutar el proceso o devolverlo. Se pega directamente en el campo "Instrucciones" del Proyecto, **no se sube como archivo del proyecto**: como archivo es solo contexto que se consulta, y como instrucciones se aplica en cada conversación. Remite a un `NOMENCLATURA_SIG.md` propio, con la convención de nombres, que sí va como archivo junto a `GEOPHIS.md`; adáptalo o quita la norma 3
+- Con Node.js 22.20 o superior, para todos tus agentes a la vez: `npx skills add antruc/geophis -g`
+- A mano: copia la carpeta `skills/geophis` a `~/.claude/skills/` (Claude Code) o a `~/.agents/skills/` (Codex, y Cursor, Gemini CLI y Copilot a nivel de carpeta de trabajo)
 
-Sin IA, el mismo [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md)
+[`docs/NORMAS.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS.md) es un ejemplo de normas de trabajo: dónde entregar los scripts, cómo nombrarlos y cuándo ejecutar el proceso o devolverlo. Tiene una parte común, una para el chat de Claude y una (norma 12) para agentes que ejecutan código
+
+- **En un Proyecto de Claude Desktop** se pega en el campo "Instrucciones", **no se sube como archivo del proyecto**: como archivo es solo contexto que se consulta, y como instrucciones se aplica en cada conversación
+- **Con un agente** se copia como `AGENTS.md` en tu carpeta de trabajo. Claude Code lee `CLAUDE.md`: crea uno con la línea `@AGENTS.md`
+
+Remite a un `NOMENCLATURA_SIG.md` propio, con la convención de nombres, que va como archivo junto a `GEOPHIS.md` (o en la carpeta de trabajo, con un agente); adáptalo o quita la norma 3
+
+Sin IA, el mismo [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md)
 
 ## Instalación
 
@@ -89,7 +97,7 @@ print(geo.superficie_total_ha(predio), "ha")
 geo.guardar(predio, "predio_utm.shp")
 ```
 
-Del predio y sus curvas de nivel a clases de pendiente: receta [P1 en `docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md#p1-tabla-de-rangos-con-spline). La resolución del MDE y los umbrales no se teclean, los mide `derivar_parametros` desde las curvas
+Del predio y sus curvas de nivel a clases de pendiente: receta [P1 en `src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md#p1-tabla-de-rangos-con-spline). La resolución del MDE y los umbrales no se teclean, los mide `derivar_parametros` desde las curvas
 
 Scripts completos en [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos)
 
@@ -120,10 +128,11 @@ Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se l
 
 | Archivo | Para qué |
 |---|---|
-| [`docs/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo de geophis que hay que cargar en un Proyecto de Claude |
+| [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo de geophis que hay que cargar en un Proyecto de Claude |
 | [`docs/DECISIONES.md`](https://github.com/antruc/geophis/blob/main/docs/DECISIONES.md) | Para personas: las mediciones que justifican cada regla y las alternativas descartadas. No se sube al Proyecto |
 | [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md) | Índice para buscar una función por nombre: una línea por función, con enlace a su entrada completa en `GEOPHIS.md` |
-| [`docs/NORMAS_PROYECTO.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS_PROYECTO.md) | Ejemplo de instrucciones para un Proyecto de Claude Desktop. Se pega en "Instrucciones"; no se sube como archivo |
+| [`docs/NORMAS.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS.md) | Ejemplo de normas de trabajo. En Claude Desktop se pega en "Instrucciones" (no se sube como archivo); con un agente se copia como `AGENTS.md` en la carpeta de trabajo |
+| [`skills/geophis/`](https://github.com/antruc/geophis/tree/main/skills/geophis) | Skill para agentes que ejecutan código (Claude Code, Codex, Cursor...): les hace leer el `GEOPHIS.md` del paquete instalado |
 | [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos) | Scripts completos: `caminos.py` (buffer jerárquico), `hidrologia.py` (buffer por condición), `mde.py` (curvas a MDE) |
 
 ## Convenciones
@@ -146,6 +155,8 @@ pytest                 # pruebas
 ruff check src tests   # linter
 ruff format src tests ejemplos  # formateo
 ```
+
+[`.claude/CLAUDE.md`](.claude/CLAUDE.md) son las instrucciones para desarrollar la librería con Claude Code. No son para usar geophis: para eso están el skill y [`docs/NORMAS.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS.md)
 
 | Ruta | Qué hace |
 |---|---|

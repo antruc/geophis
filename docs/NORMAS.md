@@ -1,5 +1,12 @@
 # Normas del proyecto
 
+<!-- Ejemplo de normas para trabajar con geophis. Dos usos:
+     - Claude Desktop: pegar este archivo en el campo "Instrucciones" del Proyecto (no subirlo como archivo).
+     - Agente que ejecuta código (Claude Code, Codex, Cursor...): copiarlo como AGENTS.md en la carpeta de trabajo; en Claude Code, con un CLAUDE.md que diga @AGENTS.md.
+     Remite a un NOMENCLATURA_SIG.md propio: adáptalo o quita la norma 3. -->
+
+**Dónde aplica cada norma.** Las normas 1, 2, 3, 6, 9 y 11 aplican siempre. Las normas 4, 5, 7, 8 y 10 aplican cuando trabajas en un chat de Claude (Proyecto de Claude Desktop o claude.ai). Si eres un agente que ejecuta código, en la computadora del usuario o en la nube (Claude Code, Codex, Cursor u otro), la norma 12 reemplaza a las normas 4, 5, 7, 8 y 10.
+
 Las normas están numeradas. Cuando una norma remita a otra ("aplica la norma N"), lee y aplica esa norma completa.
 
 Estas normas son del proyecto y no tienen relación con las reglas R1 a R9, las recetas P1 a P3 ni los puntos IA1 a IA5 de GEOPHIS.md. Al remitir a una norma, escribe siempre "norma N". Lo de GEOPHIS.md se cita con su código y el nombre del archivo: "R5 de GEOPHIS.md", "IA2 de GEOPHIS.md".
@@ -7,32 +14,32 @@ Estas normas son del proyecto y no tienen relación con las reglas R1 a R9, las 
 ## Flujo general
 1. Si la tarea involucra geophis, lee GEOPHIS.md (norma 1).
 2. Reúne las rutas de entrada y pregunta lo que falte (norma 6 e IA2 de GEOPHIS.md).
-3. Decide dónde se ejecuta el proceso: en tu entorno, en la computadora del usuario o en ninguno (normas 7 y 8).
+3. Decide dónde se ejecuta el proceso: en tu entorno, en la computadora del usuario o en ninguno (normas 7 y 8; si eres un agente, norma 12).
 4. Nombra los archivos (norma 3) y escribe las rutas del script (norma 11).
-5. Entrega, verifica y cierra el mensaje (normas 4 y 5).
+5. Entrega, verifica y cierra el mensaje (normas 4 y 5; si eres un agente, norma 12).
 
 Los scripts hechos con cfasig siguen la norma 9. El formato de respuesta sigue la norma 10.
 
 ## Norma 1. Lectura de GEOPHIS.md
-Lee completo GEOPHIS.md del conocimiento del proyecto antes de:
+Lee completo GEOPHIS.md (del conocimiento del proyecto o del skill `geophis`) antes de:
 - escribir, modificar, convertir o ejecutar código con geophis;
 - generar archivos con geophis;
 - responder preguntas sobre la librería (su funcionamiento, lo que puede o no hacer).
 
 GEOPHIS.md contiene la documentación de geophis, sus reglas (R1 a R9), sus recetas (P1 a P3) y cómo responder (IA1 a IA5). No escribas código sin haberlo leído y no respondas de memoria sobre la librería.
-- Si no puedes acceder a GEOPHIS.md, avisa al usuario y detente. No improvises.
+- Léelo completo con una lectura, no con una búsqueda de fragmentos. Si no puedes acceder a GEOPHIS.md o solo puedes buscar fragmentos, avisa al usuario y detente. No improvises.
 - Si lo leíste correctamente, no se lo confirmes al usuario; continúa con la tarea.
 - DECISIONES.md, que GEOPHIS.md menciona, no está en el proyecto: no lo busques ni lo pidas.
 - Para preguntas que no se relacionen con la librería ni impliquen código o archivos, no es necesario leerlo.
 
 ## Norma 2. Prioridad de GEOPHIS.md
-Si una instrucción de GEOPHIS.md contradice alguna de estas normas, prevalece GEOPHIS.md, excepto en la entrega de archivos, el cierre del mensaje y las rutas de los scripts (normas 3, 4, 5, 10 y 11), donde prevalecen estas normas.
+Si una instrucción de GEOPHIS.md contradice alguna de estas normas, prevalece GEOPHIS.md, excepto en la entrega de archivos, el cierre del mensaje y las rutas de los scripts (normas 3, 4, 5, 10, 11 y 12), donde prevalecen estas normas.
 
 En particular, IA1 e IA4 de GEOPHIS.md dicen que la respuesta es el script o el fragmento corregido. En este proyecto el script va como archivo y el cierre del mensaje sigue la norma 4. El resto de IA1 a IA5 se aplica tal cual.
 
 ## Norma 3. Nombres de archivos de salida
 Antes de decidir el nombre de cualquier archivo de salida (script, entregable o intermedio), lee NOMENCLATURA_SIG.md y aplica su convención.
-- Si no puedes acceder a NOMENCLATURA_SIG.md, avisa al usuario en lugar de continuar sin leerlo.
+- Léelo completo con una lectura, no con una búsqueda de fragmentos. Si no puedes acceder a NOMENCLATURA_SIG.md o solo puedes buscar fragmentos, avisa al usuario en lugar de continuar sin leerlo.
 - Los nombres de salida de las recetas de GEOPHIS.md (`PENDIENTES.shp`, `MDE_BASE.tif`, `NDVI.tif`...) son ejemplos: renómbralos con la convención.
 - Si el documento no contempla un código para ese tipo de archivo, improvisa uno coherente con sus reglas y avisa al usuario cuáles códigos improvisaste.
 - Si no conoces el cliente, usa `CLIENTE` tal cual. No improvises un código de cliente ni te detengas por eso; avisa en una línea que debe reemplazarse.
@@ -74,9 +81,9 @@ Aplica cuando el usuario pida un script o un archivo que use archivos de entrada
 
 **Paso 0. Compuerta (antes de instalar, leer datos o ejecutar nada).**
 1. Aplica la norma 1.
-2. Si faltan valores declarados (IA2 de GEOPHIS.md) o rutas (norma 6), pregunta primero y espera la respuesta.
+2. Aplica la norma 6. Si faltan valores declarados (IA2 de GEOPHIS.md) o rutas, pregunta primero y espera la respuesta.
 3. Decide si el proceso incluye algún paso que necesite red fuera de PyPI y GitHub. Lo es toda función del módulo `satelite.py` de GEOPHIS.md (`buscar_sentinel2`, `imagen_sentinel2`), cualquier función que lea una URL (por ejemplo, `recortar_raster` sobre la URL de un COG) y cualquier descarga de imágenes. Si el proceso mezcla pasos locales con alguno de estos, todo el proceso cuenta como de red.
-4. Si no lo es, sigue con los pasos 1 a 6.
+4. Si no lo es, sigue con los pasos 1 a 5.
 5. Si lo es, en tu entorno no instales geophis, no pruebes la conexión y no leas ni ejecutes nada. Haz una única comprobación, y solo en la computadora del usuario:
    - Si no tienes shell en su computadora, aplica la norma 8.
    - Si lo tienes, haz una sola llamada con límite de 15 segundos, con el intérprete de Python que correrá el script (en Windows, `python` o `py`; no uses `python3`, que en Windows suele abrir la Microsoft Store):
@@ -84,16 +91,15 @@ Aplica cuando el usuario pida un script o un archivo que use archivos de entrada
      python -c "import geophis, urllib.request as u; print(geophis.__version__, u.urlopen('https://earth-search.aws.element84.com/v1', timeout=10).status)"
      ```
      Esta es la única prueba de conexión permitida.
-   - Si imprime la versión y `200`: compara la versión con la de GEOPHIS.md (avisa si no coinciden) y ejecuta el proceso en esa computadora sin instalar nada. El script que ejecutas ahí es el mismo que entregas. Luego sigue con los pasos 5 y 6.
+   - Si imprime la versión y `200`: compara la versión con la de GEOPHIS.md (si no coinciden, avísalo en el cierre, norma 4) y ejecuta el proceso en esa computadora sin instalar nada. El script que ejecutas ahí es el mismo que entregas. Luego sigue con los pasos 4 y 5.
    - Si la llamada falla, no arranca, tarda más de 15 segundos o falta algo, aplica la norma 8. No reintentes, no repitas la comprobación en la conversación y no uses otra vía (navegador u otra herramienta).
 
 **Pasos para los procesos que no necesitan red:**
-1. Aplica la norma 6.
-2. Instala geophis desde PyPI (`pip install geophis`). Si falla, intenta una vez desde el repositorio público de GitHub (antruc/geophis). Si ninguna funciona, aplica la norma 8 con el error.
-3. Compara la versión instalada con la de GEOPHIS.md. Si no coinciden, avisa al usuario antes de continuar.
-4. Prepara el script para el usuario con las rutas reales y ejecuta en tu entorno una copia de trabajo con las rutas de tu entorno. Esa copia no se entrega (norma 11, punto 5).
-5. Revisa tú la salida de consola completa. Resume los `Aviso` en la línea de IA1 sobre qué queda sin medir o supuesto. No le pidas la consola al usuario: IA3 de GEOPHIS.md aplica solo cuando él ejecuta.
-6. Nombra el script y los archivos producidos (norma 3) y entrégalos (norma 4).
+1. Instala geophis desde PyPI (`pip install geophis`). Si falla, intenta una vez desde el repositorio público de GitHub (antruc/geophis). Si ninguna funciona, aplica la norma 8 con el error.
+2. Compara la versión instalada con la de GEOPHIS.md. Si no coinciden, avísalo en el cierre (norma 4) y continúa.
+3. Prepara el script para el usuario con las rutas reales y ejecuta en tu entorno una copia de trabajo con las rutas de tu entorno. Esa copia no se entrega (norma 11, punto 5).
+4. Revisa tú la salida de consola completa. Resume los `Aviso` en la línea de IA1 sobre qué queda sin medir o supuesto. No le pidas la consola al usuario: IA3 de GEOPHIS.md aplica solo cuando él ejecuta.
+5. Nombra el script y los archivos producidos (norma 3) y entrégalos (norma 4).
 
 ## Norma 8. Cuando no puedas ejecutar el proceso
 Esta norma tiene prioridad sobre cualquier paso de las normas 6 y 7 que lea datos, instale o ejecute. Mientras aplica, no corres nada de geophis ni lees los datos de entrada del usuario; el script los leerá al ejecutarse (por ejemplo, detecta el CRS con `detectar_utm`).
@@ -139,7 +145,15 @@ Aplica a todo script que entregues y que use rutas de Windows, de entrada o de s
 2. **Herramienta.** Usa `pathlib` (`from pathlib import Path`). No uses `os.environ["USERPROFILE"]` ni `os.path.expanduser` para construir estas rutas.
 3. **Rutas fuera de la carpeta del usuario** (por ejemplo `D:\SIG\datos` o `\\servidor\carpeta`): déjalas literales, como las dio el usuario, con `Path(r"...")`.
 4. **Rutas `SUPUESTO`.** Si se asumen dentro de la carpeta del usuario, también van con `Path.home()`. Mantén la marca `SUPUESTO` junto a ellas.
-5. **Solo el script entregado.** La copia de trabajo que ejecutas en tu entorno (norma 7, paso 4) lleva las rutas de tu entorno y no se entrega. Antes de entregar, confirma que el script entregado es igual al que ejecutaste salvo por las rutas del `CONFIG`.
+5. **Solo el script entregado.** En un chat de Claude, la copia de trabajo que ejecutas en tu entorno (norma 7, paso 3) lleva las rutas de tu entorno y no se entrega. Antes de entregar, confirma que el script entregado es igual al que ejecutaste salvo por las rutas del `CONFIG`.
 6. **Otros sistemas.** Si las rutas del usuario no son de Windows (`/Users/...`, `/home/...`), déjalas como las dio, también con `Path`.
 7. **Sin nombre de usuario real.** No dejes el nombre de usuario real en comentarios, docstrings, mensajes ni nombres de variables.
 8. **Nombres de usuario con punto.** Los nombres como `USUARIO.1234` funcionan con `Path.home()` sin tratamiento especial. Pero `pathlib` toma lo que va después del último punto como extensión, también en carpetas, así que no uses `.stem`, `.suffix`, `.with_suffix()` ni `.with_stem()` sobre `Path.home()` ni sobre ninguna carpeta; úsalos solo sobre nombres de archivo.
+
+## Norma 12. Cuando eres un agente que ejecuta código
+Reemplaza a las normas 4, 5, 7, 8 y 10. Vale para Claude Code, Codex, Cursor y otros agentes que escriben, ejecutan y leen la consola ellos mismos.
+1. **Ejecución.** Ejecuta tú el script con el intérprete de Python que tenga geophis. Si no está instalado, instálalo con `pip install geophis`. El script que ejecutas es el que entregas.
+2. **Destino.** Guarda el script y los archivos producidos en la carpeta que indique el usuario. Si no indicó ninguna, usa la carpeta de los datos de entrada; si no hay datos de entrada o hay más de una carpeta posible, pregunta cuál usar. Al corregir, sobrescribe el script con el mismo nombre, sin sufijos (`_1`, `_FINAL`), partiendo de la versión que está en la carpeta, porque el usuario pudo editarla.
+3. **Consola.** Lee tú la salida de consola completa y resume los `Aviso` en la línea de IA1 sobre qué queda sin medir o supuesto. No le pidas la consola al usuario.
+4. **Cuando no puedas ejecutar** (faltan los datos o sus rutas, no hay red para un proceso que la necesita, falla la instalación o la ejecución): entrega el script, y en el cierre explica qué no pudo hacerse y por qué, con el error si lo hubo, y pide que lo ejecute y pegue la consola completa (IA3 de GEOPHIS.md). No sustituyas el proceso por otro método sin avisar. El último párrafo de la norma 8 (las guardas de geophis no son fallas de ejecución) aplica igual.
+5. **Cierre.** Termina con las líneas del cierre de la norma 4. En la línea de entrega va la ruta de cada archivo guardado. No generes imágenes ni documentos que el usuario no pidió, ni conviertas en archivo la tabla de procedencia (norma 10).

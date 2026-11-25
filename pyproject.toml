@@ -59,7 +59,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/antruc/geophis"
-Documentation = "https://github.com/antruc/geophis/blob/main/docs/GEOPHIS.md"
+Documentation = "https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md"
 Repository = "https://github.com/antruc/geophis"
 Issues = "https://github.com/antruc/geophis/issues"
 
@@ -77,7 +77,7 @@ packages = ["geophis", "geophis.fuentes"]
 version = { attr = "geophis.__version__" }
 
 [tool.setuptools.package-data]
-geophis = ["py.typed"]
+geophis = ["py.typed", "GEOPHIS.md"]
 "geophis.fuentes" = ["*"]
 
 [tool.pytest.ini_options]

@@ -1,7 +1,7 @@
 """Tests de `cargar_bandas` e `indice_vegetacion`.
 
 Los dos eslabones propios de la cadena de deteccion de areas sin vegetacion
-(docs/GEOPHIS.md, receta de vegetacion).
+(src/geophis/GEOPHIS.md, receta de vegetacion).
 
 Lo que se comprueba es lo que se rompe en silencio:
 

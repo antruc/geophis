@@ -16,7 +16,7 @@ Produce dos rasters que no son intercambiables:
 
 Ningún parámetro de la malla se teclea: `derivar_parametros` los mide o los
 deriva, y `sin_medir` detiene la corrida si alguno quedó sin elegir (R1,
-docs/GEOPHIS.md).
+src/geophis/GEOPHIS.md).
 
 El manejo del extent replica la práctica de ANUDEM: curvas y cauces se
 recortan a un cuadro amplio y el MDE se interpola sobre el predio, que queda
@@ -85,7 +85,7 @@ campo, e = geo.detectar_cota(curvas)  # una vez, sobre el dominio declarado
 # ── 2. DERIVAR LOS PARÁMETROS, CON SU PROCEDENCIA ──────────
 # spline (default): superficie suave, sin el escalonado que dejan los
 # triángulos planos del TIN entre curvas. Para TIN con cauces como quiebres,
-# ver docs/GEOPHIS.md, receta P2.
+# ver src/geophis/GEOPHIS.md, receta P2.
 # `vecinos="medir"` cuesta una interpolación por cada n; sin él entra el
 # default 48, que nadie eligió, y el assert de abajo lo para.
 p = geo.derivar_parametros(curvas, campo, predio, RANGOS, ESCALA, vecinos="medir")

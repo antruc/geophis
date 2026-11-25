@@ -126,7 +126,7 @@ def test_rotulo_y_cita_salen_del_informe():
 
 
 def test_la_receta_antes_despues_documentada_corre(tmp_path):
-    """docs/GEOPHIS.md §"La lámina del antes y el después", pasos 2 a 4, sin red.
+    """src/geophis/GEOPHIS.md §"La lámina del antes y el después", pasos 2 a 4, sin red.
 
     El despues llega en otra malla (desplazada una celda), como pasa con dos
     `imagen_sentinel2`: sin la linea de `alinear_rasters`, `lamina` falla.

@@ -1,4 +1,4 @@
-"""`docs/GEOPHIS.md` documenta la API a mano; esto vigila que no se desfase del código.
+"""`src/geophis/GEOPHIS.md` documenta la API a mano; esto vigila que no se desfase del código.
 
 Compara solo nombres de parámetro y defaults. Las anotaciones de tipo no se
 documentan a propósito (los .md se leen, no se compilan), así que compararlas
@@ -67,7 +67,7 @@ def test_cadenas_imprimibles_en_consola_windows():
 
 # La documentación completa, y el único archivo que se carga en un Proyecto de
 # Claude. El README de la raíz es presentación y ya no lleva firmas.
-DOCS = {"geophis.md": [RAIZ / "docs" / "GEOPHIS.md"]}
+DOCS = {"geophis.md": [RAIZ / "src" / "geophis" / "GEOPHIS.md"]}
 
 # El índice: una fila por función, con enlace a la entrada de GEOPHIS.md.
 INDICE = RAIZ / "docs" / "API.md"
@@ -132,7 +132,7 @@ def _ruta(nombre: str) -> Path:
 
 
 def test_la_cadena_de_pendientes_documentada_corre_entera():
-    """La receta P1 de `docs/GEOPHIS.md`, armada paso a paso.
+    """La receta P1 de `src/geophis/GEOPHIS.md`, armada paso a paso.
 
     Los tests de firma comprueban que los NOMBRES cuadran; este comprueba que la
     cadena entera se puede ejecutar: que la salida de cada paso entra en el
@@ -213,7 +213,7 @@ def test_la_cadena_de_pendientes_documentada_corre_entera():
     # 5. UNA pasada de sieve, con la clase alta exenta. La receta de dos pasadas
     # + resolver_por_prioridad no era una particion: el sieve METE en la clase
     # alta pixeles que en el crudo eran de otra clase, y esos se perdian
-    # (43.21 ha medidas en un predio real). Ver docs/GEOPHIS.md.
+    # (43.21 ha medidas en un predio real). Ver src/geophis/GEOPHIS.md.
     entregable = geo.zonificar(
         pendiente,
         tf,
@@ -292,7 +292,7 @@ def test_firmas_documentadas_cuadran(doc):
 
 
 def test_la_receta_de_elegir_metodo_corre_entera():
-    """La receta P2 de `docs/GEOPHIS.md` (el juez entre metodos), en una ladera.
+    """La receta P2 de `src/geophis/GEOPHIS.md` (el juez entre metodos), en una ladera.
 
     Misma ladera que la cadena de pendientes (curvas cada 12 m, 167 %) con un
     cauce que las cruza todas. Comprueba que la receta existe y encadena:

@@ -317,7 +317,7 @@ def test_imagen_avisa_que_tope_deja_fuera_el_relleno(tmp_path, capsys):
 
 
 def test_la_receta_del_predio_a_la_imagen_corre_entera(tmp_path, monkeypatch):
-    """`docs/GEOPHIS.md` §"Del predio a la imagen", linea por linea, sin red.
+    """`src/geophis/GEOPHIS.md` §"Del predio a la imagen", linea por linea, sin red.
 
     Solo se sustituye la busqueda: `imagen_sentinel2(fechas=)` recibe dos
     escenas sinteticas, la primera con una nube que rellena la segunda, para

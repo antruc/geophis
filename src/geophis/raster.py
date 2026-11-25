@@ -1578,7 +1578,7 @@ def interpolar_mde(
         'malla' es OPCIONAL y tiene un solo uso medido: dar los rangos bajos y
         medios a la `h` del TIN cuando el spline queda forzado muy grueso (el
         factor `h del spline / techo de trazado` de `derivar_parametros` pasa
-        de ~5). Ver docs/GEOPHIS.md, receta P3. No da
+        de ~5). Ver src/geophis/GEOPHIS.md, receta P3. No da
         mesetas a cota de curva, pero sobreestima el corte >=60 % de 7 a 8 %
         (superficie suave contra pendiente media entre curvas), así que no es
         fuente de la clase alta. Muestrea a `min(intervalo_muestreo, h/2)`,
