@@ -128,7 +128,7 @@ geophis ayuda
 | [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) | La documentación completa, para personas y para IA: todas las funciones de `__all__` con su firma y sus trampas, las reglas y las recetas de MDE, pendientes e hidrología. La sección "Para la IA" es solo para la IA. Es también el único archivo de geophis que hay que cargar en un Proyecto de Claude |
 | [`docs/DECISIONES.md`](https://github.com/antruc/geophis/blob/main/docs/DECISIONES.md) | Para personas: las mediciones que justifican cada regla y las alternativas descartadas. No se sube al Proyecto |
 | [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md) | Índice para buscar una función por nombre: una línea por función, con enlace a su entrada completa en `GEOPHIS.md` |
-| [`docs/NORMAS.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS.md) | Ejemplo de normas de trabajo. En Claude Desktop se pega en "Instrucciones" (no se sube como archivo); con un agente se copia como `AGENTS.md` en la carpeta de trabajo |
+| [`docs/NORMAS.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS.md) | Ejemplo de normas de trabajo. En Claude Desktop se pega su texto en "Instrucciones" (no se sube como archivo); con un agente se copia como `AGENTS.md` en la carpeta de trabajo |
 | [`skills/geophis/`](https://github.com/antruc/geophis/tree/main/skills/geophis) | Skill para agentes que ejecutan código (Claude Code, Codex, Cursor...): les hace leer el `GEOPHIS.md` del paquete instalado |
 | [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos) | Scripts completos: `caminos.py` (buffer jerárquico), `hidrologia.py` (buffer por condición), `mde.py` (curvas a MDE) |
 

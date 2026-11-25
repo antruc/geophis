@@ -1,10 +1,5 @@
 # Normas del proyecto
 
-<!-- Ejemplo de normas para trabajar con geophis. Dos usos:
-     - Claude Desktop: pegar este archivo en el campo "Instrucciones" del Proyecto (no subirlo como archivo).
-     - Agente que ejecuta código (Claude Code, Codex, Cursor...): copiarlo como AGENTS.md en la carpeta de trabajo; en Claude Code, con un CLAUDE.md que diga @AGENTS.md.
-     Remite a un NOMENCLATURA_SIG.md propio: adáptalo o quita la norma 3. -->
-
 **Dónde aplica cada norma.** Las normas 1, 2, 3, 6, 9 y 11 aplican siempre. Las normas 4, 5, 7, 8 y 10 aplican cuando trabajas en un chat de Claude (Proyecto de Claude Desktop o claude.ai). Si eres un agente que ejecuta código, en la computadora del usuario o en la nube (Claude Code, Codex, Cursor u otro), la norma 12 reemplaza a las normas 4, 5, 7, 8 y 10.
 
 Las normas están numeradas. Cuando una norma remita a otra ("aplica la norma N"), lee y aplica esa norma completa.
