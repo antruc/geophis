@@ -5,22 +5,19 @@ las hectáreas por clase de una memoria técnica. Scripts que se leen como la
 tarea y que una IA puede escribir por ti**
 
 [![PyPI](https://img.shields.io/pypi/v/geophis)](https://pypi.org/project/geophis/)
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Python 3.11 a 3.14](https://img.shields.io/badge/python-3.11%20a%203.14-3776AB?logo=python&logoColor=white)
 ![geopandas + rasterio](https://img.shields.io/badge/base-geopandas%20%2B%20rasterio-139C5A)
 ![Idioma: español](https://img.shields.io/badge/API-en%20espa%C3%B1ol-red)
 [![Licencia: GPL v3+](https://img.shields.io/badge/licencia-GPL--3.0--or--later-blue)](LICENSE)
-
-Por debajo usa geopandas y shapely (vector), rasterio (raster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis en cada script
 
 ![Logo de geophis](https://raw.githubusercontent.com/antruc/geophis/main/logo.svg)
 
 ## Contenido
 
 - [Para qué sirve](#para-qué-sirve)
-- [Scripts hechos con IA](#scripts-hechos-con-ia)
 - [Instalación](#instalación)
+- [Scripts hechos con IA](#scripts-hechos-con-ia)
 - [Ejemplo básico](#ejemplo-básico)
-- [Qué hace](#qué-hace)
 - [Comando de consola](#comando-de-consola)
 - [Documentación](#documentación)
 - [Convenciones](#convenciones)
@@ -30,16 +27,15 @@ Por debajo usa geopandas y shapely (vector), rasterio (raster), pyproj (proyecci
 
 ## Para qué sirve
 
-Para el trabajo forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie. En vez de repetir clics en QGIS o ArcGIS, automatizas la tarea en Python con un script que se lee como la tarea que hace (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y que se vuelve a correr cuando cambia un dato
+Para el trabajo forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie. En vez de repetir clics en QGIS o ArcGIS, escribes un script que se lee como la tarea (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y lo vuelves a correr cuando cambia un dato. Por debajo usa geopandas y shapely (vector), rasterio (ráster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis
 
-**Tareas sueltas, en pocas líneas:**
+**Qué cubre:**
 
-- La superficie en hectáreas de cada polígono y el total, con la zona UTM detectada sola
-- La tabla de atributos a un Excel listo para leer, con encabezado fijo y fechas DD/MM/AAAA
-- La imagen Sentinel-2 más limpia de una temporada sobre el predio, y su NDVI
-- Pasar un predio de shapefile a KMZ para abrirlo en el celular, o un GPX de campo a shapefile (también desde la consola, ver abajo)
-
-**Flujos completos, del dato crudo al entregable.** Las recetas de [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) encadenan todo en un script: curvas de nivel, MDE, pendiente, clases sin moteado y shapefile con la superficie de cada clase; o MDE, red de drenaje y cuencas. Cambiar un rango o una capa de entrada es cambiar una línea del bloque `CONFIG` y volver a correr
+- **Vector y tabla:** cargar y guardar entre shp, gpkg, geojson, gpx, kml, kmz, CSV y Excel; recortar, disolver, zona de influencia, superficies, uniones y edición de campos
+- **Ráster y terreno:** MDE desde curvas de nivel, pendiente, clases por rangos sin moteado, índices de vegetación y rutas sobre el terreno o una red de caminos
+- **Hidrología:** flujo, red de drenaje, orden de cauces, cuencas y microcuencas
+- **Sentinel-2:** la imagen más limpia de una temporada sobre el predio, sin cuenta ni token, con la cita obligatoria y una lámina PNG de revisión
+- **Recetas completas** en [`GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md): de las curvas a las hectáreas por clase de pendiente, o del MDE a las cuencas, con todo lo que se decide en un bloque `CONFIG`
 
 **Lo que te ahorra frente a un script con geopandas y rasterio a secas,** donde estos errores pasan sin avisar:
 
@@ -47,15 +43,33 @@ Para el trabajo forestal y territorial que termina en un entregable: shapefiles,
 - Superficie vieja: si recortas después de calcular las hectáreas, `guardar` avisa que la columna ya no corresponde
 - Huecos o doble conteo: `comprobar_particion` dice en hectáreas cuánto falta o sobra para que las clases sumen el predio
 - Terreno inventado: el MDE no extrapola fuera de las curvas, deja sin dato y avisa cuántas hectáreas quedaron así
-- Errores en español que dicen qué falló, en vez de un volcado de GDAL tres llamadas abajo
+- Errores en español que dicen qué falló y cómo arreglarlo, en vez de un error técnico de GDAL en inglés
 
 **Cifras que se pueden defender.** Los números que el script no decide (resolución del MDE, umbrales, superficie mínima de una mancha) se miden desde tus propios datos o se derivan de lo que tú declaras (la escala, los rangos), no se copian de otro predio. Si alguno quedó sin elegir, el script se detiene, y la librería imprime en consola de dónde salió cada número para revisarlo
 
+No hace teledetección clasificada ni geocodificación, ni se conecta con SIG de escritorio. Solo usa internet para bajar Sentinel-2 desde Earth Search
+
+## Instalación
+
+Requiere Python 3.11 a 3.14. Python 3.15 todavía no: una dependencia (scikit-image) no publica versión para 3.15
+
+```bash
+pip install geophis
+```
+
+En Windows, si `pip` no se reconoce, usa `py -m pip install geophis`
+
+- Comprueba la instalación: `python -c "import geophis; print(geophis.__version__)"`
+- Para actualizar: `pip install -U geophis`
+- Si tienes ArcGIS o QGIS, instala geophis en un Python propio (de python.org), no en el que trae ese programa: sus librerías de GDAL pueden chocar
+
 ## Scripts hechos con IA
 
-**¿Se puede automatizar el trabajo SIG con una IA, en español?** Sí: le pides la tarea a Claude, ChatGPT u otro asistente en lenguaje normal, y te devuelve un script de geophis que corres en tu equipo con tus propios datos. Basta con cargar [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) como contexto: trae todas las funciones con su firma y sus trampas, más las reglas de trabajo
+**¿Se puede automatizar el trabajo SIG con una IA, en español?** Sí: le pides la tarea a Claude, ChatGPT u otro asistente en lenguaje normal, y te devuelve un script de geophis que corres en tu equipo con tus propios datos. Basta con darle [`GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) como contexto: trae todas las funciones con su firma y sus trampas, más las reglas de trabajo
 
-1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) como contexto del proyecto
+**En un chat (Claude Desktop, ChatGPT u otro):**
+
+1. Crea un Proyecto en Claude (o el asistente que uses) y sube [`GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) como contexto del proyecto
 2. Pide la tarea en lenguaje normal: "recorta las curvas al predio, saca el MDE y clasifica la pendiente en 0 a 15, 15 a 30 y más de 30 %". Lo que decides tú (los rangos, la escala) va en el pedido; lo que se puede medir, como la resolución del MDE, lo mide el script. Si falta una decisión, la IA pregunta antes de escribir código
 3. Corre el script que te devuelve: `python mi_script.py`
 4. Pega la salida de consola completa en la conversación. Los avisos de la librería salen por consola, y es lo que la IA necesita para corregir
@@ -65,24 +79,14 @@ Para el trabajo forestal y territorial que termina en un entregable: shapefiles,
 - Con Node.js 22.20 o superior, para todos tus agentes a la vez: `npx skills add antruc/geophis -g`
 - A mano: copia la carpeta `skills/geophis` a `~/.claude/skills/` (Claude Code) o a `~/.agents/skills/` (Codex, y Cursor, Gemini CLI y Copilot a nivel de carpeta de trabajo)
 
-[`docs/NORMAS.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS.md) es un ejemplo de normas de trabajo: dónde entregar los scripts, cómo nombrarlos y cuándo ejecutar el proceso o devolverlo. Tiene una parte común, una para el chat de Claude y una (norma 12) para agentes que ejecutan código
+**Normas de trabajo (opcional).** [`docs/NORMAS.md`](https://github.com/antruc/geophis/blob/main/docs/NORMAS.md) es un ejemplo de normas: dónde entregar los scripts, cómo nombrarlos y cuándo ejecutar el proceso. Para usarlo:
 
-- **En un Proyecto de Claude Desktop** se pega en el campo "Instrucciones", **no se sube como archivo del proyecto**: como archivo es solo contexto que se consulta, y como instrucciones se aplica en cada conversación
-- **Con un agente** se copia como `AGENTS.md` en tu carpeta de trabajo. Claude Code lee `CLAUDE.md`: crea uno con la línea `@AGENTS.md`
+1. Adáptalo a tu equipo. La norma 3 remite a un archivo propio de nombres de archivo (`NOMENCLATURA_SIG.md`): créalo o borra esa norma
+2. En Claude Desktop: pega el texto en el campo "Instrucciones" del Proyecto (no lo subas como archivo) y sube tu `NOMENCLATURA_SIG.md` junto a `GEOPHIS.md`
+3. Con un agente: guárdalo como `AGENTS.md` en la carpeta donde trabajas, junto a tu `NOMENCLATURA_SIG.md`
+4. Solo con Claude Code: en esa misma carpeta crea un `CLAUDE.md` con una sola línea, `@AGENTS.md`. Claude Code no lee `AGENTS.md` si no se lo indicas así
 
-Remite a un `NOMENCLATURA_SIG.md` propio, con la convención de nombres, que va como archivo junto a `GEOPHIS.md` (o en la carpeta de trabajo, con un agente); adáptalo o quita la norma 3
-
-Sin IA, el mismo [`src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md)
-
-## Instalación
-
-Requiere Python 3.11 o superior (probado en 3.14)
-
-```bash
-pip install geophis
-```
-
-`pip` instala por sí mismo las dependencias; la lista con sus versiones mínimas está en `pyproject.toml`
+Sin IA, el mismo [`GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md) sirve para escribir los scripts a mano: se salta la sección "Para la IA", se parte de la receta que se parezca a la tarea y cada función se busca por nombre en [`docs/API.md`](https://github.com/antruc/geophis/blob/main/docs/API.md)
 
 ## Ejemplo básico
 
@@ -97,32 +101,25 @@ print(geo.superficie_total_ha(predio), "ha")
 geo.guardar(predio, "predio_utm.shp")
 ```
 
-Del predio y sus curvas de nivel a clases de pendiente: receta [P1 en `src/geophis/GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md#p1-tabla-de-rangos-con-spline). La resolución del MDE y los umbrales no se teclean, los mide `derivar_parametros` desde las curvas
+Del predio y sus curvas de nivel a clases de pendiente: receta [P1 en `GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md#p1-tabla-de-rangos-con-spline). La resolución del MDE y los umbrales no se teclean, los mide `derivar_parametros` desde las curvas
 
 Scripts completos en [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos)
 
-## Qué hace
-
-Cubre el pipeline de entregables, no el lienzo de un SIG de escritorio:
-
-- **Vector:** cargar y guardar entre `.shp`, `.gpkg`, `.geojson`, `.gpx`, `.kml`, `.kmz`, CSV y Excel; recortar, disolver, zona de influencia, fusionar, solapes y prioridad entre capas, superficies y longitudes; ruta más rápida e isócronas sobre una red de calles o caminos (OSM incluido), con sentidos únicos
-- **Ráster:** recorte, remuestreo, reproyección, MDE desde curvas de nivel, pendiente y aspecto, reclasificación por rangos, sieve, poligonización, índices de vegetación, mosaico de teselas, ruta a pie más rápida sobre el MDE y ruta de costo mínimo
-- **Imagen:** Sentinel-2 L2A del predio por Earth Search, sin cuenta ni token: la mejor fecha limpia, varias teselas en un mosaico y la cita obligatoria
-- **Tabla de atributos:** seleccionar por atributo o por ubicación, resumir, unir una planilla, crear, calcular, renombrar, borrar y cambiar el tipo de campos, crear una capa desde cero, ver el ancho de campo de un .shp, nombres y valores en mayúsculas o minúsculas
-- **Lámina de revisión:** PNG de varios paneles sobre la misma malla (antes, después, cambio, clases) con color, leyenda, escala, norte y la cita de Copernicus; no es el mapa final
-- **Hidrología:** dirección y acumulación de flujo, red de drenaje, orden de cauces, cuencas y microcuencas
-- **Parámetros con procedencia:** `derivar_parametros` mide desde las curvas, `tabla_procedencia` clasifica cada número como medido, declarado, derivado, convención o default
-
-No hace teledetección clasificada, ni geocodificación, ni se conecta con SIG de escritorio. No se conecta a servicios externos, salvo Earth Search para bajar Sentinel-2
-
 ## Comando de consola
 
+Convierte capas entre formatos sin abrir Python. Queda disponible al instalar geophis
+
 ```bash
-geophis predio.shp kmz     # convierte entre formatos, en lote
+geophis predio.shp kmz          # crea predio.kmz
+geophis ruta.gpx shp            # crea ruta.shp
+geophis a.shp b.shp c.shp kmz   # varios a la vez
 geophis ayuda
 ```
 
-Convierte entre `shp`, `gpkg`, `geojson`, `gpx`, `kml` y `kmz`. CSV y Excel se leen y escriben desde Python, no desde la consola
+- Formatos: `shp`, `gpkg`, `geojson`, `gpx`, `kml`, `kmz`
+- La salida queda en la misma carpeta, con el mismo nombre y la extensión nueva
+- Para varios archivos, arrástralos juntos a la terminal y escribe el formato al final
+- Si la salida ya existe, pregunta antes de sobrescribir; `--si` sobrescribe sin preguntar
 
 ## Documentación
 
