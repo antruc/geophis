@@ -45,7 +45,7 @@ Para el trabajo forestal y territorial que termina en un entregable: shapefiles,
 - Terreno inventado: el MDE no extrapola fuera de las curvas, deja sin dato y avisa cuántas hectáreas quedaron así
 - Errores en español que dicen qué falló y cómo arreglarlo, en vez de un error técnico de GDAL en inglés
 
-**Cifras que se pueden defender.** Los números que el script no decide (resolución del MDE, umbrales, superficie mínima de una mancha) se miden desde tus propios datos o se derivan de lo que tú declaras (la escala, los rangos), no se copian de otro predio. Si alguno quedó sin elegir, el script se detiene, y la librería imprime en consola de dónde salió cada número para revisarlo
+**Cifras que se pueden defender.** Los números que el script no decide (resolución del MDE, umbrales, superficie mínima de una mancha) se miden desde tus propios datos o se derivan de lo que tú declaras (la escala, los rangos), no se copian de otro predio. Si alguno quedó sin elegir, la comprobación que exige `GEOPHIS.md` detiene el script, y la librería imprime en consola de dónde salió cada número para revisarlo
 
 No hace teledetección clasificada ni geocodificación, ni se conecta con SIG de escritorio. Solo usa internet para bajar Sentinel-2 desde Earth Search
 
@@ -100,8 +100,6 @@ predio = geo.calcular_superficie(predio, campo="SUP")       # hectáreas por pol
 print(geo.superficie_total_ha(predio), "ha")
 geo.guardar(predio, "predio_utm.shp")
 ```
-
-Del predio y sus curvas de nivel a clases de pendiente: receta [P1 en `GEOPHIS.md`](https://github.com/antruc/geophis/blob/main/src/geophis/GEOPHIS.md#p1-tabla-de-rangos-con-spline). La resolución del MDE y los umbrales no se teclean, los mide `derivar_parametros` desde las curvas
 
 Scripts completos en [`ejemplos/`](https://github.com/antruc/geophis/tree/main/ejemplos)
 
