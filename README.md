@@ -27,7 +27,9 @@ tarea y que una IA puede escribir por ti**
 
 ## Para qué sirve
 
-Para el trabajo forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie. En vez de repetir clics en QGIS o ArcGIS, escribes un script que se lee como la tarea (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y lo vuelves a correr cuando cambia un dato. Por debajo usa geopandas y shapely (vector), rasterio (ráster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis
+Para automatizar el trabajo forestal y territorial que termina en un entregable: shapefiles, rásters y cifras de superficie. En vez de repetir clics en QGIS o ArcGIS, escribes un script que se lee como la tarea (`cargar`, `recortar`, `interpolar_mde`, `calcular_pendiente`, `guardar`) y lo vuelves a correr cuando cambia un dato. Por debajo usa geopandas y shapely (vector), rasterio (ráster), pyproj (proyecciones) y scipy (análisis espacial), sin que tengas que repetir su sintaxis
+
+Úsala cuando repites el mismo proceso en cada predio, o cambia un dato y hay que rehacer el MDE, la pendiente y las superficies
 
 **Qué cubre:**
 
@@ -105,7 +107,7 @@ Scripts completos en [`ejemplos/`](https://github.com/antruc/geophis/tree/main/e
 
 ## Comando de consola
 
-Convierte capas entre formatos sin abrir Python. Queda disponible al instalar geophis
+Convierte capas entre formatos. Queda disponible al instalar geophis
 
 ```bash
 geophis predio.shp kmz          # crea predio.kmz
